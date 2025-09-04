@@ -1,4 +1,3 @@
-
 ---
 # Namespace
 apiVersion: v1
@@ -31,11 +30,11 @@ metadata:
   name: jupyter-pvc
   namespace: l1-app
   annotations:
-    volume.beta.kubernetes.io/storage-class: "custom-csi-storageclass"
+    volume.beta.kubernetes.io/storage-class: "standard-csi"
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: custom-csi-storageclass
+  storageClassName: standard-csi
   volumeMode: Filesystem
   resources:
     requests:
@@ -47,11 +46,11 @@ metadata:
   name: shared-data-pvc
   namespace: l1-app
   annotations:
-    volume.beta.kubernetes.io/storage-class: "custom-csi-storageclass"
+    volume.beta.kubernetes.io/storage-class: "standard-csi"
 spec:
   accessModes:
     - ReadWriteMany
-  storageClassName: custom-csi-storageclass
+  storageClassName: standard-csi
   volumeMode: Filesystem
   resources:
     requests:
@@ -160,11 +159,11 @@ metadata:
   name: clickhouse-pvc
   namespace: l1-app
   annotations:
-    volume.beta.kubernetes.io/storage-class: "custom-csi-storageclass"
+    volume.beta.kubernetes.io/storage-class: "standard-csi"
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: custom-csi-storageclass
+  storageClassName: standard-csi
   volumeMode: Filesystem
   resources:
     requests:

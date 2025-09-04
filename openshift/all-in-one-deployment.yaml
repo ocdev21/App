@@ -8,20 +8,7 @@ metadata:
     name: l1-app
     purpose: l1-troubleshooting-platform
 ---
-# Custom StorageClass
-apiVersion: storage.k8s.io/v1
-kind: StorageClass
-metadata:
-  name: custom-csi-storageclass
-  annotations:
-    storageclass.kubernetes.io/is-default-class: "false"
-provisioner: kubernetes.io/csi-hostpath-sc
-parameters:
-  type: "fast-ssd"
-  replication-type: "none"
-volumeBindingMode: WaitForFirstConsumer
-allowVolumeExpansion: true
-reclaimPolicy: Delete
+# Note: Using existing standard-csi StorageClass instead of creating custom one
 ---
 # Jupyter PVCs
 apiVersion: v1
@@ -81,6 +68,7 @@ spec:
       containers:
       - name: jupyter
         image: jupyter/datascience-notebook:latest
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8888
         env:
@@ -190,6 +178,7 @@ spec:
       containers:
       - name: clickhouse
         image: clickhouse/clickhouse-server:24.1
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8123
         - containerPort: 9000
@@ -292,6 +281,7 @@ spec:
       containers:
       - name: l1-app
         image: node:18-alpine
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 5000
         env:

@@ -1,0 +1,424 @@
+
+---
+# Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: l1-app
+  labels:
+    name: l1-app
+    purpose: l1-troubleshooting-platform
+---
+# L1 Application ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: l1-app-config
+  namespace: l1-app
+data:
+  NODE_ENV: "production"
+  PORT: "5000"
+  CLICKHOUSE_URL: "http://clickhouse-service.l1-app.svc.cluster.local:8123"
+  CLICKHOUSE_HOST: "clickhouse-service.l1-app.svc.cluster.local"
+  CLICKHOUSE_PORT: "8123"
+  CLICKHOUSE_DATABASE: "l1_anomaly_detection"
+  CLICKHOUSE_USER: "default"
+  CLICKHOUSE_USERNAME: "default"
+  CLICKHOUSE_PASSWORD: ""
+  TSLAM_REMOTE_HOST: "10.193.0.4"
+  TSLAM_REMOTE_PORT: "8080"
+  JUPYTER_SERVICE_URL: "http://jupyter-service.l1-app.svc.cluster.local:8888"
+---
+# L1 Application Secrets
+apiVersion: v1
+kind: Secret
+metadata:
+  name: l1-app-secrets
+  namespace: l1-app
+type: Opaque
+data:
+  database_password: ""
+  jwt_secret: bDEtYXBwLWp3dC1zZWNyZXQ=
+  api_key: ""
+---
+# L1 Application PVC for shared data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: l1-app-data-pvc
+  namespace: l1-app
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 20Gi
+---
+# L1 Application BuildConfig
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: l1-app-build
+  namespace: l1-app
+  labels:
+    app: l1-troubleshooting
+spec:
+  source:
+    type: Git
+    git:
+      uri: https://github.com/your-repo/l1-troubleshooting.git
+      ref: main
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Dockerfile
+  output:
+    to:
+      kind: ImageStreamTag
+      name: l1-troubleshooting:latest
+  triggers:
+  - type: ConfigChange
+  - type: GitHub
+    github:
+      secret: webhook-secret-l1
+---
+# L1 Application ImageStream
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: l1-troubleshooting
+  namespace: l1-app
+  labels:
+    app: l1-troubleshooting
+spec:
+  lookupPolicy:
+    local: false
+---
+# L1 Application Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: l1-troubleshooting
+  namespace: l1-app
+  labels:
+    app: l1-troubleshooting
+    version: v1.0.0
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: l1-troubleshooting
+  template:
+    metadata:
+      labels:
+        app: l1-troubleshooting
+        version: v1.0.0
+    spec:
+      serviceAccountName: l1-app-sa
+      containers:
+      - name: l1-app
+        image: image-registry.openshift-image-registry.svc:5000/l1-app/l1-troubleshooting:latest
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 5000
+          protocol: TCP
+        env:
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: l1-app-config
+              key: PORT
+        - name: NODE_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: l1-app-config
+              key: NODE_ENV
+        - name: CLICKHOUSE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: l1-app-config
+              key: CLICKHOUSE_URL
+        - name: CLICKHOUSE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: l1-app-config
+              key: CLICKHOUSE_HOST
+        - name: CLICKHOUSE_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: l1-app-config
+              key: CLICKHOUSE_PORT
+        - name: CLICKHOUSE_DATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: l1-app-config
+              key: CLICKHOUSE_DATABASE
+        - name: CLICKHOUSE_USER
+          valueFrom:
+            configMapKeyRef:
+              name: l1-app-config
+              key: CLICKHOUSE_USER
+        - name: CLICKHOUSE_USERNAME
+          valueFrom:
+            configMapKeyRef:
+              name: l1-app-config
+              key: CLICKHOUSE_USERNAME
+        - name: CLICKHOUSE_PASSWORD
+          valueFrom:
+            configMapKeyRef:
+              name: l1-app-config
+              key: CLICKHOUSE_PASSWORD
+        - name: TSLAM_REMOTE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: l1-app-config
+              key: TSLAM_REMOTE_HOST
+        - name: TSLAM_REMOTE_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: l1-app-config
+              key: TSLAM_REMOTE_PORT
+        - name: JUPYTER_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: l1-app-config
+              key: JUPYTER_SERVICE_URL
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: l1-app-secrets
+              key: jwt_secret
+        volumeMounts:
+        - name: app-data
+          mountPath: /app/data
+        - name: tmp-storage
+          mountPath: /tmp
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+          successThreshold: 1
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 5000
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 5000
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30
+          successThreshold: 1
+      volumes:
+      - name: app-data
+        persistentVolumeClaim:
+          claimName: l1-app-data-pvc
+      - name: tmp-storage
+        emptyDir:
+          sizeLimit: 1Gi
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+---
+# L1 Application Service Account
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: l1-app-sa
+  namespace: l1-app
+  labels:
+    app: l1-troubleshooting
+---
+# L1 Application Role
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: l1-app-role
+  namespace: l1-app
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services", "configmaps", "secrets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["get", "list", "watch"]
+---
+# L1 Application RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: l1-app-rolebinding
+  namespace: l1-app
+subjects:
+- kind: ServiceAccount
+  name: l1-app-sa
+  namespace: l1-app
+roleRef:
+  kind: Role
+  name: l1-app-role
+  apiGroup: rbac.authorization.k8s.io
+---
+# L1 Application Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: l1-troubleshooting-service
+  namespace: l1-app
+  labels:
+    app: l1-troubleshooting
+spec:
+  selector:
+    app: l1-troubleshooting
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: 5000
+  - name: https
+    protocol: TCP
+    port: 443
+    targetPort: 5000
+  type: ClusterIP
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 3600
+---
+# L1 Application Route
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: l1-troubleshooting-route
+  namespace: l1-app
+  labels:
+    app: l1-troubleshooting
+  annotations:
+    haproxy.router.openshift.io/timeout: 300s
+    haproxy.router.openshift.io/balance: roundrobin
+spec:
+  to:
+    kind: Service
+    name: l1-troubleshooting-service
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None
+---
+# L1 Application HorizontalPodAutoscaler
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: l1-troubleshooting-hpa
+  namespace: l1-app
+  labels:
+    app: l1-troubleshooting
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: l1-troubleshooting
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60
+---
+# L1 Application NetworkPolicy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: l1-app-netpol
+  namespace: l1-app
+spec:
+  podSelector:
+    matchLabels:
+      app: l1-troubleshooting
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: openshift-ingress
+    - namespaceSelector:
+        matchLabels:
+          name: l1-app
+    ports:
+    - protocol: TCP
+      port: 5000
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: l1-app
+    ports:
+    - protocol: TCP
+      port: 8123
+    - protocol: TCP
+      port: 9000
+    - protocol: TCP
+      port: 8888
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 80

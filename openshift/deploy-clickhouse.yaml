@@ -1,0 +1,45 @@
+
+#!/bin/bash
+
+echo "Deploying ClickHouse Database to l1-app namespace"
+echo "==============================================="
+
+# Apply the standalone ClickHouse deployment
+echo "Applying ClickHouse deployment..."
+oc apply -f openshift/clickhouse-standalone.yaml
+
+# Wait for PVC to be bound
+echo "Waiting for ClickHouse PVC to be bound..."
+oc wait --for=condition=Bound pvc/clickhouse-pvc -n l1-app --timeout=300s
+
+# Wait for ClickHouse deployment to be ready
+echo "Waiting for ClickHouse deployment to be ready..."
+oc rollout status deployment/clickhouse -n l1-app --timeout=300s
+
+# Apply database initialization job
+echo "Initializing ClickHouse database..."
+oc apply -f openshift/clickhouse-init-job.yaml
+
+# Wait for initialization job to complete
+echo "Waiting for database initialization to complete..."
+oc wait --for=condition=complete job/clickhouse-init -n l1-app --timeout=300s
+
+echo ""
+echo "✅ ClickHouse deployment completed successfully!"
+echo ""
+echo "📊 Database Access Information:"
+echo "   - Service: clickhouse-service.l1-app.svc.cluster.local"
+echo "   - HTTP Port: 8123"
+echo "   - Native Port: 9000"
+echo "   - Database: l1_anomaly_detection"
+echo "   - Username: default"
+echo "   - Password: (empty)"
+echo ""
+echo "🔍 To verify deployment:"
+echo "   oc get pods -n l1-app"
+echo "   oc get pvc -n l1-app"
+echo "   oc logs deployment/clickhouse -n l1-app"
+echo ""
+echo "📝 To test database connection:"
+echo "   oc port-forward svc/clickhouse-service 8123:8123 -n l1-app"
+echo "   curl http://localhost:8123/ping"

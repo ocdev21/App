@@ -1,3 +1,4 @@
+
 ---
 # Namespace
 apiVersion: v1
@@ -8,24 +9,21 @@ metadata:
     name: l1-app
     purpose: l1-troubleshooting-platform
 ---
-# ClickHouse PVC - using standard-csi storage class
+# ClickHouse PVC - using default storage class
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: clickhouse-pvc
   namespace: l1-app
-  annotations:
-    volume.beta.kubernetes.io/storage-class: "standard-csi"
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: standard-csi
   volumeMode: Filesystem
   resources:
     requests:
       storage: 10Gi
 ---
-# ClickHouse Deployment - OpenShift compatible
+# ClickHouse Deployment - OpenShift compatible with proper security context
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -44,16 +42,26 @@ spec:
         app: clickhouse
     spec:
       securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
         fsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: clickhouse
         image: clickhouse/clickhouse-server:24.1
         imagePullPolicy: IfNotPresent
         securityContext:
           allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 101
+          runAsGroup: 101
           capabilities:
             drop:
             - ALL
+          seccompProfile:
+            type: RuntimeDefault
         ports:
         - name: http
           containerPort: 8123

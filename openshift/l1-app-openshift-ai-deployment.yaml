@@ -55,6 +55,7 @@ spec:
   accessModes:
     - ReadWriteOnce
   volumeMode: Filesystem
+  storageClassName: ""
   resources:
     requests:
       storage: 10Gi
@@ -69,6 +70,7 @@ spec:
   accessModes:
     - ReadWriteOnce
   volumeMode: Filesystem
+  storageClassName: ""
   resources:
     requests:
       storage: 10Gi
@@ -334,6 +336,15 @@ data:
     app.listen(port, '0.0.0.0', () => {
       console.log(`L1 Troubleshooting AI server running on port ${port}`);
     });
+  Dockerfile: |
+    FROM node:18-alpine
+    WORKDIR /app
+    COPY package*.json ./
+    RUN npm install --production
+    COPY . .
+    EXPOSE 5000
+    USER 1001
+    CMD ["npm", "start"]
 ---
 # L1 Application BuildConfig for OpenShift AI
 apiVersion: build.openshift.io/v1
@@ -346,24 +357,29 @@ metadata:
     opendatahub.io/dashboard: 'true'
 spec:
   source:
-    type: Git
-    git:
-      uri: https://github.com/ocdev21/App
-      ref: main
-    contextDir: "."
+    type: Dockerfile
+    dockerfile: |
+      FROM node:18-alpine
+      WORKDIR /app
+      COPY package*.json ./
+      RUN npm install --production
+      COPY . .
+      EXPOSE 5000
+      USER 1001
+      CMD ["npm", "start"]
+    configMaps:
+    - configMap:
+        name: l1-app-code-config
+      destinationDir: .
   strategy:
     type: Docker
-    dockerStrategy:
-      dockerfilePath: Dockerfile
+    dockerStrategy: {}
   output:
     to:
       kind: ImageStreamTag
       name: l1-troubleshooting-ai:latest
   triggers:
   - type: ConfigChange
-  - type: GitHub
-    github:
-      secret: webhook-secret-l1-ai
 ---
 # L1 Application ImageStream
 apiVersion: image.openshift.io/v1

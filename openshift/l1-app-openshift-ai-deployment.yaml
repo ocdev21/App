@@ -348,7 +348,7 @@ spec:
   source:
     type: Git
     git:
-      uri: https://github.com/ocdev21/App.git
+      uri: https://github.com/ocdev21/App
       ref: main
     contextDir: "."
   strategy:

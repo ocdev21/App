@@ -308,7 +308,7 @@ spec:
   source:
     type: Git
     git:
-      uri: https://github.com/replit/l1-troubleshooting-app.git
+      uri: https://github.com/ocdev21/App.git
       ref: main
     contextDir: "."
   strategy:
@@ -409,15 +409,9 @@ spec:
       serviceAccountName: l1-app-ai-sa
       containers:
       - name: l1-app-ai
-        image: node:18-alpine
-        imagePullPolicy: IfNotPresent
-        workingDir: /app
-        command: ["sh", "-c"]
-        args:
-        - |
-          # Install dependencies and start the application
-          npm install --production
-          npm start
+        image: image-registry.openshift-image-registry.svc:5000/l1-app-ai/l1-troubleshooting-ai:latest
+        imagePullPolicy: Always
+        ports:
         ports:
         - name: http
           containerPort: 5000

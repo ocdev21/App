@@ -35,6 +35,18 @@ oc label namespace $PROJECT_NAME opendatahub.io/dashboard=true --overwrite
 echo "Applying L1 Application deployment for OpenShift AI..."
 oc apply -f openshift/l1-app-openshift-ai-deployment.yaml
 
+# Start the build from the GitHub repository
+echo "Starting build from GitHub repository: https://github.com/ocdev21/App"
+oc start-build l1-app-ai-build -n $PROJECT_NAME --wait
+
+# Wait for build to complete
+echo "Waiting for build to complete..."
+oc logs -f bc/l1-app-ai-build -n $PROJECT_NAME
+
+# Wait for deployment to be ready
+echo "Waiting for deployment to be ready..."
+oc rollout status deployment/l1-troubleshooting-ai -n $PROJECT_NAME --timeout=600st.yaml
+
 # Wait for ClickHouse PVC to be bound
 echo "Waiting for ClickHouse PVC to be bound..."
 oc wait --for=condition=Bound pvc/clickhouse-ai-pvc -n $PROJECT_NAME --timeout=300s

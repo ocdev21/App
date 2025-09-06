@@ -58,7 +58,7 @@ spec:
   volumeMode: Filesystem
   resources:
     requests:
-      storage: 50Gi
+      storage: 10Gi
 ---
 # L1 Application Data PVC - using default storage class
 apiVersion: v1
@@ -72,7 +72,7 @@ spec:
   volumeMode: Filesystem
   resources:
     requests:
-      storage: 20Gi
+      storage: 10Gi
 ---
 # ClickHouse Deployment for AI Platform
 apiVersion: apps/v1
@@ -92,26 +92,9 @@ spec:
       labels:
         app: clickhouse-ai
     spec:
-      initContainers:
-      - name: setup-clickhouse-dirs
-        image: busybox:1.35
-        command: ['sh', '-c']
-        args:
-        - |
-          mkdir -p /var/lib/clickhouse/data
-          mkdir -p /var/lib/clickhouse/logs
-          mkdir -p /var/lib/clickhouse/tmp
-          mkdir -p /var/lib/clickhouse/user_files
-          mkdir -p /var/lib/clickhouse/access
-          chmod -R 777 /var/lib/clickhouse
-        volumeMounts:
-        - name: clickhouse-data
-          mountPath: /var/lib/clickhouse
-        securityContext:
-          runAsUser: 0
       containers:
       - name: clickhouse
-        image: clickhouse/clickhouse-server:23.8
+        image: clickhouse/clickhouse-server:23.1
         imagePullPolicy: IfNotPresent
         ports:
         - name: http
@@ -125,8 +108,6 @@ spec:
           value: "default"
         - name: CLICKHOUSE_PASSWORD
           value: ""
-        - name: CLICKHOUSE_DO_NOT_CHOWN
-          value: "1"
         volumeMounts:
         - name: clickhouse-data
           mountPath: /var/lib/clickhouse

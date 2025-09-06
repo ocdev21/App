@@ -93,7 +93,7 @@ spec:
     spec:
       containers:
       - name: clickhouse
-        image: quay.io/clickhouse/clickhouse-server:23.8
+        image: clickhouse/clickhouse-server:23.8
         imagePullPolicy: IfNotPresent
         ports:
         - name: http
@@ -411,7 +411,6 @@ spec:
       - name: l1-app-ai
         image: image-registry.openshift-image-registry.svc:5000/l1-app-ai/l1-troubleshooting-ai:latest
         imagePullPolicy: Always
-        ports:
         ports:
         - name: http
           containerPort: 5000

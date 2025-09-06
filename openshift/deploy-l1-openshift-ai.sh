@@ -41,11 +41,11 @@ oc start-build l1-app-ai-build -n $PROJECT_NAME --wait
 
 # Wait for build to complete
 echo "Waiting for build to complete..."
-oc logs -f bc/l1-app-ai-build -n $PROJECT_NAME
+oc logs -f bc/l1-app-ai-build -n $PROJECT_NAME || echo "Build logs not available yet"
 
 # Wait for deployment to be ready
 echo "Waiting for deployment to be ready..."
-oc rollout status deployment/l1-troubleshooting-ai -n $PROJECT_NAME --timeout=600st.yaml
+oc rollout status deployment/l1-troubleshooting-ai -n $PROJECT_NAME --timeout=600s
 
 # Wait for ClickHouse PVC to be bound
 echo "Waiting for ClickHouse PVC to be bound..."

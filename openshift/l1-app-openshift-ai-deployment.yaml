@@ -244,6 +244,57 @@ spec:
     targetPort: 8080
   type: ClusterIP
 ---
+# ConfigMap with basic application code
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: l1-app-code-config
+  namespace: l1-app-ai
+data:
+  package.json: |
+    {
+      "name": "l1-troubleshooting-ai",
+      "version": "1.0.0",
+      "main": "server.js",
+      "scripts": {
+        "start": "node server.js"
+      },
+      "dependencies": {
+        "express": "^4.18.0",
+        "cors": "^2.8.5"
+      }
+    }
+  server.js: |
+    const express = require('express');
+    const cors = require('cors');
+    const app = express();
+    const port = process.env.PORT || 5000;
+    
+    app.use(cors());
+    app.use(express.json());
+    
+    app.get('/health', (req, res) => {
+      res.json({ status: 'healthy', timestamp: new Date().toISOString() });
+    });
+    
+    app.get('/ready', (req, res) => {
+      res.json({ status: 'ready', timestamp: new Date().toISOString() });
+    });
+    
+    app.get('/', (req, res) => {
+      res.json({ 
+        message: 'L1 Troubleshooting AI Application',
+        version: '1.0.0',
+        environment: process.env.NODE_ENV || 'production',
+        clickhouse: process.env.CLICKHOUSE_URL,
+        timestamp: new Date().toISOString()
+      });
+    });
+    
+    app.listen(port, '0.0.0.0', () => {
+      console.log(`L1 Troubleshooting AI server running on port ${port}`);
+    });
+---
 # L1 Application BuildConfig for OpenShift AI
 apiVersion: build.openshift.io/v1
 kind: BuildConfig
@@ -257,7 +308,7 @@ spec:
   source:
     type: Git
     git:
-      uri: https://github.com/your-repo/l1-troubleshooting.git
+      uri: https://github.com/replit/l1-troubleshooting-app.git
       ref: main
     contextDir: "."
   strategy:
@@ -358,8 +409,15 @@ spec:
       serviceAccountName: l1-app-ai-sa
       containers:
       - name: l1-app-ai
-        image: image-registry.openshift-image-registry.svc:5000/l1-app-ai/l1-troubleshooting-ai:latest
-        imagePullPolicy: Always
+        image: node:18-alpine
+        imagePullPolicy: IfNotPresent
+        workingDir: /app
+        command: ["sh", "-c"]
+        args:
+        - |
+          # Install dependencies and start the application
+          npm install --production
+          npm start
         ports:
         - name: http
           containerPort: 5000
@@ -450,6 +508,8 @@ spec:
           mountPath: /app/data
         - name: tmp-storage
           mountPath: /tmp
+        - name: app-code
+          mountPath: /app
         resources:
           requests:
             memory: "4Gi"
@@ -494,6 +554,9 @@ spec:
       - name: tmp-storage
         emptyDir:
           sizeLimit: 2Gi
+      - name: app-code
+        configMap:
+          name: l1-app-code-config
       restartPolicy: Always
       terminationGracePeriodSeconds: 30
 ---

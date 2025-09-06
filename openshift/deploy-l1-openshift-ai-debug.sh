@@ -29,6 +29,25 @@ echo "3. Red Hat Registry: registry.redhat.io (if available)"
 echo "Applying L1 Application deployment..."
 oc apply -f openshift/l1-app-openshift-ai-deployment.yaml
 
+# Check BuildConfig status
+echo "Checking BuildConfig status..."
+if oc get buildconfig/l1-app-ai-build -n $PROJECT_NAME >/dev/null 2>&1; then
+    echo "BuildConfig found, checking build status..."
+    oc get builds -n $PROJECT_NAME
+    echo "Latest build logs:"
+    LATEST_BUILD=$(oc get builds -n $PROJECT_NAME -o jsonpath='{.items[-1:].metadata.name}' 2>/dev/null)
+    if [ ! -z "$LATEST_BUILD" ]; then
+        oc logs build/$LATEST_BUILD -n $PROJECT_NAME --tail=20 || echo "No build logs available"
+    fi
+else
+    echo "No BuildConfig found"
+fi
+
+# Test alternative image sources
+echo "Testing image pull with alternative sources..."
+echo "1. Testing Node.js base image:"
+oc run test-node --image=node:18-alpine --dry-run=client -o yaml | head -10
+
 # Check for image pull secrets
 echo "Checking for image pull secrets..."
 oc get secrets | grep -E "(pull|docker|registry)" || echo "No image pull secrets found"
@@ -60,3 +79,14 @@ echo "1. Check network connectivity to Docker Hub"
 echo "2. Verify cluster has access to external registries"
 echo "3. Consider using internal OpenShift registry"
 echo "4. Check if image pull secrets are required"
+echo ""
+echo "🔧 BuildConfig Issue Solutions:"
+echo "1. Verify Git repository exists and is accessible"
+echo "2. Check if Git repository requires authentication"
+echo "3. Ensure Dockerfile exists in the repository"
+echo "4. Consider using a different source strategy"
+echo ""
+echo "💡 Quick Fixes:"
+echo "   - Delete failed build: oc delete build --all -n $PROJECT_NAME"
+echo "   - Start new build: oc start-build l1-app-ai-build -n $PROJECT_NAME"
+echo "   - Use base image directly: oc patch deployment/l1-troubleshooting-ai -p '{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"l1-app-ai\",\"image\":\"node:18-alpine\"}]}}}}' -n $PROJECT_NAME"

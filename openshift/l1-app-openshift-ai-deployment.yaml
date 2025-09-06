@@ -1,0 +1,603 @@
+
+---
+# Namespace for OpenShift AI
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: l1-app-ai
+  labels:
+    name: l1-app-ai
+    purpose: l1-troubleshooting-ai-platform
+    opendatahub.io/dashboard: 'true'
+---
+# L1 Application ConfigMap for OpenShift AI
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: l1-app-ai-config
+  namespace: l1-app-ai
+data:
+  NODE_ENV: "production"
+  PORT: "5000"
+  CLICKHOUSE_URL: "http://clickhouse-service.l1-app-ai.svc.cluster.local:8123"
+  CLICKHOUSE_HOST: "clickhouse-service.l1-app-ai.svc.cluster.local"
+  CLICKHOUSE_PORT: "8123"
+  CLICKHOUSE_DATABASE: "l1_anomaly_detection"
+  CLICKHOUSE_USER: "default"
+  CLICKHOUSE_USERNAME: "default"
+  CLICKHOUSE_PASSWORD: ""
+  TSLAM_REMOTE_HOST: "10.193.0.4"
+  TSLAM_REMOTE_PORT: "8080"
+  # OpenShift AI Model Serving Endpoints
+  RHOAI_MODEL_SERVING: "true"
+  RHOAI_INFERENCE_ENDPOINT: "http://tslam-model-serving.l1-app-ai.svc.cluster.local:8080/v1/models/tslam:predict"
+  JUPYTER_SERVICE_URL: "http://jupyter-service.l1-app-ai.svc.cluster.local:8888"
+  # OpenShift AI Specific Configuration
+  MODEL_SERVING_RUNTIME: "openvino-serving-runtime"
+  AI_ACCELERATOR: "nvidia.com/gpu"
+---
+# L1 Application Secrets
+apiVersion: v1
+kind: Secret
+metadata:
+  name: l1-app-ai-secrets
+  namespace: l1-app-ai
+type: Opaque
+data:
+  database_password: ""
+  jwt_secret: bDEtYXBwLWp3dC1zZWNyZXQ=
+  model_api_key: ""
+  openshift_ai_token: ""
+---
+# ClickHouse PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: clickhouse-ai-pvc
+  namespace: l1-app-ai
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 50Gi
+---
+# L1 Application Data PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: l1-app-ai-data-pvc
+  namespace: l1-app-ai
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 20Gi
+---
+# ClickHouse Deployment for AI Platform
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clickhouse-ai
+  namespace: l1-app-ai
+  labels:
+    app: clickhouse-ai
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: clickhouse-ai
+  template:
+    metadata:
+      labels:
+        app: clickhouse-ai
+    spec:
+      initContainers:
+      - name: setup-clickhouse-dirs
+        image: busybox:1.35
+        command: ['sh', '-c']
+        args:
+        - |
+          mkdir -p /var/lib/clickhouse/data
+          mkdir -p /var/lib/clickhouse/logs
+          mkdir -p /var/lib/clickhouse/tmp
+          mkdir -p /var/lib/clickhouse/user_files
+          mkdir -p /var/lib/clickhouse/access
+          chmod -R 777 /var/lib/clickhouse
+        volumeMounts:
+        - name: clickhouse-data
+          mountPath: /var/lib/clickhouse
+        securityContext:
+          runAsUser: 0
+      containers:
+      - name: clickhouse
+        image: clickhouse/clickhouse-server:23.8
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 8123
+        - name: tcp
+          containerPort: 9000
+        env:
+        - name: CLICKHOUSE_DB
+          value: "l1_anomaly_detection"
+        - name: CLICKHOUSE_USER
+          value: "default"
+        - name: CLICKHOUSE_PASSWORD
+          value: ""
+        - name: CLICKHOUSE_DO_NOT_CHOWN
+          value: "1"
+        - name: CLICKHOUSE_UID
+          value: "1001"
+        - name: CLICKHOUSE_GID
+          value: "1001"
+        volumeMounts:
+        - name: clickhouse-data
+          mountPath: /var/lib/clickhouse
+        resources:
+          requests:
+            memory: "4Gi"
+            cpu: "2000m"
+          limits:
+            memory: "8Gi"
+            cpu: "4000m"
+        livenessProbe:
+          httpGet:
+            path: /ping
+            port: 8123
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /ping
+            port: 8123
+          initialDelaySeconds: 10
+          periodSeconds: 10
+      volumes:
+      - name: clickhouse-data
+        persistentVolumeClaim:
+          claimName: clickhouse-ai-pvc
+---
+# ClickHouse Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: clickhouse-service
+  namespace: l1-app-ai
+  labels:
+    app: clickhouse-ai
+spec:
+  selector:
+    app: clickhouse-ai
+  ports:
+  - name: http
+    protocol: TCP
+    port: 8123
+    targetPort: 8123
+  - name: tcp
+    protocol: TCP
+    port: 9000
+    targetPort: 9000
+  type: ClusterIP
+---
+# TSLAM Model Serving (OpenShift AI)
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: tslam-model-serving
+  namespace: l1-app-ai
+  labels:
+    opendatahub.io/dashboard: 'true'
+spec:
+  predictor:
+    serviceAccountName: l1-app-ai-sa
+    pytorch:
+      storageUri: "pvc://l1-app-ai-data-pvc/models"
+      resources:
+        requests:
+          nvidia.com/gpu: "1"
+          memory: "16Gi"
+          cpu: "4000m"
+        limits:
+          nvidia.com/gpu: "1"
+          memory: "24Gi"
+          cpu: "8000m"
+      env:
+      - name: MODEL_NAME
+        value: "tslam"
+      - name: MODEL_PATH
+        value: "/mnt/models/tslam-4b.gguf"
+---
+# L1 Application BuildConfig for OpenShift AI
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: l1-app-ai-build
+  namespace: l1-app-ai
+  labels:
+    app: l1-troubleshooting-ai
+    opendatahub.io/dashboard: 'true'
+spec:
+  source:
+    type: Git
+    git:
+      uri: https://github.com/your-repo/l1-troubleshooting.git
+      ref: main
+    contextDir: "."
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Dockerfile
+  output:
+    to:
+      kind: ImageStreamTag
+      name: l1-troubleshooting-ai:latest
+  triggers:
+  - type: ConfigChange
+  - type: GitHub
+    github:
+      secret: webhook-secret-l1-ai
+---
+# L1 Application ImageStream
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: l1-troubleshooting-ai
+  namespace: l1-app-ai
+  labels:
+    app: l1-troubleshooting-ai
+    opendatahub.io/dashboard: 'true'
+spec:
+  lookupPolicy:
+    local: false
+---
+# L1 Application Deployment for OpenShift AI
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: l1-troubleshooting-ai
+  namespace: l1-app-ai
+  labels:
+    app: l1-troubleshooting-ai
+    version: v1.0.0
+    opendatahub.io/dashboard: 'true'
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: l1-troubleshooting-ai
+  template:
+    metadata:
+      labels:
+        app: l1-troubleshooting-ai
+        version: v1.0.0
+    spec:
+      serviceAccountName: l1-app-ai-sa
+      containers:
+      - name: l1-app-ai
+        image: image-registry.openshift-image-registry.svc:5000/l1-app-ai/l1-troubleshooting-ai:latest
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 5000
+          protocol: TCP
+        env:
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: l1-app-ai-config
+              key: PORT
+        - name: NODE_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: l1-app-ai-config
+              key: NODE_ENV
+        - name: CLICKHOUSE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: l1-app-ai-config
+              key: CLICKHOUSE_URL
+        - name: CLICKHOUSE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: l1-app-ai-config
+              key: CLICKHOUSE_HOST
+        - name: CLICKHOUSE_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: l1-app-ai-config
+              key: CLICKHOUSE_PORT
+        - name: CLICKHOUSE_DATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: l1-app-ai-config
+              key: CLICKHOUSE_DATABASE
+        - name: CLICKHOUSE_USER
+          valueFrom:
+            configMapKeyRef:
+              name: l1-app-ai-config
+              key: CLICKHOUSE_USER
+        - name: CLICKHOUSE_USERNAME
+          valueFrom:
+            configMapKeyRef:
+              name: l1-app-ai-config
+              key: CLICKHOUSE_USERNAME
+        - name: CLICKHOUSE_PASSWORD
+          valueFrom:
+            configMapKeyRef:
+              name: l1-app-ai-config
+              key: CLICKHOUSE_PASSWORD
+        - name: TSLAM_REMOTE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: l1-app-ai-config
+              key: TSLAM_REMOTE_HOST
+        - name: TSLAM_REMOTE_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: l1-app-ai-config
+              key: TSLAM_REMOTE_PORT
+        - name: JUPYTER_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: l1-app-ai-config
+              key: JUPYTER_SERVICE_URL
+        - name: RHOAI_MODEL_SERVING
+          valueFrom:
+            configMapKeyRef:
+              name: l1-app-ai-config
+              key: RHOAI_MODEL_SERVING
+        - name: RHOAI_INFERENCE_ENDPOINT
+          valueFrom:
+            configMapKeyRef:
+              name: l1-app-ai-config
+              key: RHOAI_INFERENCE_ENDPOINT
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: l1-app-ai-secrets
+              key: jwt_secret
+        - name: MODEL_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: l1-app-ai-secrets
+              key: model_api_key
+        volumeMounts:
+        - name: app-data
+          mountPath: /app/data
+        - name: tmp-storage
+          mountPath: /tmp
+        resources:
+          requests:
+            memory: "4Gi"
+            cpu: "2000m"
+          limits:
+            memory: "8Gi"
+            cpu: "4000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+          successThreshold: 1
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 5000
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 5000
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30
+          successThreshold: 1
+      volumes:
+      - name: app-data
+        persistentVolumeClaim:
+          claimName: l1-app-ai-data-pvc
+      - name: tmp-storage
+        emptyDir:
+          sizeLimit: 2Gi
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+---
+# Service Account for OpenShift AI
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: l1-app-ai-sa
+  namespace: l1-app-ai
+  labels:
+    app: l1-troubleshooting-ai
+    opendatahub.io/dashboard: 'true'
+---
+# Role for OpenShift AI Integration
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: l1-app-ai-role
+  namespace: l1-app-ai
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services", "configmaps", "secrets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["serving.kserve.io"]
+  resources: ["inferenceservices"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["route.openshift.io"]
+  resources: ["routes"]
+  verbs: ["get", "list", "watch"]
+---
+# RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: l1-app-ai-rolebinding
+  namespace: l1-app-ai
+subjects:
+- kind: ServiceAccount
+  name: l1-app-ai-sa
+  namespace: l1-app-ai
+roleRef:
+  kind: Role
+  name: l1-app-ai-role
+  apiGroup: rbac.authorization.k8s.io
+---
+# L1 Application Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: l1-troubleshooting-ai-service
+  namespace: l1-app-ai
+  labels:
+    app: l1-troubleshooting-ai
+    opendatahub.io/dashboard: 'true'
+spec:
+  selector:
+    app: l1-troubleshooting-ai
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: 5000
+  - name: https
+    protocol: TCP
+    port: 443
+    targetPort: 5000
+  type: ClusterIP
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 3600
+---
+# L1 Application Route
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: l1-troubleshooting-ai-route
+  namespace: l1-app-ai
+  labels:
+    app: l1-troubleshooting-ai
+    opendatahub.io/dashboard: 'true'
+  annotations:
+    haproxy.router.openshift.io/timeout: 300s
+    haproxy.router.openshift.io/balance: roundrobin
+spec:
+  to:
+    kind: Service
+    name: l1-troubleshooting-ai-service
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None
+---
+# HorizontalPodAutoscaler
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: l1-troubleshooting-ai-hpa
+  namespace: l1-app-ai
+  labels:
+    app: l1-troubleshooting-ai
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: l1-troubleshooting-ai
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+---
+# NetworkPolicy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: l1-app-ai-netpol
+  namespace: l1-app-ai
+spec:
+  podSelector:
+    matchLabels:
+      app: l1-troubleshooting-ai
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: openshift-ingress
+    - namespaceSelector:
+        matchLabels:
+          name: l1-app-ai
+    - namespaceSelector:
+        matchLabels:
+          name: redhat-ods-applications
+    ports:
+    - protocol: TCP
+      port: 5000
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: l1-app-ai
+    - namespaceSelector:
+        matchLabels:
+          name: redhat-ods-applications
+    ports:
+    - protocol: TCP
+      port: 8123
+    - protocol: TCP
+      port: 9000
+    - protocol: TCP
+      port: 8080
+    - protocol: TCP
+      port: 8888
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 80

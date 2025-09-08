@@ -1,0 +1,74 @@
+
+apiVersion: clickhouse.altinity.com/v1
+kind: ClickHouseInstallation
+metadata:
+  name: clickhouse-ai
+  namespace: l1-app-ai
+spec:
+  configuration:
+    users:
+      default/password: ""
+      default/networks/ip:
+        - "::/0"
+    clusters:
+      - name: clickhouse-cluster
+        layout:
+          shardsCount: 1
+          replicasCount: 1
+    profiles:
+      default/max_memory_usage: "10000000000"
+      default/use_uncompressed_cache: "0"
+      default/load_balancing: "random"
+  defaults:
+    templates:
+      podTemplate: pod-template
+      dataVolumeClaimTemplate: data-volume-template
+      logVolumeClaimTemplate: log-volume-template
+      serviceTemplate: service-template
+  templates:
+    podTemplates:
+      - name: pod-template
+        spec:
+          containers:
+            - name: clickhouse
+              image: clickhouse/clickhouse-server:23.8
+              resources:
+                requests:
+                  memory: "2Gi"
+                  cpu: "1000m"
+                limits:
+                  memory: "4Gi"
+                  cpu: "2000m"
+              env:
+                - name: CLICKHOUSE_DB
+                  value: "l1_anomaly_detection"
+                - name: CLICKHOUSE_USER
+                  value: "default"
+                - name: CLICKHOUSE_PASSWORD
+                  value: ""
+    volumeClaimTemplates:
+      - name: data-volume-template
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 10Gi
+      - name: log-volume-template
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 1Gi
+    serviceTemplates:
+      - name: service-template
+        spec:
+          ports:
+            - name: http
+              port: 8123
+              targetPort: 8123
+            - name: tcp
+              port: 9000
+              targetPort: 9000
+          type: ClusterIP

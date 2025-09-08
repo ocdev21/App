@@ -1,0 +1,337 @@
+
+---
+# Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: l1-app-ai
+  labels:
+    name: l1-app-ai
+    purpose: l1-troubleshooting-platform
+---
+# L1 Application ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: l1-app-config
+  namespace: l1-app-ai
+data:
+  NODE_ENV: "production"
+  PORT: "5000"
+  CLICKHOUSE_URL: "http://chi-clickhouse-single-clickhouse-0-0.l1-app-ai.svc.cluster.local:8123"
+  CLICKHOUSE_HOST: "chi-clickhouse-single-clickhouse-0-0.l1-app-ai.svc.cluster.local"
+  CLICKHOUSE_PORT: "8123"
+  CLICKHOUSE_DATABASE: "l1_anomaly_detection"
+  CLICKHOUSE_USER: "default"
+  CLICKHOUSE_USERNAME: "default"
+  CLICKHOUSE_PASSWORD: "defaultpass"
+---
+# L1 Application Secrets
+apiVersion: v1
+kind: Secret
+metadata:
+  name: l1-app-secrets
+  namespace: l1-app-ai
+type: Opaque
+data:
+  jwt_secret: bDEtYXBwLWp3dC1zZWNyZXQ=
+  api_key: ""
+---
+# L1 Application Data PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: l1-app-data-pvc
+  namespace: l1-app-ai
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 10Gi
+---
+# L1 Application Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: l1-troubleshooting
+  namespace: l1-app-ai
+  labels:
+    app: l1-troubleshooting
+    version: v1.0.0
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: l1-troubleshooting
+  template:
+    metadata:
+      labels:
+        app: l1-troubleshooting
+        version: v1.0.0
+    spec:
+      initContainers:
+      - name: setup-app-dirs
+        image: busybox:1.35
+        command: ['sh', '-c']
+        args:
+        - |
+          mkdir -p /app/data
+          mkdir -p /app/shared
+          mkdir -p /tmp/uploads
+          chmod -R 777 /app
+          chmod -R 777 /tmp
+        volumeMounts:
+        - name: app-data
+          mountPath: /app/data
+        - name: tmp-storage
+          mountPath: /tmp
+        securityContext:
+          runAsUser: 0
+      containers:
+      - name: l1-app
+        image: node:18-alpine
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 5000
+          protocol: TCP
+        env:
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: l1-app-config
+              key: PORT
+        - name: NODE_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: l1-app-config
+              key: NODE_ENV
+        - name: CLICKHOUSE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: l1-app-config
+              key: CLICKHOUSE_URL
+        - name: CLICKHOUSE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: l1-app-config
+              key: CLICKHOUSE_HOST
+        - name: CLICKHOUSE_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: l1-app-config
+              key: CLICKHOUSE_PORT
+        - name: CLICKHOUSE_DATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: l1-app-config
+              key: CLICKHOUSE_DATABASE
+        - name: CLICKHOUSE_USER
+          valueFrom:
+            configMapKeyRef:
+              name: l1-app-config
+              key: CLICKHOUSE_USER
+        - name: CLICKHOUSE_USERNAME
+          valueFrom:
+            configMapKeyRef:
+              name: l1-app-config
+              key: CLICKHOUSE_USERNAME
+        - name: CLICKHOUSE_PASSWORD
+          valueFrom:
+            configMapKeyRef:
+              name: l1-app-config
+              key: CLICKHOUSE_PASSWORD
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: l1-app-secrets
+              key: jwt_secret
+        command: ["/bin/sh"]
+        args: 
+        - "-c"
+        - |
+          apk add --no-cache python3 py3-pip python3-dev gcc musl-dev git curl
+          cd /app
+          if [ ! -f "package.json" ]; then
+            echo "Cloning application code..."
+            git clone https://github.com/your-repo/l1-troubleshooting.git . || echo "Using embedded code"
+          fi
+          npm install
+          if [ -f "requirements_mistral.txt" ]; then
+            pip3 install -r requirements_mistral.txt
+          fi
+          npm run build || echo "No build step configured"
+          npm start
+        workingDir: /app
+        volumeMounts:
+        - name: app-data
+          mountPath: /app/data
+        - name: tmp-storage
+          mountPath: /tmp
+        - name: app-code
+          mountPath: /app/client
+          subPath: client
+        - name: app-code
+          mountPath: /app/server
+          subPath: server
+        - name: app-code
+          mountPath: /app/shared
+          subPath: shared
+        - name: app-code
+          mountPath: /app/package.json
+          subPath: package.json
+        - name: app-code
+          mountPath: /app/package-lock.json
+          subPath: package-lock.json
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+            scheme: HTTP
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+          successThreshold: 1
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 5000
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 5000
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 15
+          timeoutSeconds: 5
+          failureThreshold: 20
+          successThreshold: 1
+      volumes:
+      - name: app-data
+        persistentVolumeClaim:
+          claimName: l1-app-data-pvc
+      - name: tmp-storage
+        emptyDir:
+          sizeLimit: 2Gi
+      - name: app-code
+        configMap:
+          name: l1-app-code-config
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+---
+# L1 Application Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: l1-troubleshooting-service
+  namespace: l1-app-ai
+  labels:
+    app: l1-troubleshooting
+spec:
+  selector:
+    app: l1-troubleshooting
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: 5000
+  - name: https
+    protocol: TCP
+    port: 443
+    targetPort: 5000
+  type: ClusterIP
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 3600
+---
+# HorizontalPodAutoscaler
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: l1-troubleshooting-hpa
+  namespace: l1-app-ai
+  labels:
+    app: l1-troubleshooting
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: l1-troubleshooting
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+---
+# NetworkPolicy for security
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: l1-app-network-policy
+  namespace: l1-app-ai
+spec:
+  podSelector:
+    matchLabels:
+      app: l1-troubleshooting
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: l1-app-ai
+    ports:
+    - protocol: TCP
+      port: 5000
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: l1-app-ai
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 8123
+    - protocol: TCP
+      port: 9000
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 80

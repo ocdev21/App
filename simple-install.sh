@@ -38,7 +38,12 @@ fi
 
 # Wait for operator to be fully ready
 echo "Waiting for ClickHouse operator to be fully ready..."
-sleep 30
+kubectl wait --for=condition=available deployment -l app.kubernetes.io/name=altinity-clickhouse-operator -n clickhouse-system --timeout=300s
+
+if [ $? -ne 0 ]; then
+    echo "❌ ClickHouse operator not ready"
+    exit 1
+fi
 
 # Step 2: Install ClickHouse instance
 echo "Step 2: Installing ClickHouse instance..."
@@ -49,7 +54,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# Step 3: Wait for ClickHouse to be ready
+# Step 3: Wait for ClickHouse to be ready with better monitoring
 echo "Step 3: Waiting for ClickHouse to be ready..."
 echo "This may take a few minutes..."
 
@@ -57,13 +62,20 @@ echo "This may take a few minutes..."
 echo "Checking CHI resource creation..."
 kubectl get chi -n l1-app-ai
 
-# Wait for pods to appear first
-echo "Waiting for ClickHouse pods to be created..."
-timeout 300 bash -c 'while [[ $(kubectl get pods -n l1-app-ai -l clickhouse.altinity.com/chi=ch-ai --no-headers 2>/dev/null | wc -l) -eq 0 ]]; do sleep 10; echo "Still waiting for pods..."; done'
+# Wait for CHI to be ready (not just pods)
+echo "Waiting for CHI resource to be ready..."
+timeout 600 bash -c 'while [[ $(kubectl get chi ch-ai -n l1-app-ai -o jsonpath="{.status.state}" 2>/dev/null) != "Completed" ]]; do 
+    echo "CHI Status: $(kubectl get chi ch-ai -n l1-app-ai -o jsonpath="{.status.state}" 2>/dev/null || echo "Not found")"
+    kubectl get chi ch-ai -n l1-app-ai -o wide 2>/dev/null || echo "CHI not found yet"
+    sleep 15
+done'
 
-# Show pod status
+# Show current status
+echo "Current CHI status:"
+kubectl get chi ch-ai -n l1-app-ai -o wide
+
 echo "Current pod status:"
-kubectl get pods -n l1-app-ai -l clickhouse.altinity.com/chi=ch-ai
+kubectl get pods -n l1-app-ai
 
 # Wait for pods to be ready with timeout
 echo "Waiting for ClickHouse pods to be ready (max 10 minutes)..."
@@ -73,12 +85,16 @@ kubectl wait --for=condition=ready pod -l clickhouse.altinity.com/chi=ch-ai -n l
 if [ $? -ne 0 ]; then
     echo "⚠️  Pods are not ready yet. Showing diagnostics:"
     echo "Pod status:"
-    kubectl get pods -n l1-app-ai -l clickhouse.altinity.com/chi=ch-ai -o wide
+    kubectl get pods -n l1-app-ai -o wide
     echo "Pod events:"
     kubectl get events -n l1-app-ai --sort-by='.lastTimestamp' | tail -20
     echo "CHI resource status:"
     kubectl describe chi ch-ai -n l1-app-ai
-    echo "You may need to check the logs with: kubectl logs -l clickhouse.altinity.com/chi=ch-ai -n l1-app-ai"
+    echo "Checking for any pods with logs:"
+    for pod in $(kubectl get pods -n l1-app-ai -o name); do
+        echo "=== Logs for $pod ==="
+        kubectl logs $pod -n l1-app-ai --tail=10 2>/dev/null || echo "No logs available"
+    done
     exit 1
 fi
 
@@ -97,12 +113,12 @@ echo ""
 echo "📋 Quick Start Commands:"
 echo "   Check status: kubectl get chi -n l1-app-ai"
 echo "   View pods: kubectl get pods -n l1-app-ai"
-echo "   Port forward: kubectl port-forward svc/chi-ch-ai-ch-cluster-0-0 8123:8123 -n l1-app-ai"
+echo "   Port forward: kubectl port-forward svc/chi-ch-ai-simple-cluster-0-0 8123:8123 -n l1-app-ai"
 echo "   Test connection: curl http://localhost:8123/ping"
 echo ""
 echo "🔧 Configuration:"
 echo "   - Namespace: l1-app-ai"
 echo "   - Database: l1_anomaly_detection"
-echo "   - Service: chi-ch-ai-ch-cluster-0-0"
+echo "   - Service: chi-ch-ai-simple-cluster-0-0"
 echo "   - HTTP Port: 8123"
 echo "   - TCP Port: 9000"

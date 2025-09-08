@@ -2,62 +2,78 @@
 #!/bin/bash
 
 echo "Setting up ClickHouse database for L1 Application"
-echo "================================================"
+echo "================================================="
 
-# Wait for ClickHouse to be ready
+# Wait for the correct service name to be available
+SERVICE_NAME="chi-ch-ai-simple-cluster-0-0"
+NAMESPACE="l1-app-ai"
+
 echo "Waiting for ClickHouse service to be available..."
-kubectl wait --for=condition=ready pod -l clickhouse.altinity.com/chi=ch-ai -n l1-app-ai --timeout=300s
+echo "Looking for service: $SERVICE_NAME"
 
-# Get the ClickHouse service name
-CH_SERVICE="chi-ch-ai-ch-cluster-0-0"
-CH_NAMESPACE="l1-app-ai"
+# Wait up to 5 minutes for service to be created
+timeout 300 bash -c "until kubectl get svc $SERVICE_NAME -n $NAMESPACE > /dev/null 2>&1; do echo 'Waiting for service...'; sleep 10; done"
 
+if [ $? -ne 0 ]; then
+    echo "❌ Service $SERVICE_NAME not found after 5 minutes"
+    echo "Available services in namespace $NAMESPACE:"
+    kubectl get svc -n $NAMESPACE
+    echo "Available CHI resources:"
+    kubectl get chi -n $NAMESPACE -o wide
+    exit 1
+fi
+
+echo "✅ Service $SERVICE_NAME found"
+
+# Test ClickHouse connection
+echo "Testing ClickHouse connection..."
+kubectl exec -n $NAMESPACE deployment/chi-ch-ai-simple-cluster-0-0 -- clickhouse-client --query "SELECT 1" > /dev/null 2>&1
+
+if [ $? -ne 0 ]; then
+    echo "❌ ClickHouse is not responding"
+    echo "Pod logs:"
+    kubectl logs -l clickhouse.altinity.com/chi=ch-ai -n $NAMESPACE --tail=50
+    exit 1
+fi
+
+echo "✅ ClickHouse is responding"
+
+# Create database and tables
 echo "Creating database and tables..."
 
-# Create database
-kubectl exec -n $CH_NAMESPACE svc/$CH_SERVICE -- clickhouse-client --query="CREATE DATABASE IF NOT EXISTS l1_anomaly_detection"
+kubectl exec -n $NAMESPACE deployment/chi-ch-ai-simple-cluster-0-0 -- clickhouse-client --query "
+CREATE DATABASE IF NOT EXISTS l1_anomaly_detection;
 
-# Create anomalies table
-kubectl exec -n $CH_NAMESPACE svc/$CH_SERVICE -- clickhouse-client --query="
 CREATE TABLE IF NOT EXISTS l1_anomaly_detection.anomalies (
     id String,
     timestamp DateTime,
     anomaly_type String,
     description String,
     severity String,
+    confidence_score Float32,
     source_file String,
-    packet_number UInt32,
-    line_number UInt32,
-    session_id String,
-    confidence_score Float64,
-    model_agreement UInt8,
+    packet_number Nullable(UInt32),
+    detection_algorithm String,
     ml_algorithm_details String,
-    isolation_forest_score Float64,
-    one_class_svm_score Float64,
-    dbscan_prediction Int8,
-    random_forest_score Float64,
-    ensemble_vote String,
-    detection_timestamp String,
-    status String,
-    ecpri_message_type String,
-    ecpri_sequence_number UInt32,
-    fronthaul_latency_us Float64,
-    timing_jitter_us Float64,
-    bandwidth_utilization Float64,
+    status String DEFAULT 'open'
+) ENGINE = MergeTree()
+ORDER BY timestamp;
+
+CREATE TABLE IF NOT EXISTS l1_anomaly_detection.processed_files (
+    id String,
+    filename String,
     file_size UInt64,
     upload_date DateTime,
     processing_status String DEFAULT 'pending',
     processing_time DateTime,
     total_samples UInt32,
     anomalies_detected UInt32,
-    anomalies_found UInt32 DEFAULT 0,
+    session_id String,
     processing_time_ms Nullable(UInt32),
     error_message Nullable(String)
 ) ENGINE = MergeTree()
-ORDER BY upload_date"
+ORDER BY upload_date;
 
-# Create metrics table
-kubectl exec -n $CH_NAMESPACE svc/$CH_SERVICE -- clickhouse-client --query="
 CREATE TABLE IF NOT EXISTS l1_anomaly_detection.metrics (
     id String,
     metric_name String,
@@ -67,19 +83,21 @@ CREATE TABLE IF NOT EXISTS l1_anomaly_detection.metrics (
     session_id Nullable(String),
     source_file Nullable(String)
 ) ENGINE = MergeTree()
-ORDER BY timestamp"
+ORDER BY timestamp;
+"
 
-echo "✅ Database setup completed!"
+if [ $? -eq 0 ]; then
+    echo "✅ Database setup completed successfully!"
+else
+    echo "❌ Database setup failed"
+    exit 1
+fi
+
 echo ""
-echo "📊 Database Access Information:"
-echo "   - Service: chi-ch-ai-ch-cluster-0-0.l1-app-ai.svc.cluster.local"
+echo "📊 Database Information:"
+echo "   - Host: $SERVICE_NAME.$NAMESPACE.svc.cluster.local"
 echo "   - HTTP Port: 8123"
-echo "   - Native Port: 9000"
+echo "   - TCP Port: 9000" 
 echo "   - Database: l1_anomaly_detection"
 echo "   - Username: default"
 echo "   - Password: (empty)"
-echo ""
-echo "🔍 To verify installation:"
-echo "   kubectl get chi -n l1-app-ai"
-echo "   kubectl get pods -n l1-app-ai"
-echo "   kubectl logs -l clickhouse.altinity.com/chi=ch-ai -n l1-app-ai"

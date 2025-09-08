@@ -1,10 +1,11 @@
+
 #!/bin/bash
 
 echo "Setting up ClickHouse database for L1 Application"
 echo "================================================="
 
 # Wait for the correct service name to be available
-SERVICE_NAME="chi-ch-ai-simple-cluster-0-0"
+SERVICE_NAME="chi-clickhouse-single-clickhouse-0-0"
 NAMESPACE="l1-app-ai"
 
 echo "Waiting for ClickHouse service to be available..."
@@ -24,19 +25,23 @@ fi
 
 echo "✅ Service $SERVICE_NAME found"
 
-# Test connection with password
+# Test ClickHouse connection
 echo "Testing ClickHouse connection..."
-until kubectl exec -n l1-app-ai $(kubectl get pods -n l1-app-ai -l clickhouse.altinity.com/chi=clickhouse-single -o name | head -1) -- clickhouse-client --password=defaultpass --query "SELECT 1" > /dev/null 2>&1; do
-    echo "Waiting for ClickHouse to be ready..."
-    sleep 10
-done
+kubectl exec -n $NAMESPACE deployment/chi-clickhouse-single-clickhouse-0-0 -- clickhouse-client --password="defaultpass" --query "SELECT 1" > /dev/null 2>&1
+
+if [ $? -ne 0 ]; then
+    echo "❌ ClickHouse is not responding"
+    echo "Pod logs:"
+    kubectl logs -l clickhouse.altinity.com/chi=clickhouse-single -n $NAMESPACE --tail=50
+    exit 1
+fi
 
 echo "✅ ClickHouse is responding"
 
 # Create database and tables
 echo "Creating database and tables..."
 
-kubectl exec -n l1-app-ai $(kubectl get pods -n l1-app-ai -l clickhouse.altinity.com/chi=clickhouse-single -o name | head -1) -- clickhouse-client --password=defaultpass --query "
+kubectl exec -n $NAMESPACE deployment/chi-clickhouse-single-clickhouse-0-0 -- clickhouse-client --password="defaultpass" --query "
 CREATE DATABASE IF NOT EXISTS l1_anomaly_detection;
 
 CREATE TABLE IF NOT EXISTS l1_anomaly_detection.anomalies (
@@ -92,7 +97,7 @@ echo ""
 echo "📊 Database Information:"
 echo "   - Host: $SERVICE_NAME.$NAMESPACE.svc.cluster.local"
 echo "   - HTTP Port: 8123"
-echo "   - TCP Port: 9000"
+echo "   - TCP Port: 9000" 
 echo "   - Database: l1_anomaly_detection"
 echo "   - Username: default"
 echo "   - Password: defaultpass"

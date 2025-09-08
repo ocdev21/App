@@ -89,7 +89,7 @@ if [ $? -ne 0 ]; then
     echo "Pod events:"
     kubectl get events -n l1-app-ai --sort-by='.lastTimestamp' | tail -20
     echo "CHI resource status:"
-    kubectl describe chi ch-ai -n l1-app-ai
+    kubectl describe chi clickhouse-single -n l1-app-ai
     echo "Checking for any pods with logs:"
     for pod in $(kubectl get pods -n l1-app-ai -o name); do
         echo "=== Logs for $pod ==="

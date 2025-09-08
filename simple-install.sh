@@ -53,11 +53,34 @@ fi
 echo "Step 3: Waiting for ClickHouse to be ready..."
 echo "This may take a few minutes..."
 
-# Wait for the CHI resource to be created
-kubectl wait --for=condition=available chi/ch-ai -n l1-app-ai --timeout=600s
+# Check if CHI resource was created
+echo "Checking CHI resource creation..."
+kubectl get chi -n l1-app-ai
 
-# Wait for pods to be ready
+# Wait for pods to appear first
+echo "Waiting for ClickHouse pods to be created..."
+timeout 300 bash -c 'while [[ $(kubectl get pods -n l1-app-ai -l clickhouse.altinity.com/chi=ch-ai --no-headers 2>/dev/null | wc -l) -eq 0 ]]; do sleep 10; echo "Still waiting for pods..."; done'
+
+# Show pod status
+echo "Current pod status:"
+kubectl get pods -n l1-app-ai -l clickhouse.altinity.com/chi=ch-ai
+
+# Wait for pods to be ready with timeout
+echo "Waiting for ClickHouse pods to be ready (max 10 minutes)..."
 kubectl wait --for=condition=ready pod -l clickhouse.altinity.com/chi=ch-ai -n l1-app-ai --timeout=600s
+
+# If pods are not ready, show diagnostics
+if [ $? -ne 0 ]; then
+    echo "⚠️  Pods are not ready yet. Showing diagnostics:"
+    echo "Pod status:"
+    kubectl get pods -n l1-app-ai -l clickhouse.altinity.com/chi=ch-ai -o wide
+    echo "Pod events:"
+    kubectl get events -n l1-app-ai --sort-by='.lastTimestamp' | tail -20
+    echo "CHI resource status:"
+    kubectl describe chi ch-ai -n l1-app-ai
+    echo "You may need to check the logs with: kubectl logs -l clickhouse.altinity.com/chi=ch-ai -n l1-app-ai"
+    exit 1
+fi
 
 # Step 4: Setup database
 echo "Step 4: Setting up database..."

@@ -114,7 +114,10 @@ spec:
         - name: clickhouse-data
           mountPath: /home/cloud-user/pjoe/clickhouse
         securityContext:
-          runAsNonRoot: false
+          runAsNonRoot: true
+          runAsUser: 1001
+          runAsGroup: 1001
+          allowPrivilegeEscalation: false
       containers:
       - name: clickhouse
         image: clickhouse/clickhouse-server:23.8

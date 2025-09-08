@@ -55,7 +55,6 @@ spec:
   accessModes:
     - ReadWriteOnce
   volumeMode: Filesystem
-  storageClassName: "default-storage"
   resources:
     requests:
       storage: 10Gi
@@ -70,7 +69,6 @@ spec:
   accessModes:
     - ReadWriteOnce
   volumeMode: Filesystem
-  storageClassName: "default-storage"
   resources:
     requests:
       storage: 10Gi

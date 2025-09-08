@@ -55,7 +55,7 @@ spec:
   accessModes:
     - ReadWriteOnce
   volumeMode: Filesystem
-  storageClassName: ""
+  storageClassName: "default-storage"
   resources:
     requests:
       storage: 10Gi
@@ -70,7 +70,7 @@ spec:
   accessModes:
     - ReadWriteOnce
   volumeMode: Filesystem
-  storageClassName: ""
+  storageClassName: "default-storage"
   resources:
     requests:
       storage: 10Gi
@@ -100,21 +100,21 @@ spec:
         args:
         - |
           # Create all necessary directories in user space
-          mkdir -p /home/cloud-user/pjoe/data
-          mkdir -p /home/cloud-user/pjoe/logs
-          mkdir -p /home/cloud-user/pjoe/tmp
-          mkdir -p /home/cloud-user/pjoe/user_files
-          mkdir -p /home/cloud-user/pjoe/access
-          mkdir -p /home/cloud-user/pjoe/flags
-          mkdir -p /home/cloud-user/pjoe/format_schemas
-          mkdir -p /home/cloud-user/pjoe/preprocessed_configs
-          mkdir -p /home/cloud-user/pjoe/user_defined
+          mkdir -p /home/cloud-user/pjoe/clickhouse/data
+          mkdir -p /home/cloud-user/pjoe/clickhouse/logs
+          mkdir -p /home/cloud-user/pjoe/clickhouse/tmp
+          mkdir -p /home/cloud-user/pjoe/clickhouse/user_files
+          mkdir -p /home/cloud-user/pjoe/clickhouse/access
+          mkdir -p /home/cloud-user/pjoe/clickhouse/flags
+          mkdir -p /home/cloud-user/pjoe/clickhouse/format_schemas
+          mkdir -p /home/cloud-user/pjoe/clickhouse/preprocessed_configs
+          mkdir -p /home/cloud-user/pjoe/clickhouse/user_defined
 
           # Set proper permissions for user directory
-          chmod -R 755 /home/cloud-user/pjoe
+          chmod -R 755 /home/cloud-user/pjoe/clickhouse
         volumeMounts:
         - name: clickhouse-data
-          mountPath: /home/cloud-user/pjoe
+          mountPath: /home/cloud-user/pjoe/clickhouse
         securityContext:
           runAsNonRoot: false
       containers:
@@ -137,14 +137,14 @@ spec:
         - name: CLICKHOUSE_PASSWORD
           value: ""
         - name: CLICKHOUSE_DATA_DIR
-          value: "/home/cloud-user/pjoe/"
+          value: "/home/cloud-user/pjoe/clickhouse/"
         - name: CLICKHOUSE_LOG_DIR
-          value: "/home/cloud-user/pjoe/logs/"
+          value: "/home/cloud-user/pjoe/clickhouse/logs/"
         - name: CLICKHOUSE_TMP_DIR
-          value: "/home/cloud-user/pjoe/tmp/"
+          value: "/home/cloud-user/pjoe/clickhouse/tmp/"
         volumeMounts:
         - name: clickhouse-data
-          mountPath: /home/cloud-user/pjoe
+          mountPath: /home/cloud-user/pjoe/clickhouse
         resources:
           requests:
             memory: "4Gi"
@@ -166,8 +166,8 @@ spec:
           periodSeconds: 10
       volumes:
       - name: clickhouse-data
-        emptyDir:
-          sizeLimit: 10Gi
+        persistentVolumeClaim:
+          claimName: clickhouse-ai-pvc
 ---
 # ClickHouse Service
 apiVersion: v1

@@ -97,33 +97,37 @@ spec:
         command: ['sh', '-c']
         args:
         - |
-          # Create all necessary directories in user space
-          mkdir -p /home/cloud-user/pjoe/clickhouse/data
-          mkdir -p /home/cloud-user/pjoe/clickhouse/logs
-          mkdir -p /home/cloud-user/pjoe/clickhouse/tmp
-          mkdir -p /home/cloud-user/pjoe/clickhouse/user_files
-          mkdir -p /home/cloud-user/pjoe/clickhouse/access
-          mkdir -p /home/cloud-user/pjoe/clickhouse/flags
-          mkdir -p /home/cloud-user/pjoe/clickhouse/format_schemas
-          mkdir -p /home/cloud-user/pjoe/clickhouse/preprocessed_configs
-          mkdir -p /home/cloud-user/pjoe/clickhouse/user_defined
+          # Create all necessary directories with proper ownership
+          mkdir -p /clickhouse-data/data
+          mkdir -p /clickhouse-data/logs
+          mkdir -p /clickhouse-data/tmp
+          mkdir -p /clickhouse-data/user_files
+          mkdir -p /clickhouse-data/access
+          mkdir -p /clickhouse-data/flags
+          mkdir -p /clickhouse-data/format_schemas
+          mkdir -p /clickhouse-data/preprocessed_configs
+          mkdir -p /clickhouse-data/user_defined
 
-          # Set proper permissions for user directory
-          chmod -R 755 /home/cloud-user/pjoe/clickhouse
+          # Set ownership and permissions for user 1001
+          chown -R 1001:1001 /clickhouse-data
+          chmod -R 755 /clickhouse-data
+          
+          echo "ClickHouse directories created successfully"
         volumeMounts:
         - name: clickhouse-data
-          mountPath: /home/cloud-user/pjoe/clickhouse
+          mountPath: /clickhouse-data
         securityContext:
-          runAsNonRoot: true
-          runAsUser: 1001
-          runAsGroup: 1001
-          allowPrivilegeEscalation: false
+          runAsNonRoot: false
+          runAsUser: 0
+          allowPrivilegeEscalation: true
       containers:
       - name: clickhouse
         image: clickhouse/clickhouse-server:23.8
         imagePullPolicy: IfNotPresent
         securityContext:
           runAsNonRoot: true
+          runAsUser: 1001
+          runAsGroup: 1001
           allowPrivilegeEscalation: false
         ports:
         - name: http
@@ -138,14 +142,14 @@ spec:
         - name: CLICKHOUSE_PASSWORD
           value: ""
         - name: CLICKHOUSE_DATA_DIR
-          value: "/home/cloud-user/pjoe/clickhouse/"
+          value: "/var/lib/clickhouse/"
         - name: CLICKHOUSE_LOG_DIR
-          value: "/home/cloud-user/pjoe/clickhouse/logs/"
+          value: "/var/lib/clickhouse/logs/"
         - name: CLICKHOUSE_TMP_DIR
-          value: "/home/cloud-user/pjoe/clickhouse/tmp/"
+          value: "/var/lib/clickhouse/tmp/"
         volumeMounts:
         - name: clickhouse-data
-          mountPath: /home/cloud-user/pjoe/clickhouse
+          mountPath: /var/lib/clickhouse
         resources:
           requests:
             memory: "4Gi"

@@ -2,7 +2,7 @@
 apiVersion: clickhouse.altinity.com/v1
 kind: ClickHouseInstallation
 metadata:
-  name: clickhouse-ai
+  name: ch-ai
   namespace: l1-app-ai
 spec:
   configuration:
@@ -11,7 +11,7 @@ spec:
       default/networks/ip:
         - "::/0"
     clusters:
-      - name: clickhouse-cluster
+      - name: ch-cluster
         layout:
           shardsCount: 1
           replicasCount: 1

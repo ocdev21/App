@@ -6,10 +6,10 @@ echo "================================================"
 
 # Wait for ClickHouse to be ready
 echo "Waiting for ClickHouse service to be available..."
-kubectl wait --for=condition=ready pod -l clickhouse.altinity.com/chi=clickhouse-ai -n l1-app-ai --timeout=300s
+kubectl wait --for=condition=ready pod -l clickhouse.altinity.com/chi=ch-ai -n l1-app-ai --timeout=300s
 
 # Get the ClickHouse service name
-CH_SERVICE="chi-clickhouse-ai-clickhouse-cluster-0-0"
+CH_SERVICE="chi-ch-ai-ch-cluster-0-0"
 CH_NAMESPACE="l1-app-ai"
 
 echo "Creating database and tables..."
@@ -72,7 +72,7 @@ ORDER BY timestamp"
 echo "✅ Database setup completed!"
 echo ""
 echo "📊 Database Access Information:"
-echo "   - Service: chi-clickhouse-ai-clickhouse-cluster-0-0.l1-app-ai.svc.cluster.local"
+echo "   - Service: chi-ch-ai-ch-cluster-0-0.l1-app-ai.svc.cluster.local"
 echo "   - HTTP Port: 8123"
 echo "   - Native Port: 9000"
 echo "   - Database: l1_anomaly_detection"
@@ -82,4 +82,4 @@ echo ""
 echo "🔍 To verify installation:"
 echo "   kubectl get chi -n l1-app-ai"
 echo "   kubectl get pods -n l1-app-ai"
-echo "   kubectl logs -l clickhouse.altinity.com/chi=clickhouse-ai -n l1-app-ai"
+echo "   kubectl logs -l clickhouse.altinity.com/chi=ch-ai -n l1-app-ai"

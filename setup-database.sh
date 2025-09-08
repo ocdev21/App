@@ -1,4 +1,3 @@
-
 #!/bin/bash
 
 echo "Setting up ClickHouse database for L1 Application"
@@ -25,23 +24,19 @@ fi
 
 echo "✅ Service $SERVICE_NAME found"
 
-# Test ClickHouse connection
+# Test connection with password
 echo "Testing ClickHouse connection..."
-kubectl exec -n $NAMESPACE deployment/chi-ch-ai-simple-cluster-0-0 -- clickhouse-client --query "SELECT 1" > /dev/null 2>&1
-
-if [ $? -ne 0 ]; then
-    echo "❌ ClickHouse is not responding"
-    echo "Pod logs:"
-    kubectl logs -l clickhouse.altinity.com/chi=ch-ai -n $NAMESPACE --tail=50
-    exit 1
-fi
+until kubectl exec -n l1-app-ai $(kubectl get pods -n l1-app-ai -l clickhouse.altinity.com/chi=clickhouse-single -o name | head -1) -- clickhouse-client --password=defaultpass --query "SELECT 1" > /dev/null 2>&1; do
+    echo "Waiting for ClickHouse to be ready..."
+    sleep 10
+done
 
 echo "✅ ClickHouse is responding"
 
 # Create database and tables
 echo "Creating database and tables..."
 
-kubectl exec -n $NAMESPACE deployment/chi-ch-ai-simple-cluster-0-0 -- clickhouse-client --query "
+kubectl exec -n l1-app-ai $(kubectl get pods -n l1-app-ai -l clickhouse.altinity.com/chi=clickhouse-single -o name | head -1) -- clickhouse-client --password=defaultpass --query "
 CREATE DATABASE IF NOT EXISTS l1_anomaly_detection;
 
 CREATE TABLE IF NOT EXISTS l1_anomaly_detection.anomalies (
@@ -97,7 +92,7 @@ echo ""
 echo "📊 Database Information:"
 echo "   - Host: $SERVICE_NAME.$NAMESPACE.svc.cluster.local"
 echo "   - HTTP Port: 8123"
-echo "   - TCP Port: 9000" 
+echo "   - TCP Port: 9000"
 echo "   - Database: l1_anomaly_detection"
 echo "   - Username: default"
-echo "   - Password: (empty)"
+echo "   - Password: defaultpass"

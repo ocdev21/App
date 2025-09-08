@@ -1,19 +1,20 @@
-apiVersion: clickhouse.altinity.com/v1
+
+apiVersion: "clickhouse.altinity.com/v1"
 kind: ClickHouseInstallation
 metadata:
-  name: ch-ai
+  name: clickhouse-single
   namespace: l1-app-ai
 spec:
   configuration:
-    users:
-      default/password: ""
-      default/networks/ip:
-        - "::/0"
     clusters:
-      - name: simple-cluster
+      - name: clickhouse
         layout:
           shardsCount: 1
           replicasCount: 1
+    users:
+      default/password: "defaultpass"
+      default/networks/ip:
+        - 0.0.0.0/0
   defaults:
     templates:
       podTemplate: pod-template
@@ -33,13 +34,6 @@ spec:
                 limits:
                   memory: "2Gi"
                   cpu: "1000m"
-              env:
-                - name: CLICKHOUSE_DB
-                  value: "l1_anomaly_detection"
-                - name: CLICKHOUSE_USER
-                  value: "default"
-                - name: CLICKHOUSE_PASSWORD
-                  value: ""
     volumeClaimTemplates:
       - name: data-volume-template
         spec:

@@ -64,22 +64,22 @@ kubectl get chi -n l1-app-ai
 
 # Wait for CHI to be ready (not just pods)
 echo "Waiting for CHI resource to be ready..."
-timeout 600 bash -c 'while [[ $(kubectl get chi ch-ai -n l1-app-ai -o jsonpath="{.status.state}" 2>/dev/null) != "Completed" ]]; do 
-    echo "CHI Status: $(kubectl get chi ch-ai -n l1-app-ai -o jsonpath="{.status.state}" 2>/dev/null || echo "Not found")"
-    kubectl get chi ch-ai -n l1-app-ai -o wide 2>/dev/null || echo "CHI not found yet"
+timeout 600 bash -c 'while [[ $(kubectl get chi clickhouse-single -n l1-app-ai -o jsonpath="{.status.state}" 2>/dev/null) != "Completed" ]]; do 
+    echo "CHI Status: $(kubectl get chi clickhouse-single -n l1-app-ai -o jsonpath="{.status.state}" 2>/dev/null || echo "Not found")"
+    kubectl get chi clickhouse-single -n l1-app-ai -o wide 2>/dev/null || echo "CHI not found yet"
     sleep 15
 done'
 
 # Show current status
 echo "Current CHI status:"
-kubectl get chi ch-ai -n l1-app-ai -o wide
+kubectl get chi clickhouse-single -n l1-app-ai -o wide
 
 echo "Current pod status:"
 kubectl get pods -n l1-app-ai
 
 # Wait for pods to be ready with timeout
 echo "Waiting for ClickHouse pods to be ready (max 10 minutes)..."
-kubectl wait --for=condition=ready pod -l clickhouse.altinity.com/chi=ch-ai -n l1-app-ai --timeout=600s
+kubectl wait --for=condition=ready pod -l clickhouse.altinity.com/chi=clickhouse-single -n l1-app-ai --timeout=600s
 
 # If pods are not ready, show diagnostics
 if [ $? -ne 0 ]; then
@@ -113,12 +113,14 @@ echo ""
 echo "📋 Quick Start Commands:"
 echo "   Check status: kubectl get chi -n l1-app-ai"
 echo "   View pods: kubectl get pods -n l1-app-ai"
-echo "   Port forward: kubectl port-forward svc/chi-ch-ai-simple-cluster-0-0 8123:8123 -n l1-app-ai"
+echo "   Port forward: kubectl port-forward svc/chi-clickhouse-single-clickhouse-0-0 8123:8123 -n l1-app-ai"
 echo "   Test connection: curl http://localhost:8123/ping"
 echo ""
 echo "🔧 Configuration:"
 echo "   - Namespace: l1-app-ai"
 echo "   - Database: l1_anomaly_detection"
-echo "   - Service: chi-ch-ai-simple-cluster-0-0"
+echo "   - Service: chi-clickhouse-single-clickhouse-0-0"
 echo "   - HTTP Port: 8123"
 echo "   - TCP Port: 9000"
+echo "   - Username: default"
+echo "   - Password: defaultpass"

@@ -17,7 +17,12 @@ if ! command -v helm &> /dev/null; then
     exit 1
 fi
 
-echo "🚀 Starting ClickHouse installation..."
+echo "🧹 Cleaning up any existing ClickHouse resources..."
+chmod +x cleanup-clickhouse.sh
+./cleanup-clickhouse.sh
+
+echo ""
+echo "🚀 Starting fresh ClickHouse installation..."
 
 # Make scripts executable
 chmod +x install-clickhouse.sh setup-database.sh
@@ -31,6 +36,10 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+# Wait for operator to be fully ready
+echo "Waiting for ClickHouse operator to be fully ready..."
+sleep 30
+
 # Step 2: Install ClickHouse instance
 echo "Step 2: Installing ClickHouse instance..."
 kubectl apply -f clickhouse-installation.yaml
@@ -42,7 +51,13 @@ fi
 
 # Step 3: Wait for ClickHouse to be ready
 echo "Step 3: Waiting for ClickHouse to be ready..."
-sleep 30
+echo "This may take a few minutes..."
+
+# Wait for the CHI resource to be created
+kubectl wait --for=condition=available chi/ch-ai -n l1-app-ai --timeout=600s
+
+# Wait for pods to be ready
+kubectl wait --for=condition=ready pod -l clickhouse.altinity.com/chi=ch-ai -n l1-app-ai --timeout=600s
 
 # Step 4: Setup database
 echo "Step 4: Setting up database..."

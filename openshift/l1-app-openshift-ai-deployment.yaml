@@ -100,21 +100,21 @@ spec:
         args:
         - |
           # Create all necessary directories in user space
-          mkdir -p /home/clickhouse/data
-          mkdir -p /home/clickhouse/logs
-          mkdir -p /home/clickhouse/tmp
-          mkdir -p /home/clickhouse/user_files
-          mkdir -p /home/clickhouse/access
-          mkdir -p /home/clickhouse/flags
-          mkdir -p /home/clickhouse/format_schemas
-          mkdir -p /home/clickhouse/preprocessed_configs
-          mkdir -p /home/clickhouse/user_defined
+          mkdir -p /home/cloud-user/pjoe/data
+          mkdir -p /home/cloud-user/pjoe/logs
+          mkdir -p /home/cloud-user/pjoe/tmp
+          mkdir -p /home/cloud-user/pjoe/user_files
+          mkdir -p /home/cloud-user/pjoe/access
+          mkdir -p /home/cloud-user/pjoe/flags
+          mkdir -p /home/cloud-user/pjoe/format_schemas
+          mkdir -p /home/cloud-user/pjoe/preprocessed_configs
+          mkdir -p /home/cloud-user/pjoe/user_defined
 
           # Set proper permissions for user directory
-          chmod -R 755 /home/clickhouse
+          chmod -R 755 /home/cloud-user/pjoe
         volumeMounts:
         - name: clickhouse-data
-          mountPath: /home/clickhouse
+          mountPath: /home/cloud-user/pjoe
         securityContext:
           runAsNonRoot: false
       containers:
@@ -137,14 +137,14 @@ spec:
         - name: CLICKHOUSE_PASSWORD
           value: ""
         - name: CLICKHOUSE_DATA_DIR
-          value: "/home/clickhouse/"
+          value: "/home/cloud-user/pjoe/"
         - name: CLICKHOUSE_LOG_DIR
-          value: "/home/clickhouse/logs/"
+          value: "/home/cloud-user/pjoe/logs/"
         - name: CLICKHOUSE_TMP_DIR
-          value: "/home/clickhouse/tmp/"
+          value: "/home/cloud-user/pjoe/tmp/"
         volumeMounts:
         - name: clickhouse-data
-          mountPath: /home/clickhouse
+          mountPath: /home/cloud-user/pjoe
         resources:
           requests:
             memory: "4Gi"

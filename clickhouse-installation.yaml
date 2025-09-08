@@ -1,4 +1,3 @@
-
 apiVersion: clickhouse.altinity.com/v1
 kind: ClickHouseInstallation
 metadata:
@@ -11,19 +10,14 @@ spec:
       default/networks/ip:
         - "::/0"
     clusters:
-      - name: ch-cluster
+      - name: simple-cluster
         layout:
           shardsCount: 1
           replicasCount: 1
-    profiles:
-      default/max_memory_usage: "10000000000"
-      default/use_uncompressed_cache: "0"
-      default/load_balancing: "random"
   defaults:
     templates:
       podTemplate: pod-template
       dataVolumeClaimTemplate: data-volume-template
-      logVolumeClaimTemplate: log-volume-template
       serviceTemplate: service-template
   templates:
     podTemplates:
@@ -34,11 +28,11 @@ spec:
               image: clickhouse/clickhouse-server:23.8
               resources:
                 requests:
+                  memory: "1Gi"
+                  cpu: "500m"
+                limits:
                   memory: "2Gi"
                   cpu: "1000m"
-                limits:
-                  memory: "4Gi"
-                  cpu: "2000m"
               env:
                 - name: CLICKHOUSE_DB
                   value: "l1_anomaly_detection"
@@ -53,14 +47,7 @@ spec:
             - ReadWriteOnce
           resources:
             requests:
-              storage: 10Gi
-      - name: log-volume-template
-        spec:
-          accessModes:
-            - ReadWriteOnce
-          resources:
-            requests:
-              storage: 1Gi
+              storage: 5Gi
     serviceTemplates:
       - name: service-template
         spec:

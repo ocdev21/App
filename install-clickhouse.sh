@@ -19,9 +19,9 @@ helm repo update
 echo "Creating clickhouse-system namespace..."
 kubectl create namespace clickhouse-system --dry-run=client -o yaml | kubectl apply -f -
 
-# Install ClickHouse operator with a unique release name
+# Install ClickHouse operator with a short release name
 echo "Installing ClickHouse operator..."
-helm install clickhouse-operator-$(date +%s) clickhouse-operator/altinity-clickhouse-operator \
+helm install ch-operator clickhouse-operator/altinity-clickhouse-operator \
   --namespace clickhouse-system \
   --set operator.image.tag=0.21.3 \
   --wait --timeout=600s

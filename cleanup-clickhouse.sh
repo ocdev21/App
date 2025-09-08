@@ -16,7 +16,7 @@ kubectl delete namespace clickhouse-system --ignore-not-found=true
 
 # Uninstall Helm release
 echo "Uninstalling ClickHouse operator Helm release..."
-helm uninstall clickhouse-operator -n clickhouse-system --ignore-not-found
+helm uninstall ch-operator -n clickhouse-system --ignore-not-found 2>/dev/null || true
 
 # Remove Helm repository
 echo "Removing ClickHouse operator Helm repository..."

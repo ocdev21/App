@@ -97,7 +97,7 @@ spec:
         command: ['sh', '-c']
         args:
         - |
-          # Create all necessary directories with proper ownership
+          # Create all necessary directories (ownership is already correct as user 1001)
           mkdir -p /clickhouse-data/data
           mkdir -p /clickhouse-data/logs
           mkdir -p /clickhouse-data/tmp
@@ -108,18 +108,18 @@ spec:
           mkdir -p /clickhouse-data/preprocessed_configs
           mkdir -p /clickhouse-data/user_defined
 
-          # Set ownership and permissions for user 1001
-          chown -R 1001:1001 /clickhouse-data
-          chmod -R 755 /clickhouse-data
+          # Set permissions (can't use chown without root, but mkdir creates with correct ownership)
+          chmod -R 755 /clickhouse-data 2>/dev/null || true
           
           echo "ClickHouse directories created successfully"
         volumeMounts:
         - name: clickhouse-data
           mountPath: /clickhouse-data
         securityContext:
-          runAsNonRoot: false
-          runAsUser: 0
-          allowPrivilegeEscalation: true
+          runAsNonRoot: true
+          runAsUser: 1001
+          runAsGroup: 1001
+          allowPrivilegeEscalation: false
       containers:
       - name: clickhouse
         image: clickhouse/clickhouse-server:23.8

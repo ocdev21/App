@@ -4,6 +4,9 @@
 echo "Installing ClickHouse using Helm and ClickHouse Operator"
 echo "======================================================="
 
+# Remove any existing helm repo (in case it exists)
+helm repo remove clickhouse-operator 2>/dev/null || true
+
 # Add ClickHouse operator helm repository
 echo "Adding ClickHouse operator helm repository..."
 helm repo add clickhouse-operator https://docs.altinity.com/clickhouse-operator/
@@ -16,15 +19,16 @@ helm repo update
 echo "Creating clickhouse-system namespace..."
 kubectl create namespace clickhouse-system --dry-run=client -o yaml | kubectl apply -f -
 
-# Install ClickHouse operator
+# Install ClickHouse operator with a unique release name
 echo "Installing ClickHouse operator..."
-helm install clickhouse-operator clickhouse-operator/altinity-clickhouse-operator \
+helm install clickhouse-operator-$(date +%s) clickhouse-operator/altinity-clickhouse-operator \
   --namespace clickhouse-system \
-  --set operator.image.tag=0.21.3
+  --set operator.image.tag=0.21.3 \
+  --wait --timeout=600s
 
 # Wait for operator to be ready
 echo "Waiting for ClickHouse operator to be ready..."
-kubectl wait --for=condition=available deployment/clickhouse-operator -n clickhouse-system --timeout=300s
+kubectl wait --for=condition=available deployment -l app.kubernetes.io/name=altinity-clickhouse-operator -n clickhouse-system --timeout=300s
 
 # Create namespace for ClickHouse
 echo "Creating l1-app-ai namespace..."

@@ -1,0 +1,62 @@
+
+# Core Python packages
+numpy>=1.24.0
+pandas>=2.0.0
+scipy>=1.10.0
+
+# Machine Learning and Data Science
+scikit-learn>=1.3.0
+joblib>=1.3.0
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# Network Analysis
+scapy>=2.5.0
+scapy-python3>=0.26
+
+# Database Connectivity
+clickhouse-connect>=0.6.0
+sqlalchemy>=2.0.0
+
+# Web Framework and API
+fastapi>=0.100.0
+uvicorn>=0.23.0
+websockets>=11.0.0
+requests>=2.31.0
+aiofiles>=23.0.0
+
+# LLM and AI
+transformers>=4.30.0
+torch>=2.0.0
+accelerate>=0.20.0
+sentencepiece>=0.1.99
+protobuf>=4.23.0
+
+# File Processing
+h5py>=3.9.0
+tables>=3.8.0
+openpyxl>=3.1.0
+
+# Async and Utilities
+asyncio-mqtt>=0.13.0
+python-multipart>=0.0.6
+python-dotenv>=1.0.0
+pydantic>=2.0.0
+typer>=0.9.0
+
+# Development and Testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+black>=23.0.0
+flake8>=6.0.0
+
+# Optional LLM support
+llama-cpp-python>=0.2.0
+
+# SHAP for explainable AI
+shap>=0.42.0
+
+# Additional utilities
+tqdm>=4.65.0
+rich>=13.4.0
+colorama>=0.4.6

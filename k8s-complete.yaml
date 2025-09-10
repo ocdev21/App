@@ -1,0 +1,115 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: l1-troubleshooting-app
+  labels:
+    app: l1-troubleshooting
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: l1-troubleshooting
+  template:
+    metadata:
+      labels:
+        app: l1-troubleshooting
+    spec:
+      containers:
+      - name: l1-app
+        image: localhost/l1-app-img/node-python-app
+        ports:
+        - containerPort: 5000
+          name: http
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "5000"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 5000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        imagePullPolicy: IfNotPresent
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: l1-troubleshooting-service
+  labels:
+    app: l1-troubleshooting
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 5000
+    protocol: TCP
+    name: http
+  selector:
+    app: l1-troubleshooting
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: l1-troubleshooting-nodeport
+  labels:
+    app: l1-troubleshooting
+spec:
+  type: NodePort
+  ports:
+  - port: 80
+    targetPort: 5000
+    nodePort: 30080
+    protocol: TCP
+    name: http
+  selector:
+    app: l1-troubleshooting
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: l1-troubleshooting-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: l1-troubleshooting.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: l1-troubleshooting-service
+            port:
+              number: 80
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: l1-troubleshooting-service
+            port:
+              number: 80

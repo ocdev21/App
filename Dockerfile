@@ -1,36 +1,20 @@
 
-FROM node:18-alpine
+FROM nikolaik/python-nodejs:latest
 
-# Install Python and required packages
-RUN apk add --no-cache python3 py3-pip python3-dev gcc musl-dev
+# Set working directory to root
+WORKDIR /
 
-WORKDIR /app
-
-# Copy package files
-COPY package*.json ./
-COPY requirements_mistral.txt ./
-
-# Install Node.js dependencies
-RUN npm ci --only=production
-
-# Install Python dependencies
-RUN pip3 install -r requirements_mistral.txt
-
-# Copy application code
+# Copy entire project into container root directory
 COPY . .
 
-# Build the application
-RUN npm run build
+# Install NodeJS dependencies
+RUN npm install
 
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nextjs -u 1001
+# Install Python dependencies
+RUN pip install -r requirements.txt
 
-# Change ownership of the app directory
-RUN chown -R nextjs:nodejs /app
+# Expose port that your NodeJS app listens on
+EXPOSE 3000
 
-USER nextjs
-
-EXPOSE 5000
-
-CMD ["npm", "start"]
+# Start the app using npm run dev
+CMD ["npm", "run", "dev"]

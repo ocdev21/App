@@ -17,6 +17,7 @@ spec:
       containers:
       - name: l1-app
         image: localhost/l1-app-img/node-python-app
+        imagePullPolicy: Never
         ports:
         - containerPort: 5000
           name: http
@@ -48,7 +49,6 @@ spec:
           periodSeconds: 5
           timeoutSeconds: 3
           failureThreshold: 3
-        imagePullPolicy: IfNotPresent
 ---
 apiVersion: v1
 kind: Service

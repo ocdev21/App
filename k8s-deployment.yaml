@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: l1-troubleshooting-app
+  namespace: l1-app-ai
   labels:
     app: l1-troubleshooting
 spec:

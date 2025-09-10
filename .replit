@@ -12,8 +12,12 @@ run = ["sh", "-c", "npm run dev"]
 localPort = 9111
 externalPort = 80
 
+[[ports]]
+localPort = 5000
+externalPort = 80
+
 [workflows]
-runButton = "Development Server"
+runButton = "Project"
 
 [[workflows.workflow]]
 name = "Development Server"
@@ -27,6 +31,27 @@ args = "npm install"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npm run dev"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "L1 System"
+
+[[workflows.workflow]]
+name = "L1 System"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
 
 [agent]
 expertMode = true

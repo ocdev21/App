@@ -1,0 +1,24 @@
+# Essential packages only - NO LLM/AI components
+
+# Network Analysis (Core functionality)
+scapy>=2.5.0
+scapy-python3>=0.26
+
+# Database Connectivity
+clickhouse-connect>=0.6.0
+sqlalchemy>=2.0.0
+
+# Web Framework and API
+requests>=2.31.0
+python-dotenv>=1.0.0
+
+# Basic utilities
+tqdm>=4.65.0
+colorama>=0.4.6
+
+# Core Python packages (minimal)
+numpy>=1.24.0
+pandas>=2.0.0
+
+# Basic data processing
+joblib>=1.3.0

@@ -1,0 +1,61 @@
+# Use lightweight Alpine-based images
+FROM node:18-alpine AS node-stage
+
+# Install Node.js dependencies
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production && npm cache clean --force
+
+# Python stage with minimal packages
+FROM python:3.11-alpine AS python-stage
+
+# Install system dependencies for Python packages
+RUN apk add --no-cache \
+    gcc \
+    musl-dev \
+    libffi-dev \
+    openssl-dev \
+    && rm -rf /var/cache/apk/*
+
+# Install minimal Python packages
+WORKDIR /app
+COPY requirements_minimal.txt .
+RUN pip install --no-cache-dir -r requirements_minimal.txt
+
+# Final stage - minimal runtime
+FROM python:3.11-alpine
+
+# Install Node.js in Alpine
+RUN apk add --no-cache nodejs npm && rm -rf /var/cache/apk/*
+
+WORKDIR /app
+
+# Copy Node modules from node-stage
+COPY --from=node-stage /app/node_modules ./node_modules
+
+# Copy Python packages from python-stage
+COPY --from=python-stage /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=python-stage /usr/local/bin /usr/local/bin
+
+# Copy only essential application files
+COPY package*.json ./
+COPY server/ ./server/
+COPY client/ ./client/
+COPY shared/ ./shared/
+COPY vite.config.ts ./
+COPY tsconfig.json ./
+COPY tailwind.config.ts ./
+COPY postcss.config.js ./
+COPY components.json ./
+
+# Copy essential Python services (excluding LLM services)
+COPY server/services/pcap_processor.py ./server/services/
+COPY server/services/large_pcap_processor.py ./server/services/
+COPY server/services/clickhouse_client.py ./server/services/
+COPY server/services/ue_analyzer.py ./server/services/
+
+# Expose port
+EXPOSE 5000
+
+# Start the application
+CMD ["npm", "run", "dev"]

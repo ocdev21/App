@@ -6,7 +6,7 @@ metadata:
 spec:
   containers:
     - name: node-python-app
-      image: default-route-openshift-image-registry.apps.rhoсp.hcltech.com/l1-app-ai/node-python-app:latest
+      image: l1-app-ai/node-python
       ports:
         - containerPort: 3000
       envFrom:

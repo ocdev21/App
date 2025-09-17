@@ -102,22 +102,23 @@ export default function AnomalyTable({ anomalies, isLoading, showFilters = true 
     <>
       <div className="overflow-x-auto">
         {/* Table Header */}
-        <div className="grid grid-cols-4 gap-4 px-6 py-4 border-b border-gray-200 bg-gray-50">
+        <div className="grid grid-cols-6 gap-4 px-6 py-4 border-b border-gray-200 bg-gray-50">
           <div className="font-medium text-gray-900">Timestamp</div>
           <div className="font-medium text-gray-900">Type</div>
-          <div className="font-medium text-gray-900">Description</div>
+          <div className="font-medium text-gray-900 col-span-2">Description</div>
           <div className="font-medium text-gray-900">Source</div>
+          <div className="font-medium text-gray-900">Actions</div>
         </div>
 
         {/* Table Body */}
         <div className="divide-y divide-gray-200">
           {anomalies.length === 0 ? (
-            <div className="px-6 py-12 text-center text-gray-500">
+            <div className="px-6 py-12 text-center text-gray-500 col-span-6">
               No anomalies found matching your criteria.
             </div>
           ) : (
             anomalies.map((anomaly, index) => (
-              <div key={`${anomaly.timestamp}-${index}`} className="grid grid-cols-4 gap-4 px-6 py-4 hover:bg-gray-50 transition-colors">
+              <div key={`${anomaly.timestamp}-${index}`} className="grid grid-cols-6 gap-4 px-6 py-4 hover:bg-gray-50 transition-colors">
                 <div className="text-sm text-gray-900">
                   {formatTimestamp(anomaly.timestamp)}
                 </div>
@@ -127,7 +128,7 @@ export default function AnomalyTable({ anomalies, isLoading, showFilters = true 
                     {getTypeLabel(anomaly.type)}
                   </div>
                 </div>
-                <div className="text-sm text-gray-900">
+                <div className="text-sm text-gray-900 col-span-2">
                   {anomaly.description}
                   {anomaly.packet_id && (
                     <div className="text-blue-600 text-xs mt-1">
@@ -137,6 +138,20 @@ export default function AnomalyTable({ anomalies, isLoading, showFilters = true 
                 </div>
                 <div className="text-sm text-gray-600">
                   {anomaly.source || anomaly.source_file}
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => handleGetRecommendations(anomaly)}
+                    className="px-3 py-1 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                  >
+                    Get Recommendations
+                  </button>
+                  <button
+                    onClick={() => handleGetDetails(anomaly)}
+                    className="px-3 py-1 text-xs bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
+                  >
+                    Details
+                  </button>
                 </div>
               </div>
             ))

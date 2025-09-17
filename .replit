@@ -9,11 +9,11 @@ packages = ["glibcLocales", "imagemagickBig", "sox", "tcpdump", "wireshark"]
 run = ["sh", "-c", "npm run dev"]
 
 [[ports]]
-localPort = 9111
+localPort = 5000
 externalPort = 80
 
 [[ports]]
-localPort = 5000
+localPort = 9111
 externalPort = 80
 
 [workflows]

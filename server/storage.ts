@@ -56,6 +56,7 @@ export class MemStorage implements IStorage {
         source_file: 'log_20250812_120530.txt',
         details: '{"cell_id": "Cell-45", "technology": "5G-NR"}',
         packet_number: 1523,
+        status: 'open',
         anomaly_type: 'fronthaul_du_ru_communication_failure',
         confidence_score: 0.95,
         detection_algorithm: 'isolation_forest',
@@ -68,6 +69,7 @@ export class MemStorage implements IStorage {
         source_file: 'log_20250812_125630.txt',
         details: '{"ue_id": "UE-345678", "imsi": "123456789012345"}',
         ue_id: 'UE-345678',
+        status: 'open',
         anomaly_type: 'ue_attach_failure',
         confidence_score: 0.88,
         detection_algorithm: 'dbscan',
@@ -79,6 +81,7 @@ export class MemStorage implements IStorage {
         description: 'Duplicate MAC address detected: aa:bb:cc:dd:ee:ff, conflict on VLAN 50',
         source_file: 'log_20250812_130215.txt',
         mac_address: 'aa:bb:cc:dd:ee:ff',
+        status: 'open',
         anomaly_type: 'mac_address_conflict',
         confidence_score: 0.82,
         detection_algorithm: 'one_class_svm',
@@ -89,6 +92,7 @@ export class MemStorage implements IStorage {
         severity: 'high',
         description: 'L1 protocol violation: invalid PRACH preamble format 3',
         source_file: 'log_20250812_132145.txt',
+        status: 'open',
         anomaly_type: 'protocol_violation',
         confidence_score: 0.91,
         detection_algorithm: 'hybrid_ensemble',
@@ -99,6 +103,7 @@ export class MemStorage implements IStorage {
         severity: 'critical',
         description: 'RSRP degraded to -110 dBm on Cell-89, interference detected',
         source_file: 'log_20250812_134520.txt',
+        status: 'open',
         anomaly_type: 'signal_quality_degradation',
         confidence_score: 0.93,
         detection_algorithm: 'isolation_forest',
@@ -349,7 +354,8 @@ export class ClickHouseStorage implements IStorage {
         mac_address: '00:11:22:33:44:67',
         ue_id: null,
         details: { missing_responses: 5, communication_ratio: 0.65, latency_violations: 3 },
-        status: 'active'
+        status: 'active',
+        recommendation: null
       },
       {
         id: '1002',
@@ -362,7 +368,8 @@ export class ClickHouseStorage implements IStorage {
         mac_address: '00:11:22:33:44:67',
         ue_id: null,
         details: { latency_measured: 150, threshold: 100, jitter: 25, packet_loss: 0.5 },
-        status: 'active'
+        status: 'active',
+        recommendation: null
       },
       {
         id: '2001',
@@ -375,7 +382,8 @@ export class ClickHouseStorage implements IStorage {
         mac_address: '00:11:22:33:44:67',
         ue_id: '460110123456789',
         details: { failed_attaches: 8, success_rate: 0.12, context_failures: 5, timeout_events: 3 },
-        status: 'active'
+        status: 'active',
+        recommendation: null
       },
       {
         id: '2002',
@@ -388,7 +396,8 @@ export class ClickHouseStorage implements IStorage {
         mac_address: '00:11:22:33:44:67',
         ue_id: '460110987654321',
         details: { handover_attempts: 4, successful_handovers: 1, signal_drops: 3 },
-        status: 'active'
+        status: 'active',
+        recommendation: null
       },
       {
         id: '3001',
@@ -401,7 +410,8 @@ export class ClickHouseStorage implements IStorage {
         mac_address: '00:11:22:33:44:67',
         ue_id: null,
         details: { malformed_frames: 7, crc_errors: 2, sequence_violations: 5 },
-        status: 'active'
+        status: 'active',
+        recommendation: null
       }
     ];
   }
@@ -485,6 +495,7 @@ export class ClickHouseStorage implements IStorage {
           ue_id: row.ue_id || null,
           details: row.details || null,
           status: row.status || 'open',
+          recommendation: null,
           // Add LLM-compatible fields
           anomaly_type: row.type || 'unknown',
           confidence_score: 0.9,
@@ -512,6 +523,7 @@ export class ClickHouseStorage implements IStorage {
         console.log('✅ Found anomaly in sample data:', foundAnomaly.id, foundAnomaly.type);
         return {
           ...foundAnomaly,
+          recommendation: foundAnomaly.recommendation || null,
           anomaly_type: foundAnomaly.type,
           confidence_score: 0.9,
           detection_algorithm: 'sample_data',
@@ -538,6 +550,7 @@ export class ClickHouseStorage implements IStorage {
         console.log('✅ Found anomaly in sample data fallback:', foundAnomaly.id, foundAnomaly.type);
         return {
           ...foundAnomaly,
+          recommendation: foundAnomaly.recommendation || null,
           anomaly_type: foundAnomaly.type,
           confidence_score: 0.9,
           detection_algorithm: 'sample_data_fallback',
@@ -640,7 +653,7 @@ export class ClickHouseStorage implements IStorage {
 
   async updateFileStatus(id: string, status: string, anomaliesFound?: number, processingTime?: number, errorMessage?: string): Promise<ProcessedFile | undefined> {
     let updates = ["processing_status = ?"];
-    let params = [status];
+    let params: any[] = [status];
 
     if (anomaliesFound !== undefined) {
       updates.push("anomalies_found = ?");
@@ -930,10 +943,7 @@ export class ClickHouseStorage implements IStorage {
 
   async getExplainableAIData(anomalyId: string, contextData: any): Promise<any> {
     try {
-      if (!this.clickhouse.isAvailable()) {
-        throw new Error("ClickHouse not available for explainable AI data");
-      }
-
+      // ClickHouse is available through the imported clickhouse instance
       // Extract SHAP explanation data from context_data
       const modelVotes = contextData.model_votes || {};
       const shapData = contextData.shap_explanation || {};

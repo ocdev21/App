@@ -1,40 +1,20 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Search, RefreshCw, AlertTriangle, Smartphone, Network, Shield } from "lucide-react";
+import { AlertTriangle, Smartphone, Network, Shield } from "lucide-react";
 import { RecommendationsPopup } from "./RecommendationsPopup";
 import { ExplainableAIModal } from "./ExplainableAIModal";
 import type { Anomaly } from "@shared/schema";
 
-export default function AnomalyTable() {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [typeFilter, setTypeFilter] = useState("all");
-  const [severityFilter, setSeverityFilter] = useState("all");
+interface AnomalyTableProps {
+  anomalies: Anomaly[];
+  isLoading: boolean;
+  showFilters?: boolean;
+}
+
+export default function AnomalyTable({ anomalies, isLoading, showFilters = true }: AnomalyTableProps) {
   const [selectedAnomaly, setSelectedAnomaly] = useState<Anomaly | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedAnomalyForDetails, setSelectedAnomalyForDetails] = useState<Anomaly | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-
-  const { data: anomalies = [], isLoading, refetch } = useQuery<Anomaly[]>({
-    queryKey: ["/api/anomalies"],
-    refetchInterval: 10000, // Refetch every 10 seconds
-  });
 
   const getTypeIcon = (type: string) => {
     switch (type) {
@@ -66,9 +46,32 @@ export default function AnomalyTable() {
     }
   };
 
+  const getBadgeColor = (type: string) => {
+    switch (type) {
+      case "fronthaul":
+        return "type-badge fronthaul";
+      case "ue_event":
+        return "type-badge ue_event";
+      case "mac_address":
+        return "type-badge mac_address";
+      case "protocol":
+        return "type-badge protocol";
+      default:
+        return "type-badge";
+    }
+  };
+
   const formatTimestamp = (timestamp: string | Date) => {
     const date = new Date(timestamp);
-    return date.toLocaleString();
+    return date.toLocaleDateString('en-US', {
+      month: 'numeric',
+      day: 'numeric', 
+      year: 'numeric'
+    }) + ', ' + date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
   };
 
   const handleGetRecommendations = (anomaly: Anomaly) => {
@@ -81,27 +84,13 @@ export default function AnomalyTable() {
     setIsDetailsModalOpen(true);
   };
 
-  // Filter anomalies based on search and filters
-  const filteredAnomalies = anomalies.filter((anomaly) => {
-    const matchesSearch = anomaly.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         anomaly.source_file.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = typeFilter === "all" || anomaly.type === typeFilter;
-    const matchesSeverity = severityFilter === "all" || anomaly.severity === severityFilter;
-    
-    return matchesSearch && matchesType && matchesSeverity;
-  });
-
-  // Debug logging to see if buttons are rendering
-  console.log('AnomalyTable rendered with', filteredAnomalies.length, 'anomalies');
-
   if (isLoading) {
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
+      <div className="p-6">
         <div className="animate-pulse">
-          <div className="h-4 bg-slate-200 rounded w-1/4 mb-4"></div>
           <div className="space-y-3">
             {[...Array(5)].map((_, i) => (
-              <div key={i} className="h-12 bg-slate-200 rounded"></div>
+              <div key={i} className="h-16 bg-slate-200 rounded"></div>
             ))}
           </div>
         </div>
@@ -111,173 +100,72 @@ export default function AnomalyTable() {
 
   return (
     <>
-      {/* Filters and Search */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex items-center space-x-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
-              <Input
-                placeholder="Search anomalies..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 w-64"
-              />
+      <div className="overflow-x-auto">
+        {/* Table Header */}
+        <div className="grid grid-cols-4 gap-4 px-6 py-4 border-b border-gray-200 bg-gray-50">
+          <div className="font-medium text-gray-900">Timestamp</div>
+          <div className="font-medium text-gray-900">Type</div>
+          <div className="font-medium text-gray-900">Description</div>
+          <div className="font-medium text-gray-900">Source</div>
+        </div>
+
+        {/* Table Body */}
+        <div className="divide-y divide-gray-200">
+          {anomalies.length === 0 ? (
+            <div className="px-6 py-12 text-center text-gray-500">
+              No anomalies found matching your criteria.
             </div>
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="All Types" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="fronthaul">Fronthaul Issues</SelectItem>
-                <SelectItem value="ue_event">UE Events</SelectItem>
-                <SelectItem value="mac_address">MAC Address</SelectItem>
-                <SelectItem value="protocol">Protocol</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={severityFilter} onValueChange={setSeverityFilter}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="All Severities" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Severities</SelectItem>
-                <SelectItem value="high">High</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="low">Low</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <Button 
-            onClick={() => refetch()} 
-            style={{ backgroundColor: 'hsl(var(--primary-blue))', color: 'white' }}
-          >
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Refresh
-          </Button>
+          ) : (
+            anomalies.map((anomaly, index) => (
+              <div key={`${anomaly.timestamp}-${index}`} className="grid grid-cols-4 gap-4 px-6 py-4 hover:bg-gray-50 transition-colors">
+                <div className="text-sm text-gray-900">
+                  {formatTimestamp(anomaly.timestamp)}
+                </div>
+                <div className="flex items-center">
+                  <div className={getBadgeColor(anomaly.type)}>
+                    {getTypeIcon(anomaly.type)}
+                    {getTypeLabel(anomaly.type)}
+                  </div>
+                </div>
+                <div className="text-sm text-gray-900">
+                  {anomaly.description}
+                  {anomaly.packet_id && (
+                    <div className="text-blue-600 text-xs mt-1">
+                      packet #{anomaly.packet_id}
+                    </div>
+                  )}
+                </div>
+                <div className="text-sm text-gray-600">
+                  {anomaly.source || anomaly.source_file}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
 
-      {/* Anomalies Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-200">
-          <h3 className="text-lg font-semibold text-slate-900">Detected Anomalies</h3>
-          <p className="text-sm text-slate-600 mt-1">Recent network anomalies requiring attention</p>
-        </div>
+      {/* Modals */}
+      {selectedAnomaly && (
+        <RecommendationsPopup
+          anomaly={selectedAnomaly}
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false);
+            setSelectedAnomaly(null);
+          }}
+        />
+      )}
 
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-slate-50">
-                <TableHead>Timestamp</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Source</TableHead>
-                <TableHead>Severity</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredAnomalies.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-slate-500">
-                    No anomalies found matching your criteria.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredAnomalies.map((anomaly) => (
-                  <TableRow key={anomaly.id} className="hover:bg-slate-50">
-                    <TableCell className="whitespace-nowrap">
-                      {formatTimestamp(anomaly.timestamp)}
-                    </TableCell>
-                    <TableCell>
-                      <span className={`type-badge ${anomaly.type}`}>
-                        {getTypeIcon(anomaly.type)}
-                        {getTypeLabel(anomaly.type)}
-                      </span>
-                    </TableCell>
-                    <TableCell className="max-w-md">
-                      <div className="space-y-1">
-                        <div className="truncate">{anomaly.description}</div>
-                        {anomaly.packet_number && (
-                          <div className="text-xs text-blue-600 font-mono">
-                            Packet #{anomaly.packet_number}
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap text-slate-600">
-                      {anomaly.source_file}
-                    </TableCell>
-                    <TableCell>
-                      <span className={`severity-badge ${anomaly.severity}`}>
-                        {anomaly.severity.charAt(0).toUpperCase() + anomaly.severity.slice(1)}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex space-x-2">
-                        <Button
-                          size="sm"
-                          onClick={() => handleGetRecommendations(anomaly)}
-                          className="text-xs px-3 py-1"
-                          style={{ backgroundColor: '#2563eb', color: 'white' }}
-                          data-testid={`button-recommendations-${anomaly.id}`}
-                        >
-                          Get Recommendations
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleGetDetails(anomaly)}
-                          className="text-xs px-3 py-1 border-blue-600 text-blue-600 hover:bg-blue-50"
-                          data-testid={`button-details-${anomaly.id}`}
-                        >
-                          Details
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-
-        {/* Pagination */}
-        {filteredAnomalies.length > 0 && (
-          <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between">
-            <div className="text-sm text-slate-600">
-              Showing {filteredAnomalies.length} of {anomalies.length} results
-            </div>
-            <div className="flex items-center space-x-2">
-              <Button variant="outline" size="sm" disabled>
-                Previous
-              </Button>
-              <Button 
-                size="sm"
-                style={{ backgroundColor: 'hsl(var(--primary-blue))', color: 'white' }}
-              >
-                1
-              </Button>
-              <Button variant="outline" size="sm" disabled>
-                Next
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <RecommendationsPopup
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        anomaly={selectedAnomaly}
-      />
-
-      <ExplainableAIModal
-        isOpen={isDetailsModalOpen}
-        onClose={() => setIsDetailsModalOpen(false)}
-        anomaly={selectedAnomalyForDetails}
-      />
+      {selectedAnomalyForDetails && (
+        <ExplainableAIModal
+          anomaly={selectedAnomalyForDetails}
+          isOpen={isDetailsModalOpen}
+          onClose={() => {
+            setIsDetailsModalOpen(false);
+            setSelectedAnomalyForDetails(null);
+          }}
+        />
+      )}
     </>
   );
 }

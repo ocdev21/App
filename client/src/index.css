@@ -269,13 +269,14 @@ body {
 }
 
 .nav-item.active {
-  background-color: hsl(var(--primary-blue));
-  color: white;
+  background-color: rgb(241 245 249); /* bg-slate-100 */
+  color: rgb(30 64 175); /* text-blue-700 */
+  font-weight: 600;
 }
 
 .nav-item.active:hover {
-  background-color: rgb(67 56 202); /* indigo-700 */
-  color: white;
+  background-color: rgb(226 232 240); /* bg-slate-200 */
+  color: rgb(30 64 175); /* text-blue-700 */
 }
 
 .metric-card {

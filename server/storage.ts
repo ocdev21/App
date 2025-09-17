@@ -308,6 +308,22 @@ export class MemStorage implements IStorage {
       percentage: Math.round((count / total) * 1000) / 10,
     }));
   }
+
+  async getDashboardMetricsWithChanges(): Promise<DashboardMetrics & { 
+    totalAnomaliesChange: number;
+    sessionsAnalyzedChange: number;
+    detectionRateChange: number;
+    filesProcessedChange: number;
+  }> {
+    const metrics = await this.getDashboardMetrics();
+    return {
+      ...metrics,
+      totalAnomaliesChange: 15.0, // Sample change percentage
+      sessionsAnalyzedChange: 8.3,
+      detectionRateChange: -2.1,
+      filesProcessedChange: 12.5
+    };
+  }
 }
 
 // ClickHouse Storage Implementation
@@ -1023,8 +1039,14 @@ export class ClickHouseStorage implements IStorage {
   }
 }
 
-// Use ClickHouse storage to connect to your real anomaly data
-console.log('🔗 Connecting to ClickHouse storage with your real anomaly data');
-console.log('💡 Reading from l1_anomaly_detection database at 127.0.0.1:8123');
+// Use sample data storage in Replit environment, ClickHouse in production
+if (process.env.REPLIT_DB_URL || process.env.REPL_ID) {
+  console.log('📝 Using sample data for Replit preview (ClickHouse disabled)');
+} else {
+  console.log('🔗 Connecting to ClickHouse storage with your real anomaly data');
+  console.log('💡 Reading from l1_anomaly_detection database at 127.0.0.1:8123');
+}
 
-export const storage = new ClickHouseStorage();
+export const storage = (process.env.REPLIT_DB_URL || process.env.REPL_ID) 
+  ? new MemStorage() 
+  : new ClickHouseStorage();

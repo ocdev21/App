@@ -91,89 +91,128 @@
   }
   
   .nav-item.active {
-    @apply text-white hover:bg-indigo-700 hover:text-white;
     background-color: hsl(var(--primary-blue));
-    color: hsl(var(--primary-blue-foreground));
+    color: white;
+  }
+  
+  .nav-item.active:hover {
+    background-color: rgb(67 56 202); /* indigo-700 */
+    color: white;
   }
   
   .metric-card {
-    @apply bg-white rounded-xl shadow-sm border border-slate-200 p-6;
+    background-color: white;
+    border-radius: 0.75rem; /* rounded-xl */
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); /* shadow-sm */
+    border: 1px solid rgb(226 232 240); /* border-slate-200 */
+    padding: 1.5rem; /* p-6 */
   }
   
   .metric-icon {
-    @apply w-12 h-12 rounded-xl flex items-center justify-center;
+    width: 3rem; /* w-12 */
+    height: 3rem; /* h-12 */
+    border-radius: 0.75rem; /* rounded-xl */
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
   
   .metric-icon.red {
-    @apply bg-red-100 text-red-600;
+    background-color: rgb(254 226 226); /* bg-red-100 */
+    color: rgb(220 38 38); /* text-red-600 */
   }
   
   .metric-icon.blue {
-    @apply bg-blue-100 text-blue-600;
+    background-color: rgb(219 234 254); /* bg-blue-100 */
+    color: rgb(37 99 235); /* text-blue-600 */
   }
   
   .metric-icon.green {
-    @apply bg-green-100 text-green-600;
+    background-color: rgb(220 252 231); /* bg-green-100 */
+    color: rgb(22 163 74); /* text-green-600 */
   }
   
   .metric-icon.purple {
-    @apply bg-purple-100 text-purple-600;
+    background-color: rgb(243 232 255); /* bg-purple-100 */
+    color: rgb(147 51 234); /* text-purple-600 */
   }
   
   .severity-badge {
-    @apply px-2 py-1 text-xs font-medium rounded-full;
+    padding: 0.25rem 0.5rem; /* px-2 py-1 */
+    font-size: 0.75rem; /* text-xs */
+    font-weight: 500; /* font-medium */
+    border-radius: 9999px; /* rounded-full */
   }
   
   .severity-badge.high {
-    @apply bg-red-100 text-red-700;
+    background-color: rgb(254 226 226); /* bg-red-100 */
+    color: rgb(185 28 28); /* text-red-700 */
   }
   
   .severity-badge.medium {
-    @apply bg-orange-100 text-orange-700;
+    background-color: rgb(255 237 213); /* bg-orange-100 */
+    color: rgb(194 65 12); /* text-orange-700 */
   }
   
   .severity-badge.low {
-    @apply bg-yellow-100 text-yellow-700;
+    background-color: rgb(254 249 195); /* bg-yellow-100 */
+    color: rgb(161 98 7); /* text-yellow-700 */
   }
   
   .type-badge {
-    @apply inline-flex items-center px-2 py-1 text-xs font-medium rounded-full;
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.5rem; /* px-2 py-1 */
+    font-size: 0.75rem; /* text-xs */
+    font-weight: 500; /* font-medium */
+    border-radius: 9999px; /* rounded-full */
   }
   
   .type-badge.fronthaul {
-    @apply bg-red-100 text-red-700;
+    background-color: rgb(254 226 226); /* bg-red-100 */
+    color: rgb(185 28 28); /* text-red-700 */
   }
   
   .type-badge.ue_event {
-    @apply bg-orange-100 text-orange-700;
+    background-color: rgb(255 237 213); /* bg-orange-100 */
+    color: rgb(194 65 12); /* text-orange-700 */
   }
   
   .type-badge.mac_address {
-    @apply bg-yellow-100 text-yellow-700;
+    background-color: rgb(254 249 195); /* bg-yellow-100 */
+    color: rgb(161 98 7); /* text-yellow-700 */
   }
   
   .type-badge.protocol {
-    @apply bg-blue-100 text-blue-700;
+    background-color: rgb(219 234 254); /* bg-blue-100 */
+    color: rgb(29 78 216); /* text-blue-700 */
   }
   
   .status-badge {
-    @apply px-2 py-1 text-xs font-medium rounded-full;
+    padding: 0.25rem 0.5rem; /* px-2 py-1 */
+    font-size: 0.75rem; /* text-xs */
+    font-weight: 500; /* font-medium */
+    border-radius: 9999px; /* rounded-full */
   }
   
   .status-badge.completed {
-    @apply bg-green-100 text-green-700;
+    background-color: rgb(220 252 231); /* bg-green-100 */
+    color: rgb(21 128 61); /* text-green-700 */
   }
   
   .status-badge.processing {
-    @apply bg-yellow-100 text-yellow-700;
+    background-color: rgb(254 249 195); /* bg-yellow-100 */
+    color: rgb(161 98 7); /* text-yellow-700 */
   }
   
   .status-badge.pending {
-    @apply bg-gray-100 text-gray-700;
+    background-color: rgb(243 244 246); /* bg-gray-100 */
+    color: rgb(55 65 81); /* text-gray-700 */
   }
   
   .status-badge.failed {
-    @apply bg-red-100 text-red-700;
+    background-color: rgb(254 226 226); /* bg-red-100 */
+    color: rgb(185 28 28); /* text-red-700 */
   }
 }
 

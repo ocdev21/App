@@ -105,8 +105,9 @@ export default function AnomalyTable({ anomalies, isLoading, showFilters = true 
         <div className="grid grid-cols-6 gap-4 px-6 py-4 border-b border-gray-200 bg-gray-50">
           <div className="font-medium text-gray-900">Timestamp</div>
           <div className="font-medium text-gray-900">Type</div>
-          <div className="font-medium text-gray-900 col-span-2">Description</div>
+          <div className="font-medium text-gray-900">Description</div>
           <div className="font-medium text-gray-900">Source</div>
+          <div className="font-medium text-gray-900">Severity</div>
           <div className="font-medium text-gray-900">Actions</div>
         </div>
 
@@ -128,27 +129,40 @@ export default function AnomalyTable({ anomalies, isLoading, showFilters = true 
                     {getTypeLabel(anomaly.type)}
                   </div>
                 </div>
-                <div className="text-sm text-gray-900 col-span-2">
+                <div className="text-sm text-gray-900">
                   {anomaly.description}
                   {anomaly.packet_id && (
                     <div className="text-blue-600 text-xs mt-1">
-                      packet #{anomaly.packet_id}
+                      Packet #{anomaly.packet_id}
                     </div>
                   )}
                 </div>
                 <div className="text-sm text-gray-600">
                   {anomaly.source || anomaly.source_file}
                 </div>
+                <div className="text-sm">
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    anomaly.severity === 'critical' 
+                      ? 'bg-red-100 text-red-800' 
+                      : anomaly.severity === 'high'
+                      ? 'bg-orange-100 text-orange-800'
+                      : anomaly.severity === 'medium'
+                      ? 'bg-yellow-100 text-yellow-800'
+                      : 'bg-green-100 text-green-800'
+                  }`}>
+                    {anomaly.severity?.charAt(0).toUpperCase() + anomaly.severity?.slice(1) || 'Unknown'}
+                  </span>
+                </div>
                 <div className="flex items-center space-x-2">
                   <button
                     onClick={() => handleGetRecommendations(anomaly)}
-                    className="px-3 py-1 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                    className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
                   >
                     Get Recommendations
                   </button>
                   <button
                     onClick={() => handleGetDetails(anomaly)}
-                    className="px-3 py-1 text-xs bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
+                    className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200"
                   >
                     Details
                   </button>

@@ -19,8 +19,13 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    // Optimize for production deployment
+    sourcemap: false, // Disable sourcemaps for production builds
   },
   server: {
+    // Environment-driven host/port for flexible deployment
+    host: process.env.VITE_HOST || "0.0.0.0", // Allow external connections
+    port: Number(process.env.VITE_PORT) || 5173, // Configurable port
     fs: {
       strict: true,
       deny: ["**/.*"],

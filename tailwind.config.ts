@@ -15,7 +15,8 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       colors: {
-        // Keep TailwindCSS default colors and extend with custom ones
+        // Extend (don't override) TailwindCSS default colors
+        'primary-blue': 'hsl(231, 74%, 60%)',
         background: "var(--background)",
         foreground: "var(--foreground)",
         card: {

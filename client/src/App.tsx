@@ -15,7 +15,7 @@ function Router() {
       <Route path="/" component={Dashboard} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/anomalies" component={Anomalies} />
-      <Route component={Dashboard} />
+      <Route><Dashboard /></Route>
     </Switch>
   );
 }

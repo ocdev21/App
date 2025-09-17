@@ -18,17 +18,6 @@ export const anomalies = pgTable("anomalies", {
   recommendation: text("recommendation"),
 });
 
-export const processed_files = pgTable("processed_files", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  filename: text("filename").notNull(),
-  file_type: text("file_type").notNull(), // 'pcap', 'log'
-  file_size: integer("file_size").notNull(),
-  upload_date: timestamp("upload_date").notNull().default(sql`now()`),
-  processing_status: text("processing_status").notNull().default('pending'), // 'pending', 'processing', 'completed', 'failed'
-  anomalies_found: integer("anomalies_found").default(0),
-  processing_time: integer("processing_time"), // in milliseconds
-  error_message: text("error_message"),
-});
 
 export const sessions = pgTable("sessions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -54,10 +43,6 @@ export const insertAnomalySchema = createInsertSchema(anomalies).omit({
   timestamp: true,
 });
 
-export const insertProcessedFileSchema = createInsertSchema(processed_files).omit({
-  id: true,
-  upload_date: true,
-});
 
 export const insertSessionSchema = createInsertSchema(sessions).omit({
   id: true,
@@ -78,8 +63,6 @@ export type Anomaly = typeof anomalies.$inferSelect & {
 };
 export type InsertAnomaly = z.infer<typeof insertAnomalySchema>;
 
-export type ProcessedFile = typeof processed_files.$inferSelect;
-export type InsertProcessedFile = z.infer<typeof insertProcessedFileSchema>;
 
 export type Session = typeof sessions.$inferSelect;
 export type InsertSession = z.infer<typeof insertSessionSchema>;
@@ -92,14 +75,12 @@ export type DashboardMetrics = {
   totalAnomalies: number;
   sessionsAnalyzed: number;
   detectionRate: number;
-  filesProcessed: number;
 };
 
 export type DashboardMetricsWithChanges = DashboardMetrics & {
   totalAnomaliesChange: number;
   sessionsAnalyzedChange: number;
   detectionRateChange: number;
-  filesProcessedChange: number;
 };
 
 export type AnomalyTrend = {

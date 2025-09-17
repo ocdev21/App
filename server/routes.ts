@@ -1,8 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertAnomalySchema, insertProcessedFileSchema, insertSessionSchema } from "@shared/schema";
-import multer from "multer";
+import { insertAnomalySchema, insertSessionSchema } from "@shared/schema";
 import { WebSocketServer } from "ws";
 import { spawn } from "child_process";
 import path from "path";
@@ -10,15 +9,6 @@ import WebSocket from 'ws';
 import { clickhouse } from "./clickhouse.js";
 
 
-const upload = multer({
-  storage: multer.diskStorage({
-    destination: '/tmp',
-    filename: (req, file, cb) => {
-      cb(null, `${Date.now()}-${file.originalname}`);
-    }
-  }),
-  limits: { fileSize: 3 * 1024 * 1024 * 1024 } // 3GB limit
-});
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
@@ -210,108 +200,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Files endpoints
-  app.get("/api/files", async (req, res) => {
-    try {
-      const files = await storage.getProcessedFiles();
-      res.json(files);
-    } catch (error) {
-      console.error('Error fetching files:', error);
-      res.status(500).json({ message: "Failed to fetch files" });
-    }
-  });
 
-  app.post("/api/files/upload", upload.single('file'), async (req, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ message: "No file uploaded" });
-      }
-
-      const { originalname, size, buffer } = req.file;
-      const fileType = originalname.endsWith('.pcap') || originalname.endsWith('.pcapng') ? 'pcap' : 'log';
-
-      // Create file record
-      const file = await storage.createProcessedFile({
-        filename: originalname,
-        file_type: fileType,
-        file_size: size,
-        processing_status: 'pending',
-        anomalies_found: 0,
-      });
-
-      // Start processing asynchronously
-      setImmediate(async () => {
-        try {
-          await storage.updateFileStatus(file.id, 'processing');
-
-          const startTime = Date.now();
-          let anomaliesFound = 0;
-
-          if (fileType === 'pcap') {
-            // Check file size and choose appropriate processor
-            const fileSizeGB = size / (1024 * 1024 * 1024);
-            const processorScript = fileSizeGB > 0.5 ? 
-              'server/services/large_pcap_processor.py' : 
-              'server/services/pcap_processor.py';
-            
-            console.log(`File size: ${fileSizeGB.toFixed(2)}GB, using ${processorScript}`);
-            
-            // Process PCAP file
-            const pythonProcess = spawn('python3', [
-              path.join(process.cwd(), processorScript),
-              '--file-id', file.id,
-              '--filename', originalname,
-              ...(fileSizeGB > 0.5 ? ['--chunk-size', '5000'] : [])
-            ]);
-
-            // File is already saved to disk by multer
-            const tempPath = req.file.path;
-
-            pythonProcess.stdin.write(tempPath);
-            pythonProcess.stdin.end();
-
-            pythonProcess.on('close', async (code) => {
-              const processingTime = Date.now() - startTime;
-              if (code === 0) {
-                await storage.updateFileStatus(file.id, 'completed', anomaliesFound, processingTime);
-              } else {
-                await storage.updateFileStatus(file.id, 'failed', 0, processingTime, 'Processing failed');
-              }
-              // Cleanup temp file
-              fs.unlinkSync(tempPath);
-            });
-          } else {
-            // Process log file
-            const pythonProcess = spawn('python3', [
-              path.join(process.cwd(), 'server/services/ue_analyzer.py'),
-              '--file-id', file.id,
-              '--filename', originalname
-            ]);
-
-            pythonProcess.stdin.write(buffer.toString());
-            pythonProcess.stdin.end();
-
-            pythonProcess.on('close', async (code) => {
-              const processingTime = Date.now() - startTime;
-              if (code === 0) {
-                await storage.updateFileStatus(file.id, 'completed', anomaliesFound, processingTime);
-              } else {
-                await storage.updateFileStatus(file.id, 'failed', 0, processingTime, 'Processing failed');
-              }
-            });
-          }
-        } catch (error: any) {
-          console.error('File processing error:', error);
-          await storage.updateFileStatus(file.id, 'failed', 0, 0, error?.message || 'Unknown error');
-        }
-      });
-
-      res.status(201).json(file);
-    } catch (error) {
-      console.error('Error uploading file:', error);
-      res.status(500).json({ message: "Failed to upload file" });
-    }
-  });
 
   // Sessions endpoints
   app.get("/api/sessions", async (req, res) => {

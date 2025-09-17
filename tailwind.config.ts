@@ -1,6 +1,10 @@
 import type { Config } from "tailwindcss";
 
 export default {
+  // Ensure TailwindCSS base styles and utilities are included
+  corePlugins: {
+    preflight: true, // Enable Tailwind's base styles
+  },
   darkMode: ["class"],
   content: ["./client/index.html", "./client/src/**/*.{js,jsx,ts,tsx}"],
   theme: {
@@ -11,6 +15,7 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       colors: {
+        // Keep TailwindCSS default colors and extend with custom ones
         background: "var(--background)",
         foreground: "var(--foreground)",
         card: {

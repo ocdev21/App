@@ -27,7 +27,7 @@ export default function Sidebar({ setCurrentPage }: SidebarProps) {
       <div className="flex items-center px-6 py-4 border-b border-slate-200">
         <div className="flex items-center space-x-2">
           <div className="w-8 h-8 bg-primary-blue rounded-lg flex items-center justify-center">
-            <Wifi className="text-white h-4 w-4" />
+            <Wifi className="h-4 w-4" style={{ color: 'white' }} />
           </div>
           <span className="text-lg font-bold text-slate-800">L1 Troubleshooting</span>
         </div>

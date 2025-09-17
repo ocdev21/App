@@ -150,8 +150,7 @@ export default function AnomalyTable() {
           </div>
           <Button 
             onClick={() => refetch()} 
-            className="bg-primary-blue text-white hover:bg-indigo-700"
-            style={{ backgroundColor: 'hsl(var(--primary-blue))' }}
+            style={{ backgroundColor: 'hsl(var(--primary-blue))', color: 'white' }}
           >
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
@@ -220,7 +219,8 @@ export default function AnomalyTable() {
                         <Button
                           size="sm"
                           onClick={() => handleGetRecommendations(anomaly)}
-                          className="bg-blue-600 text-white hover:bg-blue-700 text-xs px-3 py-1"
+                          className="text-xs px-3 py-1"
+                          style={{ backgroundColor: '#2563eb', color: 'white' }}
                           data-testid={`button-recommendations-${anomaly.id}`}
                         >
                           Get Recommendations
@@ -255,8 +255,7 @@ export default function AnomalyTable() {
               </Button>
               <Button 
                 size="sm"
-                className="bg-primary-blue text-white"
-                style={{ backgroundColor: 'hsl(var(--primary-blue))' }}
+                style={{ backgroundColor: 'hsl(var(--primary-blue))', color: 'white' }}
               >
                 1
               </Button>

@@ -153,8 +153,7 @@ export default function RecommendationsModal({
             <Button
               onClick={exportRecommendations}
               disabled={!streamingContent}
-              className="bg-primary-blue text-white hover:bg-indigo-700"
-              style={{ backgroundColor: 'hsl(var(--primary-blue))' }}
+              style={{ backgroundColor: 'hsl(var(--primary-blue))', color: 'white' }}
             >
               <Download className="w-4 h-4 mr-2" />
               Export

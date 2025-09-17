@@ -101,76 +101,95 @@ export default function AnomalyTable({ anomalies, isLoading, showFilters = true 
   return (
     <>
       <div className="overflow-x-auto">
-        {/* Table Header */}
-        <div className="grid grid-cols-6 gap-4 px-6 py-4 border-b border-gray-200 bg-gray-50">
-          <div className="font-medium text-gray-900">Timestamp</div>
-          <div className="font-medium text-gray-900">Type</div>
-          <div className="font-medium text-gray-900">Description</div>
-          <div className="font-medium text-gray-900">Source</div>
-          <div className="font-medium text-gray-900">Severity</div>
-          <div className="font-medium text-gray-900">Actions</div>
-        </div>
-
-        {/* Table Body */}
-        <div className="divide-y divide-gray-200">
-          {anomalies.length === 0 ? (
-            <div className="px-6 py-12 text-center text-gray-500 col-span-6">
-              No anomalies found matching your criteria.
-            </div>
-          ) : (
-            anomalies.map((anomaly, index) => (
-              <div key={`${anomaly.timestamp}-${index}`} className="grid grid-cols-6 gap-4 px-6 py-4 hover:bg-gray-50 transition-colors">
-                <div className="text-sm text-gray-900">
-                  {formatTimestamp(anomaly.timestamp)}
-                </div>
-                <div className="flex items-center">
-                  <div className={getBadgeColor(anomaly.type)}>
-                    {getTypeIcon(anomaly.type)}
-                    {getTypeLabel(anomaly.type)}
-                  </div>
-                </div>
-                <div className="text-sm text-gray-900">
-                  {anomaly.description}
-                  {anomaly.packet_number && (
-                    <div className="text-blue-600 text-xs mt-1">
-                      Packet #{anomaly.packet_number}
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Timestamp
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Type
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Description
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Source
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Severity
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {anomalies.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                  No anomalies found matching your criteria.
+                </td>
+              </tr>
+            ) : (
+              anomalies.map((anomaly, index) => (
+                <tr key={`${anomaly.timestamp}-${index}`} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {formatTimestamp(anomaly.timestamp)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className={getBadgeColor(anomaly.type)}>
+                      {getTypeIcon(anomaly.type)}
+                      {getTypeLabel(anomaly.type)}
                     </div>
-                  )}
-                </div>
-                <div className="text-sm text-gray-600">
-                  {anomaly.source_file}
-                </div>
-                <div className="text-sm">
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    anomaly.severity === 'critical' 
-                      ? 'bg-red-100 text-red-800' 
-                      : anomaly.severity === 'high'
-                      ? 'bg-orange-100 text-orange-800'
-                      : anomaly.severity === 'medium'
-                      ? 'bg-yellow-100 text-yellow-800'
-                      : 'bg-green-100 text-green-800'
-                  }`}>
-                    {anomaly.severity?.charAt(0).toUpperCase() + anomaly.severity?.slice(1) || 'Unknown'}
-                  </span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() => handleGetRecommendations(anomaly)}
-                    className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
-                  >
-                    Get Recommendations
-                  </button>
-                  <button
-                    onClick={() => handleGetDetails(anomaly)}
-                    className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200"
-                  >
-                    Details
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-900">
+                    <div>
+                      {anomaly.description}
+                      {anomaly.packet_number && (
+                        <div className="text-blue-600 text-xs mt-1">
+                          Packet #{anomaly.packet_number}
+                        </div>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                    {anomaly.source_file}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      anomaly.severity === 'critical' 
+                        ? 'bg-red-100 text-red-800' 
+                        : anomaly.severity === 'high'
+                        ? 'bg-orange-100 text-orange-800'
+                        : anomaly.severity === 'medium'
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : 'bg-green-100 text-green-800'
+                    }`}>
+                      {anomaly.severity?.charAt(0).toUpperCase() + anomaly.severity?.slice(1) || 'Unknown'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => handleGetRecommendations(anomaly)}
+                        className="inline-flex items-center px-3 py-2 text-xs font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
+                      >
+                        Get Recommendations
+                      </button>
+                      <button
+                        onClick={() => handleGetDetails(anomaly)}
+                        className="inline-flex items-center px-3 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200"
+                      >
+                        Details
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
 
       {/* Modals */}

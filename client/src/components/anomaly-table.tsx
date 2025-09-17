@@ -131,14 +131,14 @@ export default function AnomalyTable({ anomalies, isLoading, showFilters = true 
                 </div>
                 <div className="text-sm text-gray-900">
                   {anomaly.description}
-                  {anomaly.packet_id && (
+                  {anomaly.packet_number && (
                     <div className="text-blue-600 text-xs mt-1">
-                      Packet #{anomaly.packet_id}
+                      Packet #{anomaly.packet_number}
                     </div>
                   )}
                 </div>
                 <div className="text-sm text-gray-600">
-                  {anomaly.source || anomaly.source_file}
+                  {anomaly.source_file}
                 </div>
                 <div className="text-sm">
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${

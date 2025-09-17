@@ -1,4 +1,4 @@
-import AnomalyTable from "@/components/anomaly-table";
+import AnomalyTable from "../components/anomaly-table";
 
 export default function Anomalies() {
   return (

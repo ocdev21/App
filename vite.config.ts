@@ -26,6 +26,12 @@ export default defineConfig({
     // Environment-driven host/port for flexible deployment
     host: process.env.VITE_HOST || "0.0.0.0", // Allow external connections
     port: Number(process.env.VITE_PORT) || 5173, // Configurable port
+    proxy: {
+      "/api": {
+        target: "http://localhost:5000",
+        changeOrigin: true,
+      },
+    },
     fs: {
       strict: true,
       deny: ["**/.*"],

@@ -1,12 +1,12 @@
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import Dashboard from "@/pages/dashboard";
-import Anomalies from "@/pages/anomalies";
-import Sidebar from "@/components/sidebar";
-import Header from "@/components/header";
+// import { Toaster } from "@/components/ui/toaster";
+// import { TooltipProvider } from "@/components/ui/tooltip";
+import Dashboard from "./pages/dashboard";
+import Anomalies from "./pages/anomalies";
+import Sidebar from "./components/sidebar";
+import Header from "./components/header";
 import { useState } from "react";
 
 function Router() {
@@ -25,7 +25,7 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
+      <div>
         <div className="min-h-screen bg-slate-50">
           <Sidebar setCurrentPage={setCurrentPage} />
           <div className="main-content-ml">
@@ -33,8 +33,8 @@ function App() {
             <Router />
           </div>
         </div>
-        <Toaster />
-      </TooltipProvider>
+        {/* <Toaster /> */}
+      </div>
     </QueryClientProvider>
   );
 }

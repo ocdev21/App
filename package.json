@@ -5,6 +5,9 @@
   "license": "MIT",
   "scripts": {
     "dev": "NODE_ENV=development tsx server/index.ts",
+    "dev:frontend": "cd client && vite --host 0.0.0.0 --port 5173",
+    "dev:backend": "NODE_ENV=development VITE_DEV_SERVER=true tsx server/index.ts",
+    "dev:both": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "build:server": "tsc -p tsconfig.build.json",
     "build": "tsc -p tsconfig.build.json && vite build",
     "start": "NODE_ENV=production node dist/server/index.js"
@@ -47,6 +50,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
+    "concurrently": "^9.2.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "drizzle-orm": "^0.44.5",

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import MetricCard from "@/components/metric-card";
+import MetricCard from "../components/metric-card";
 import { AlertTriangle, BarChart3, Shield, FileText } from "lucide-react";
 import type { DashboardMetrics, DashboardMetricsWithChanges, AnomalyTrend, AnomalyTypeBreakdown } from "@shared/schema";
 

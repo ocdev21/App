@@ -50,11 +50,13 @@ app.use((req, res, next) => {
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
+  // Skip Vite middleware if VITE_DEV_SERVER environment variable is set (dual server mode)
+  if (app.get("env") === "development" && !process.env.VITE_DEV_SERVER) {
     await setupVite(app, server);
-  } else {
+  } else if (app.get("env") === "production") {
     serveStatic(app);
   }
+  // In dual server mode, only serve API routes, no static content
 
   // ALWAYS serve the app on the port specified in the environment variable PORT
   // Other ports are firewalled. Default to 5000 if not specified.

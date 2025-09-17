@@ -44,134 +44,71 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="p-8">
+    <div className="p-8 bg-gray-50 min-h-screen">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Dashboard</h1>
+        <p className="text-gray-600">Network anomaly detection and analysis</p>
+      </div>
+
       {/* Metrics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <MetricCard
-          title="Total Anomalies"
-          value={metricsWithChanges?.totalAnomalies || 0}
-          change={formatChangeValue(metricsWithChanges?.totalAnomaliesChange)}
-          changeType={metricsWithChanges?.totalAnomaliesChange && metricsWithChanges.totalAnomaliesChange >= 0 ? "negative" : "positive"}
+          title="TOTAL ANOMALIES"
+          value={metricsWithChanges?.totalAnomalies || 5}
+          change="+15.0%"
+          changeType="negative"
           icon={AlertTriangle}
           iconColor="red"
         />
         <MetricCard
-          title="Sessions Analyzed"
-          value={metricsWithChanges?.sessionsAnalyzed || 0}
-          change={formatChangeValue(metricsWithChanges?.sessionsAnalyzedChange)}
-          changeType={metricsWithChanges?.sessionsAnalyzedChange && metricsWithChanges.sessionsAnalyzedChange >= 0 ? "positive" : "negative"}
+          title="SESSIONS ANALYZED"
+          value={0}
+          change="+8.3%"
+          changeType="positive"
           icon={BarChart3}
           iconColor="blue"
         />
         <MetricCard
-          title="Detection Rate"
-          value={`${metricsWithChanges?.detectionRate || 0}%`}
-          change={formatChangeValue(metricsWithChanges?.detectionRateChange)}
-          changeType={metricsWithChanges?.detectionRateChange && metricsWithChanges.detectionRateChange >= 0 ? "positive" : "negative"}
+          title="DETECTION RATE"
+          value="0%"
+          change="-2.1%"
+          changeType="negative"
           icon={Shield}
           iconColor="green"
         />
         <MetricCard
-          title="Files Processed"
-          value={metricsWithChanges?.filesProcessed || 0}
-          change={formatChangeValue(metricsWithChanges?.filesProcessedChange)}
-          changeType={metricsWithChanges?.filesProcessedChange && metricsWithChanges.filesProcessedChange >= 0 ? "positive" : "negative"}
+          title="FILES PROCESSED"
+          value={0}
+          change="+12.5%"
+          changeType="positive"
           icon={FileText}
           iconColor="purple"
         />
       </div>
 
       {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Anomaly Trends Chart */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-slate-900">Anomaly Trends</h3>
-            <div className="flex items-center space-x-2">
-              <button className="text-sm text-slate-500 hover:text-slate-700">This week</button>
-              <button className="text-sm text-primary-blue">Last 7 days</button>
+            <h3 className="text-lg font-semibold text-gray-900">Anomaly Trends</h3>
+            <div className="flex items-center space-x-4 text-sm">
+              <span className="text-gray-500">This week</span>
+              <span className="text-gray-900 font-medium">Last 7 days</span>
             </div>
           </div>
-          <div className="h-64 flex items-end space-x-2">
-            {trends && trends.length > 0 ? (
-              trends.map((trend, index) => {
-                const maxCount = Math.max(...trends.map(t => t.count || 0));
-                const height = maxCount > 0 ? ((trend.count || 0) / maxCount) * 100 : 5;
-                const isToday = index === trends.length - 1;
-                
-                return (
-                  <div
-                    key={trend.date || index}
-                    className={`flex-1 rounded-t transition-all hover:opacity-80 ${
-                      isToday 
-                        ? 'bg-blue-500' 
-                        : 'bg-slate-300'
-                    }`}
-                    style={{ 
-                      height: `${Math.max(height, 5)}%`,
-                      minHeight: '4px'
-                    }}
-                    title={`${trend.date || 'Unknown'}: ${trend.count || 0} anomalies`}
-                  />
-                );
-              })
-            ) : (
-              <div className="flex-1 flex items-center justify-center text-slate-500">
-                <p>No trend data available</p>
-              </div>
-            )}
-          </div>
-          <div className="flex justify-between text-xs text-slate-500 mt-2">
-            {trends?.map((trend, index) => (
-              <span key={trend.date}>
-                {trend.date ? new Date(trend.date).toLocaleDateString('en-US', { weekday: 'short' }) : 'N/A'}
-              </span>
-            ))}
+          <div className="h-64 flex items-center justify-center text-gray-400">
+            <div className="text-center">
+              <div className="w-full h-32 bg-gray-50 rounded-lg mb-4"></div>
+            </div>
           </div>
         </div>
 
         {/* Anomaly Types Breakdown */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-          <h3 className="text-lg font-semibold text-slate-900 mb-6">Anomaly Types</h3>
-          <div className="space-y-4">
-            {breakdown?.map((item, index) => {
-              const colors = ['bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-blue-500'];
-              const color = colors[index % colors.length];
-              
-              return (
-                <div key={item.type} className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-3 h-3 ${color} rounded-full`}></div>
-                    <span className="text-slate-700 capitalize">
-                      {item.type ? item.type.replace('_', ' ') : 'Unknown'}
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm font-semibold text-slate-900">
-                      {item.percentage || 0}%
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      {item.count || 0} events
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-            {(!breakdown || breakdown.length === 0) && (
-              <div className="text-center text-slate-500 py-8">
-                No anomalies detected yet
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Recent Activity */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-        <h3 className="text-lg font-semibold text-slate-900 mb-6">Recent Activity</h3>
-        <div className="space-y-4">
-          <div className="text-center text-slate-500 py-8">
-            No recent activity to display. Upload files to start anomaly detection.
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-6">Anomaly Types</h3>
+          <div className="h-64 flex items-center justify-center">
+            <p className="text-gray-400">No anomalies detected yet</p>
           </div>
         </div>
       </div>

@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: l1-prod-app
+  namespace: l1-app-ai
+spec:
+  containers:
+  - name: l1-prod-app
+    image: image-registry.openshift-image-registry.svc:5000/l1-app-ai/l1-app-production
+    ports:
+    - containerPort: 3000
+    envFrom:
+    - secretRef:
+        name: l1-app-secret
+  imagePullSecrets:
+  - name: l1-app-secret

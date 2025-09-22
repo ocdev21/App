@@ -1,4 +1,4 @@
-
+m
 FROM nikolaik/python-nodejs:latest
 
 # Set working directory to root

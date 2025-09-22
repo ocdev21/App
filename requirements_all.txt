@@ -1,0 +1,106 @@
+# Complete AI and ML Dependencies for L1 Network Troubleshooting System
+# All Python packages required for AI-powered anomaly detection and analysis
+
+# ===== CORE AI/ML PACKAGES =====
+# Scientific Computing Foundation
+numpy>=1.24.0
+pandas>=2.0.0
+scipy>=1.10.0
+
+# Machine Learning Framework
+scikit-learn>=1.3.0
+joblib>=1.3.0
+
+# Data Visualization
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# Explainable AI
+shap>=0.42.0
+
+# ===== DEEP LEARNING PACKAGES =====
+# PyTorch Framework (used in TSLAM service)
+torch>=2.0.0
+torchvision>=0.15.0
+torchaudio>=2.0.0
+
+# Transformers and LLM Support
+transformers>=4.30.0
+accelerate>=0.20.0
+bitsandbytes>=0.40.0
+
+# LLM Utilities
+sentencepiece>=0.1.99
+protobuf>=4.23.0
+
+# ===== NETWORK ANALYSIS =====
+# Packet Analysis (L1 troubleshooting)
+scapy>=2.5.0
+scapy-python3>=0.26
+
+# ===== DATABASE CONNECTIVITY =====
+# Analytics Database
+clickhouse-connect>=0.6.0
+sqlalchemy>=2.0.0
+
+# ===== WEB FRAMEWORK AND API =====
+# High-performance API framework
+fastapi>=0.100.0
+uvicorn>=0.23.0
+websockets>=11.0.0
+requests>=2.31.0
+aiofiles>=23.0.0
+python-multipart>=0.0.6
+
+# ===== FILE PROCESSING =====
+# Large dataset handling
+h5py>=3.9.0
+tables>=3.8.0
+openpyxl>=3.1.0
+
+# ===== ASYNC AND UTILITIES =====
+# Configuration and environment
+python-dotenv>=1.0.0
+pydantic>=2.0.0
+typer>=0.9.0
+
+# Progress and display
+tqdm>=4.65.0
+rich>=13.4.0
+colorama>=0.4.6
+
+# Async communication
+asyncio-mqtt>=0.13.0
+
+# ===== DEVELOPMENT AND TESTING =====
+# Testing framework
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+
+# Code formatting and linting
+black>=23.0.0
+flake8>=6.0.0
+
+# ===== ADDITIONAL AI OPTIMIZATIONS =====
+# Memory and performance optimization
+psutil>=5.9.0
+memory-profiler>=0.60.0
+
+# Additional ML utilities
+imbalanced-learn>=0.10.0
+optuna>=3.2.0
+
+# Time series analysis (for network metrics)
+statsmodels>=0.14.0
+
+# Advanced visualization for AI insights
+plotly>=5.15.0
+
+# Text processing for AI responses
+nltk>=3.8.0
+
+# Model serialization and deployment
+cloudpickle>=2.2.0
+
+# Configuration management
+omegaconf>=2.3.0

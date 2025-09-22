@@ -83,6 +83,9 @@ RUN npm ci
 # Copy the entire project
 COPY . .
 
+# Fix vite config for production build
+RUN sed -i 's/allowedHosts: "all"/allowedHosts: true/g' vite.config.ts
+
 # Build the frontend
 RUN npm run build
 

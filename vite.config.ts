@@ -26,7 +26,7 @@ export default defineConfig({
     // Environment-driven host/port for flexible deployment
     host: process.env.VITE_HOST || "0.0.0.0", // Allow external connections
     port: Number(process.env.VITE_PORT) || 5173, // Configurable port
-    allowedHosts: "all", // Allow all hosts for Replit environment
+    allowedHosts: true, // Allow all hosts for Replit/OpenShift environment
     proxy: {
       "/api": {
         target: "http://127.0.0.1:5000", // Backend server port

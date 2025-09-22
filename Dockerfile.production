@@ -77,14 +77,17 @@ RUN pip install --no-cache-dir -r requirements_mistral.txt || true
 # Copy package files for Node.js dependencies
 COPY package*.json ./
 
-# Install Node.js dependencies
-RUN npm ci --only=production
+# Install Node.js dependencies (including dev dependencies for build)
+RUN npm ci
 
 # Copy the entire project
 COPY . .
 
 # Build the frontend
-RUN npm run build || echo "Build completed"
+RUN npm run build
+
+# Clean up dev dependencies after build to reduce image size
+RUN npm prune --production
 
 # Set environment variables for production
 ENV NODE_ENV=production

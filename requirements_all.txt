@@ -19,17 +19,10 @@ seaborn>=0.12.0
 shap>=0.42.0
 
 # ===== DEEP LEARNING PACKAGES =====
-# PyTorch Framework (used in TSLAM service)
-torch>=2.0.0
-torchvision>=0.15.0
-torchaudio>=2.0.0
+# Note: PyTorch and transformers removed for lighter deployment
+# Core AI functionality provided by scikit-learn
 
-# Transformers and LLM Support
-transformers>=4.30.0
-accelerate>=0.20.0
-bitsandbytes>=0.40.0
-
-# LLM Utilities
+# LLM Utilities (keeping minimal text processing)
 sentencepiece>=0.1.99
 protobuf>=4.23.0
 

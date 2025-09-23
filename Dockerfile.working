@@ -1,11 +1,11 @@
-# Plugin-Free Dockerfile for L1 Network Troubleshooting System
-# Eliminates @vitejs/plugin-react dependency issues
+# WORKING Dockerfile for L1 Network Troubleshooting System
+# Fixed Python version compatibility issue
 
 FROM node:20-bullseye
 
 WORKDIR /app
 
-# Install system dependencies for AI/ML and Python
+# Install system dependencies - using default Python 3.9 (available in Bullseye)
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-dev \
@@ -17,21 +17,21 @@ RUN apt-get update && apt-get install -y \
     liblapack-dev \
     libatlas-base-dev \
     libhdf5-dev \
-    libfreetype6-dev \
-    libpng-dev \
-    libjpeg-dev \
     curl \
     wget \
     && rm -rf /var/lib/apt/lists/*
 
-# Create python symlink and upgrade pip (using available Python 3.9)
+# Create python symlink and upgrade pip
 RUN ln -sf /usr/bin/python3 /usr/bin/python \
     && python -m pip install --upgrade pip setuptools wheel
 
-# Copy project files (all at once for better context)
+# Verify Python version
+RUN python --version && pip --version
+
+# Copy project files
 COPY . .
 
-# Install Node.js dependencies (no plugin needed!)
+# Install Node.js dependencies (no plugin issues!)
 RUN npm install --production=false
 
 # Install Python AI/ML dependencies
@@ -39,42 +39,37 @@ RUN pip install --no-cache-dir -r requirements_all.txt || true
 RUN pip install --no-cache-dir -r requirements.txt || true
 RUN pip install --no-cache-dir -r requirements_mistral.txt || true
 
-# Build frontend using esbuild (no plugin required)
+# Build frontend using esbuild (no @vitejs/plugin-react needed)
 RUN npm run build
 
-# Clean up dev dependencies after build
+# Clean up dev dependencies
 RUN npm prune --production
 
-# Set environment variables for production
+# Set environment variables
 ENV NODE_ENV=production
 ENV PORT=5000
 ENV PYTHONPATH=/app
-ENV NODE_PATH=/app/node_modules
 
-# AI and ML optimizations
+# AI optimizations
 ENV TRANSFORMERS_CACHE=/app/.cache/transformers
 ENV HF_HOME=/app/.cache/huggingface
-ENV TORCH_HOME=/app/.cache/torch
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
-ENV OMP_NUM_THREADS=4
-ENV MKL_NUM_THREADS=4
 
-# Create cache directories and set permissions
-RUN mkdir -p /app/.cache/transformers /app/.cache/huggingface /app/.cache/torch \
-    && chmod -R 755 /app/.cache
+# Create cache directories
+RUN mkdir -p /app/.cache/transformers /app/.cache/huggingface
 
 # Create non-root user for security
 RUN useradd -m -s /bin/bash appuser \
     && chown -R appuser:appuser /app
 USER appuser
 
-# Expose the application port
+# Expose port
 EXPOSE 5000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=30s --start-period=120s --retries=3 \
     CMD curl -f http://localhost:5000/ || exit 1
 
-# Start the application
+# Start command
 CMD ["npm", "run", "dev"]

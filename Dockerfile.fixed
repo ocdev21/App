@@ -1,0 +1,91 @@
+# DEFINITIVE FIX for '@vitejs/plugin-react' error
+# L1 Network Troubleshooting System - Docker Production Build
+
+FROM node:20-bullseye
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies for AI/ML and Python
+RUN apt-get update && apt-get install -y \
+    python3.11 \
+    python3.11-dev \
+    python3-pip \
+    python3.11-venv \
+    build-essential \
+    libpcap-dev \
+    libopenblas-dev \
+    liblapack-dev \
+    libatlas-base-dev \
+    libhdf5-dev \
+    curl \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create python symlink
+RUN ln -sf /usr/bin/python3.11 /usr/bin/python
+RUN python -m pip install --upgrade pip setuptools wheel
+
+# Install Node.js 20 (already available in base image)
+RUN node --version && npm --version
+
+# === CRITICAL FIX: Copy package.json AND node_modules structure ===
+# Copy package files first
+COPY package*.json ./
+
+# Clean npm cache and install fresh
+RUN npm cache clean --force
+RUN npm install --verbose
+
+# Verify Vite plugin installation
+RUN echo "=== Checking Vite plugin installation ==="
+RUN ls -la node_modules/@vitejs/ || echo "No @vitejs directory found"
+RUN npm list @vitejs/plugin-react || echo "Plugin not found in npm list"
+
+# === COPY ALL PROJECT FILES ===
+COPY . .
+
+# === ENSURE PLUGIN EXISTS AFTER COPY ===
+RUN echo "=== After copying project files ==="
+RUN ls -la node_modules/@vitejs/plugin-react/ || echo "Plugin directory missing"
+
+# Force reinstall the specific plugin if missing
+RUN npm install @vitejs/plugin-react@^4.3.4 --save-dev --force
+
+# Verify installation one more time
+RUN echo "=== Final verification ==="
+RUN ls -la node_modules/@vitejs/plugin-react/
+RUN cat node_modules/@vitejs/plugin-react/package.json | head -10
+
+# Install Python dependencies
+COPY requirements_all.txt requirements.txt requirements_mistral.txt ./
+RUN pip install --no-cache-dir -r requirements_all.txt || true
+RUN pip install --no-cache-dir -r requirements.txt || true
+RUN pip install --no-cache-dir -r requirements_mistral.txt || true
+
+# Fix vite config
+RUN sed -i 's/allowedHosts: "all"/allowedHosts: true/g' vite.config.ts || true
+
+# Build the application
+RUN echo "=== Starting build process ==="
+RUN npm run build
+
+# Set environment variables
+ENV NODE_ENV=production
+ENV PORT=5000
+ENV PYTHONPATH=/app
+ENV TRANSFORMERS_CACHE=/app/.cache/transformers
+ENV HF_HOME=/app/.cache/huggingface
+
+# Create cache directories
+RUN mkdir -p /app/.cache/transformers /app/.cache/huggingface
+
+# Expose port
+EXPOSE 5000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --start-period=120s --retries=3 \
+    CMD curl -f http://localhost:5000/ || exit 1
+
+# Start command
+CMD ["npm", "run", "dev"]

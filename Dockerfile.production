@@ -78,13 +78,23 @@ RUN pip install --no-cache-dir -r requirements_mistral.txt || true
 COPY package*.json ./
 
 # Install Node.js dependencies (including dev dependencies for build)
-RUN npm ci
+RUN npm ci --verbose
+
+# Verify critical dependencies are installed
+RUN ls -la node_modules/@vitejs/ || echo "Vite dependencies not found"
+RUN npm list @vitejs/plugin-react || echo "Plugin not in npm list"
 
 # Copy the entire project
 COPY . .
 
 # Fix vite config for production build
-RUN sed -i 's/allowedHosts: "all"/allowedHosts: true/g' vite.config.ts
+RUN sed -i 's/allowedHosts: "all"/allowedHosts: true/g' vite.config.ts || true
+
+# Verify node_modules after project copy
+RUN ls -la node_modules/@vitejs/plugin-react || echo "Plugin missing after copy"
+
+# Install dependencies again if needed (safety check)
+RUN npm install @vitejs/plugin-react --save-dev || true
 
 # Build the frontend
 RUN npm run build

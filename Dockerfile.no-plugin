@@ -1,11 +1,12 @@
-# Plugin-Free Dockerfile for L1 Network Troubleshooting System
+# Lightweight Dockerfile for L1 Network Troubleshooting System  
+# No PyTorch/transformers - uses scikit-learn and rule-based AI
 # Eliminates @vitejs/plugin-react dependency issues
 
 FROM node:20-bullseye
 
 WORKDIR /app
 
-# Install system dependencies for AI/ML and Python
+# Install system dependencies for lightweight ML and Python
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-dev \
@@ -51,17 +52,14 @@ ENV PORT=5000
 ENV PYTHONPATH=/app
 ENV NODE_PATH=/app/node_modules
 
-# AI and ML optimizations
-ENV TRANSFORMERS_CACHE=/app/.cache/transformers
-ENV HF_HOME=/app/.cache/huggingface
-ENV TORCH_HOME=/app/.cache/torch
+# Python optimizations (PyTorch/transformers removed for lighter deployment)
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV OMP_NUM_THREADS=4
 ENV MKL_NUM_THREADS=4
 
-# Create cache directories and set permissions
-RUN mkdir -p /app/.cache/transformers /app/.cache/huggingface /app/.cache/torch \
+# Create minimal cache directory for Python packages
+RUN mkdir -p /app/.cache \
     && chmod -R 755 /app/.cache
 
 # Create non-root user for security

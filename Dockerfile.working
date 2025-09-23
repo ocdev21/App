@@ -1,4 +1,5 @@
 # WORKING Dockerfile for L1 Network Troubleshooting System
+# Lightweight deployment - no PyTorch/transformers, uses rule-based AI
 # Fixed Python version compatibility issue
 
 FROM node:20-bullseye
@@ -50,14 +51,12 @@ ENV NODE_ENV=production
 ENV PORT=5000
 ENV PYTHONPATH=/app
 
-# AI optimizations
-ENV TRANSFORMERS_CACHE=/app/.cache/transformers
-ENV HF_HOME=/app/.cache/huggingface
+# Python optimizations (PyTorch/transformers removed for lighter deployment)
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
-# Create cache directories
-RUN mkdir -p /app/.cache/transformers /app/.cache/huggingface
+# Create minimal cache directory
+RUN mkdir -p /app/.cache
 
 # Create non-root user for security
 RUN useradd -m -s /bin/bash appuser \

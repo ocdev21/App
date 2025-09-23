@@ -1,13 +1,12 @@
 import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
 import path from "path";
 
 export default defineConfig({
-  plugins: [
-    react(),
-    // TypeScript checker removed to prevent build failures in production
-    // TypeScript errors will still be caught by IDEs and tsc command
-  ],
+  // Direct JSX handling without plugin - eliminates Docker build issues
+  esbuild: {
+    jsx: 'automatic',
+    jsxImportSource: 'react'
+  },
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "client", "src"),

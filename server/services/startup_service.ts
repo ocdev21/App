@@ -1,6 +1,9 @@
 import { log } from '../vite';
 
 interface ClickHouseConnection {
+  baseUrl: string;
+  auth: string;
+  database: string;
   command: (query: string) => Promise<any>;
   query: (query: string) => Promise<any>;
 }
@@ -69,7 +72,7 @@ export class StartupService {
       } as any;
 
       // Test connection
-      await this.clickhouseClient.command('SELECT 1');
+      await this.clickhouseClient!.command('SELECT 1');
       
       log('✅ ClickHouse connection established');
       log(`📊 Connected to: ${clickhouseHost}:${clickhousePort}`);

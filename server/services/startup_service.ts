@@ -1,15 +1,7 @@
 import { log } from '../vite';
-
-interface ClickHouseConnection {
-  baseUrl: string;
-  auth: string;
-  database: string;
-  command: (query: string) => Promise<any>;
-  query: (query: string) => Promise<any>;
-}
+import { clickhouse } from '../clickhouse';
 
 export class StartupService {
-  private clickhouseClient: ClickHouseConnection | null = null;
 
   async initializeServices(): Promise<void> {
     log('🚀 Initializing L1 Network Troubleshooting System...');
@@ -24,59 +16,12 @@ export class StartupService {
     log('🔗 Connecting to ClickHouse database...');
 
     try {
-      // Connect to ClickHouse using HTTP API (Node.js compatible)
-      const clickhouseHost = process.env.CLICKHOUSE_HOST || 'chi-clickhouse-single-clickhouse-0-0-0.l1-app-ai.svc.cluster.local';
-      const clickhousePort = parseInt(process.env.CLICKHOUSE_PORT || '8123');
-      const clickhouseUser = process.env.CLICKHOUSE_USERNAME || 'default';
-      const clickhousePassword = process.env.CLICKHOUSE_PASSWORD || 'defaultpass';
-      const clickhouseDatabase = process.env.CLICKHOUSE_DATABASE || 'l1_anomaly_detection';
-
-      // Create HTTP client for ClickHouse
-      this.clickhouseClient = {
-        baseUrl: `http://${clickhouseHost}:${clickhousePort}`,
-        auth: Buffer.from(`${clickhouseUser}:${clickhousePassword}`).toString('base64'),
-        database: clickhouseDatabase,
-        command: async (query: string) => {
-          const response = await fetch(`${this.clickhouseClient!.baseUrl}/?database=${this.clickhouseClient!.database}`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Basic ${this.clickhouseClient!.auth}`,
-              'Content-Type': 'text/plain'
-            },
-            body: query
-          });
-          
-          if (!response.ok) {
-            throw new Error(`ClickHouse HTTP ${response.status}: ${response.statusText}`);
-          }
-          
-          return await response.text();
-        },
-        query: async (query: string) => {
-          const response = await fetch(`${this.clickhouseClient!.baseUrl}/?database=${this.clickhouseClient!.database}&default_format=JSONCompact`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Basic ${this.clickhouseClient!.auth}`,
-              'Content-Type': 'text/plain'
-            },
-            body: query
-          });
-          
-          if (!response.ok) {
-            throw new Error(`ClickHouse HTTP ${response.status}: ${response.statusText}`);
-          }
-          
-          const result = await response.json();
-          return { result_rows: result.data || [] };
-        }
-      } as any;
-
-      // Test connection
-      await this.clickhouseClient!.command('SELECT 1');
+      // Test connection using shared ClickHouse client
+      await clickhouse.testConnection();
       
       log('✅ ClickHouse connection established');
-      log(`📊 Connected to: ${clickhouseHost}:${clickhousePort}`);
-      log(`💾 Database: ${clickhouseDatabase}`);
+      log('📊 Connected to: chi-clickhouse-single-clickhouse-0-0-0.l1-app-ai.svc.cluster.local:9000');
+      log('💾 Database: l1_anomaly_detection');
 
       // Display database information
       await this.displayDatabaseInfo();
@@ -84,21 +29,20 @@ export class StartupService {
     } catch (error) {
       log(`❌ ClickHouse connection failed: ${error}`);
       log('📋 Application will continue without database features');
-      this.clickhouseClient = null;
     }
   }
 
   private async displayDatabaseInfo(): Promise<void> {
-    if (!this.clickhouseClient) {
+    if (!clickhouse.isAvailable()) {
       return;
     }
 
     try {
       // Get database information
       const databaseQuery = "SELECT name FROM system.databases WHERE name = 'l1_anomaly_detection'";
-      const databaseResult = await this.clickhouseClient.query(databaseQuery);
+      const databaseResult = await clickhouse.query(databaseQuery);
       
-      if (databaseResult.result_rows && databaseResult.result_rows.length > 0) {
+      if (databaseResult && databaseResult.length > 0) {
         log('🗄️  Database: l1_anomaly_detection [EXISTS]');
         
         // Get table information
@@ -108,15 +52,15 @@ export class StartupService {
           WHERE database = 'l1_anomaly_detection' 
           ORDER BY name
         `;
-        const tablesResult = await this.clickhouseClient.query(tablesQuery);
+        const tablesResult = await clickhouse.query(tablesQuery);
         
-        if (tablesResult.result_rows && tablesResult.result_rows.length > 0) {
-          log(`📋 Found ${tablesResult.result_rows.length} tables:`);
+        if (tablesResult && tablesResult.length > 0) {
+          log(`📋 Found ${tablesResult.length} tables:`);
           
           let totalRows = 0;
           let totalBytes = 0;
           
-          tablesResult.result_rows.forEach((row: any[]) => {
+          tablesResult.forEach((row: any[]) => {
             const [name, engine, rows, bytes] = row;
             totalRows += rows || 0;
             totalBytes += bytes || 0;
@@ -145,7 +89,7 @@ export class StartupService {
   }
 
   private async displayRecentActivity(): Promise<void> {
-    if (!this.clickhouseClient) {
+    if (!clickhouse.isAvailable()) {
       return;
     }
 
@@ -160,11 +104,11 @@ export class StartupService {
         LIMIT 7
       `;
       
-      const recentResult = await this.clickhouseClient.query(recentAnomaliesQuery);
+      const recentResult = await clickhouse.query(recentAnomaliesQuery);
       
-      if (recentResult.result_rows && recentResult.result_rows.length > 0) {
+      if (recentResult && recentResult.length > 0) {
         log('📈 Recent anomaly activity (last 7 days):');
-        recentResult.result_rows.forEach((row: any[]) => {
+        recentResult.forEach((row: any[]) => {
           const [count, date] = row;
           log(`   • ${date}: ${count} anomalies detected`);
         });
@@ -177,9 +121,9 @@ export class StartupService {
         WHERE status = 'active'
       `;
       
-      const sessionsResult = await this.clickhouseClient.query(activeSessionsQuery);
-      if (sessionsResult.result_rows && sessionsResult.result_rows.length > 0) {
-        const activeCount = sessionsResult.result_rows[0][0];
+      const sessionsResult = await clickhouse.query(activeSessionsQuery);
+      if (sessionsResult && sessionsResult.length > 0) {
+        const activeCount = sessionsResult[0][0];
         if (activeCount > 0) {
           log(`🔄 Active analysis sessions: ${activeCount}`);
         }
@@ -199,11 +143,11 @@ export class StartupService {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
 
-  public getClickHouseClient(): ClickHouseConnection | null {
-    return this.clickhouseClient;
+  public getClickHouseClient() {
+    return clickhouse.getClient();
   }
 
   public isClickHouseAvailable(): boolean {
-    return this.clickhouseClient !== null;
+    return clickhouse.isAvailable();
   }
 }

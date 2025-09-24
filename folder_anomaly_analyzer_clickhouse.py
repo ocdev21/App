@@ -19,7 +19,7 @@ from ml_anomaly_detection import MLAnomalyDetector
 from ue_event_analyzer import UEEventAnalyzer
 
 class ClickHouseFolderAnalyzer:
-    def __init__(self, clickhouse_host='localhost', clickhouse_port=8123):
+    def __init__(self, clickhouse_host='localhost', clickhouse_port=9000):
         """Initialize folder analyzer with ClickHouse database connection"""
 
         # Equipment MAC addresses
@@ -40,7 +40,7 @@ class ClickHouseFolderAnalyzer:
         try:
             self.client = clickhouse_connect.get_client(
                 host=os.getenv('CLICKHOUSE_HOST', 'chi-clickhouse-single-clickhouse-0-0-0.l1-app-ai.svc.cluster.local'),
-                port=int(os.getenv('CLICKHOUSE_PORT', '8123')),
+                port=int(os.getenv('CLICKHOUSE_PORT', '9000')),
                 username=os.getenv('CLICKHOUSE_USERNAME', 'default'),
                 password=os.getenv('CLICKHOUSE_PASSWORD', 'defaultpass'),
                 database=os.getenv('CLICKHOUSE_DATABASE', 'l1_anomaly_detection')

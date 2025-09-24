@@ -5,15 +5,19 @@ class ClickHouseDB {
   private isConnected: boolean = false;
 
   constructor() {
-    // ClickHouse client configuration for pod service
+    // ClickHouse client configuration for pod service (using URL format for native protocol)
+    const clickhouseHost = process.env.CLICKHOUSE_HOST || 'chi-clickhouse-single-clickhouse-0-0-0.l1-app-ai.svc.cluster.local';
+    const clickhousePort = process.env.CLICKHOUSE_PORT || '9000';
+    const clickhouseUser = process.env.CLICKHOUSE_USER || 'default';
+    const clickhousePassword = process.env.CLICKHOUSE_PASSWORD || 'defaultpass';
+    const clickhouseDatabase = process.env.CLICKHOUSE_DATABASE || 'l1_anomaly_detection';
+    
     const config = {
-      url: process.env.CLICKHOUSE_URL || 'http://chi-clickhouse-single-clickhouse-0-0-0.l1-app-ai.svc.cluster.local:8123',
-      username: process.env.CLICKHOUSE_USER || 'default',
-      password: process.env.CLICKHOUSE_PASSWORD || 'defaultpass',
-      database: process.env.CLICKHOUSE_DATABASE || 'l1_anomaly_detection',
+      url: `http://${clickhouseUser}:${clickhousePassword}@${clickhouseHost}:${clickhousePort}/${clickhouseDatabase}`,
+      database: clickhouseDatabase,
     };
 
-    console.log('🔗 Connecting to ClickHouse server at:', config.url);
+    console.log('🔗 Connecting to ClickHouse server at:', `${clickhouseHost}:${clickhousePort}`);
     this.client = createClient(config);
   }
 

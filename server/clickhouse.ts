@@ -7,9 +7,9 @@ class ClickHouseDB {
   constructor() {
     // ClickHouse client configuration for pod service
     const config = {
-      url: process.env.CLICKHOUSE_URL || 'http://clickhouse-service:8123',
+      url: process.env.CLICKHOUSE_URL || 'http://chi-clickhouse-single-clickhouse-0-0-0.l1-app-ai.svc.cluster.local:8123',
       username: process.env.CLICKHOUSE_USER || 'default',
-      password: process.env.CLICKHOUSE_PASSWORD || '',
+      password: process.env.CLICKHOUSE_PASSWORD || 'defaultpass',
       database: process.env.CLICKHOUSE_DATABASE || 'l1_anomaly_detection',
     };
 

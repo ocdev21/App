@@ -6,8 +6,8 @@ class ClickHouseDB {
 
   constructor() {
     // ClickHouse client configuration for pod service (using URL format for native protocol)
-    const clickhouseHost = process.env.CLICKHOUSE_HOST || 'chi-clickhouse-single-clickhouse-0-0-0.l1-app-ai.svc.cluster.local';
-    const clickhousePort = process.env.CLICKHOUSE_PORT || '9000';
+    const clickhouseHost = process.env.CLICKHOUSE_HOST || 'clickhouse-clickhouse-single';
+    const clickhousePort = process.env.CLICKHOUSE_PORT || '8123';
     const clickhouseUser = process.env.CLICKHOUSE_USER || 'default';
     const clickhousePassword = process.env.CLICKHOUSE_PASSWORD || 'defaultpass';
     const clickhouseDatabase = process.env.CLICKHOUSE_DATABASE || 'l1_anomaly_detection';

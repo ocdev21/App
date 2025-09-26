@@ -301,7 +301,7 @@ class ClickHouseFolderAnalyzer:
         if not all_anomalies:
             print(f"\n" + "ANALYSIS COMPLETE - NO ANOMALIES DETECTED".ljust(50, '='))
             print("RESULT: All network files appear to be functioning normally")
-            print("📈 NETWORK STATUS: HEALTHY")
+            print("NETWORK STATUS: HEALTHY")
             print("🔒 FRONTHAUL STATUS: No DU-RU communication issues detected")
             print("📱 UE BEHAVIOR: No abnormal attachment/detachment patterns")
 
@@ -322,7 +322,7 @@ class ClickHouseFolderAnalyzer:
         pcap_anomalies = [a for a in all_anomalies if a['file_type'] == 'PCAP']
         text_anomalies = [a for a in all_anomalies if a['file_type'] == 'TEXT']
 
-        print(f"\n" + "📈 ANOMALY STATISTICS".ljust(50, '='))
+        print(f"\n" + "ANOMALY STATISTICS".ljust(50, '='))
         print(f"PCAP Communication Anomalies: {len(pcap_anomalies)}")
         print(f"📱 UE Event Anomalies: {len(text_anomalies)}")
 
@@ -332,7 +332,7 @@ class ClickHouseFolderAnalyzer:
             print(f"   📶 UE Mobility Issues: {len(text_anomalies)} detected")
 
         # File-by-File Breakdown
-        print(f"\n" + "📋 DETAILED ANOMALY BREAKDOWN".ljust(50, '='))
+        print(f"\n" + "DETAILED ANOMALY BREAKDOWN".ljust(50, '='))
 
         file_anomalies = defaultdict(list)
         for anomaly in all_anomalies:
@@ -359,7 +359,7 @@ class ClickHouseFolderAnalyzer:
                     print(f"       • {detail}")
 
             if len(anomalies) > 2:
-                print(f"    📋 ... and {len(anomalies) - 2} additional anomalies")
+                print(f"    ... and {len(anomalies) - 2} additional anomalies")
 
         # ClickHouse Integration Summary
         if self.clickhouse_available:
@@ -384,13 +384,13 @@ class ClickHouseFolderAnalyzer:
             actions.extend([
                 f"{len(actions)+1}. 📱 INVESTIGATE UE attachment failure patterns",
                 f"{len(actions)+2}. REVIEW context setup procedures and timeouts",
-                f"{len(actions)+3}. 📡 ANALYZE mobility management and handover processes"
+                f"{len(actions)+3}. ANALYZE mobility management and handover processes"
             ])
 
         actions.extend([
-            f"{len(actions)+1}. 📈 ESTABLISH continuous monitoring for these anomaly patterns",
+            f"{len(actions)+1}. ESTABLISH continuous monitoring for these anomaly patterns",
             f"{len(actions)+2}. RE-RUN analysis after implementing fixes",
-            f"{len(actions)+3}. 📋 DOCUMENT findings and maintain incident log"
+            f"{len(actions)+3}. DOCUMENT findings and maintain incident log"
         ])
 
         for action in actions[:6]:  # Show top 6 actions
@@ -398,7 +398,7 @@ class ClickHouseFolderAnalyzer:
 
         # Technical Summary
         print(f"\n" + "🔬 TECHNICAL SUMMARY".ljust(50, '='))
-        print(f"🤖 ML Algorithms: Isolation Forest, DBSCAN, One-Class SVM, LOF")
+        print(f"ML Algorithms: Isolation Forest, DBSCAN, One-Class SVM, LOF")
         print(f"Detection Method: Ensemble voting (>=2 algorithms for high confidence)")
         print(f"Analysis Scope: DU-RU communication + UE mobility patterns")
         print(f"MAC Addresses: DU={self.DU_MAC}, RU={self.RU_MAC}")

@@ -34,7 +34,7 @@ kubectl wait --for=condition=available deployment -l app.kubernetes.io/name=alti
 echo "Creating l1-app-ai namespace..."
 kubectl create namespace l1-app-ai --dry-run=client -o yaml | kubectl apply -f -
 
-echo "✅ ClickHouse operator installation completed!"
+echo "ClickHouse operator installation completed!"
 echo ""
 echo "Next steps:"
 echo "1. Apply the ClickHouse installation: kubectl apply -f clickhouse-installation.yaml"

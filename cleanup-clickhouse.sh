@@ -36,6 +36,6 @@ kubectl delete pvc --all -n l1-app-ai --ignore-not-found=true
 echo "Waiting for cleanup to complete..."
 sleep 10
 
-echo "✅ Cleanup completed!"
+echo "Cleanup completed!"
 echo ""
 echo "You can now run './simple-install.sh' for a fresh installation"

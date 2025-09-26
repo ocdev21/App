@@ -13,7 +13,7 @@ oc new-project $PROJECT_NAME 2>/dev/null || oc project $PROJECT_NAME
 
 # Check image registry access
 echo "Checking image registry access..."
-oc get is -n openshift || echo "⚠️ No access to OpenShift image streams"
+oc get is -n openshift || echo "WARNING: No access to OpenShift image streams"
 
 # Test image pull capability
 echo "Testing ClickHouse image pull capability..."
@@ -68,25 +68,25 @@ echo "Pod events for troubleshooting:"
 oc get events --sort-by='.lastTimestamp' -n $PROJECT_NAME | tail -20
 
 echo ""
-echo "🔍 Troubleshooting Commands:"
+echo "Troubleshooting Commands:"
 echo "   - Check pod logs: oc logs deployment/clickhouse-ai -n $PROJECT_NAME"
 echo "   - Describe pod: oc describe pod -l app=clickhouse-ai -n $PROJECT_NAME"
 echo "   - Check events: oc get events --sort-by='.lastTimestamp' -n $PROJECT_NAME"
 echo "   - Check image streams: oc get is -n $PROJECT_NAME"
 echo ""
-echo "🛠️ Image Pull Issue Solutions:"
+echo "Image Pull Issue Solutions:"
 echo "1. Check network connectivity to Docker Hub"
 echo "2. Verify cluster has access to external registries"
 echo "3. Consider using internal OpenShift registry"
 echo "4. Check if image pull secrets are required"
 echo ""
-echo "🔧 BuildConfig Issue Solutions:"
+echo "BuildConfig Issue Solutions:"
 echo "1. Verify Git repository exists and is accessible"
 echo "2. Check if Git repository requires authentication"
 echo "3. Ensure Dockerfile exists in the repository"
 echo "4. Consider using a different source strategy"
 echo ""
-echo "💡 Quick Fixes:"
+echo "Quick Fixes:"
 echo "   - Delete failed build: oc delete build --all -n $PROJECT_NAME"
 echo "   - Start new build: oc start-build l1-app-ai-build -n $PROJECT_NAME"
 echo "   - Use base image directly: oc patch deployment/l1-troubleshooting-ai -p '{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"l1-app-ai\",\"image\":\"node:18-alpine\"}]}}}}' -n $PROJECT_NAME"

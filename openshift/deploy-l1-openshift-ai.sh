@@ -14,16 +14,16 @@ oc new-project $PROJECT_NAME 2>/dev/null || oc project $PROJECT_NAME
 echo "Checking available storage classes..."
 DEFAULT_SC=$(oc get storageclass --no-headers | grep "(default)" | awk '{print $1}' | head -n1)
 if [ -z "$DEFAULT_SC" ]; then
-    echo "⚠️  No default storage class found. Using first available storage class..."
+    echo "WARNING: No default storage class found. Using first available storage class..."
     FIRST_SC=$(oc get storageclass --no-headers | awk '{print $1}' | head -n1)
     if [ ! -z "$FIRST_SC" ]; then
         echo "Using storage class: $FIRST_SC"
     else
-        echo "❌ No storage classes available. Please check your cluster configuration."
+        echo "ERROR: No storage classes available. Please check your cluster configuration."
         exit 1
     fi
 else
-    echo "✅ Using default storage class: $DEFAULT_SC"
+    echo "Using default storage class: $DEFAULT_SC"
 fi
 
 # Apply the complete deployment
@@ -41,9 +41,9 @@ if [ ! -z "$BUILD_NAME" ]; then
     echo "Build started: $BUILD_NAME"
     echo "Waiting for build to complete..."
     oc wait --for=condition=Complete build/$BUILD_NAME -n $PROJECT_NAME --timeout=600s
-    echo "✅ Build completed successfully!"
+    echo "Build completed successfully!"
 else
-    echo "⚠️  Build may have already started or failed to start. Checking existing builds..."
+    echo "WARNING: Build may have already started or failed to start. Checking existing builds..."
     oc get builds -n $PROJECT_NAME
 fi
 
@@ -64,15 +64,15 @@ oc wait --for=condition=Ready pod -l app=l1-troubleshooting-ai -n $PROJECT_NAME 
 oc wait --for=condition=Ready pod -l app=tslam-model -n $PROJECT_NAME --timeout=300s
 
 echo ""
-echo "✅ L1 Application deployment completed successfully!"
+echo "L1 Application deployment completed successfully!"
 echo ""
-echo "📊 OpenShift AI Platform Information:"
+echo "OpenShift AI Platform Information:"
 echo "   - Namespace: $PROJECT_NAME"
 echo "   - Main Application: l1-troubleshooting-ai (2 replicas with auto-scaling)"
 echo "   - ClickHouse Database: clickhouse-ai"
 echo "   - TSLAM Model Service: tslam-model-deployment"
 echo ""
-echo "🌐 Access Information:"
+echo "Access Information:"
 L1_ROUTE=$(oc get route l1-troubleshooting-ai-route -n $PROJECT_NAME -o jsonpath='{.spec.host}' 2>/dev/null)
 if [ ! -z "$L1_ROUTE" ]; then
     echo "   - Application URL: https://$L1_ROUTE"
@@ -80,7 +80,7 @@ else
     echo "   - Route not yet available, check: oc get route -n $PROJECT_NAME"
 fi
 echo ""
-echo "🔍 Monitoring Commands:"
+echo "Monitoring Commands:"
 echo "   - Check all pods: oc get pods -n $PROJECT_NAME"
 echo "   - Check services: oc get svc -n $PROJECT_NAME"
 echo "   - Check routes: oc get route -n $PROJECT_NAME"
@@ -91,14 +91,14 @@ echo "   - Check builds: oc get builds -n $PROJECT_NAME"
 echo "   - Check image streams: oc get is -n $PROJECT_NAME"
 echo "   - Check PVCs: oc get pvc -n $PROJECT_NAME"
 echo ""
-echo "🛠️  Management Commands:"
+echo "Management Commands:"
 echo "   - Scale L1 app: oc scale deployment/l1-troubleshooting-ai --replicas=X -n $PROJECT_NAME"
 echo "   - Rebuild image: oc start-build l1-app-ai-build -n $PROJECT_NAME"
 echo "   - Update config: oc edit configmap/l1-app-ai-config -n $PROJECT_NAME"
 echo "   - Restart L1 app: oc rollout restart deployment/l1-troubleshooting-ai -n $PROJECT_NAME"
 echo "   - Restart ClickHouse: oc rollout restart deployment/clickhouse-ai -n $PROJECT_NAME"
 echo ""
-echo "🤖 OpenShift AI Features:"
+echo "OpenShift AI Features:"
 echo "   - Model Serving: TSLAM model available at tslam-model-service:8080"
 echo "   - Auto-scaling: Enabled (2-10 replicas based on CPU/Memory)"
 echo "   - Persistent Storage: Configured with cluster default storage class"

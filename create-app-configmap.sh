@@ -31,9 +31,9 @@ kubectl create configmap l1-app-code-config \
   -n $NAMESPACE
 
 if [ $? -eq 0 ]; then
-    echo "✅ ConfigMap created successfully"
+    echo "ConfigMap created successfully"
 else
-    echo "❌ Failed to create ConfigMap"
+    echo "ERROR: Failed to create ConfigMap"
     exit 1
 fi
 

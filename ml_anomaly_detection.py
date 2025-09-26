@@ -304,7 +304,7 @@ class MLAnomalyDetector:
         lof = LocalOutlierFactor(n_neighbors=min(20, len(features)), contamination=0.1)
         lof_predictions = lof.fit_predict(features_scaled)
         
-        print("🤖 All ML algorithms completed training and prediction")
+        print("All ML algorithms completed training and prediction")
         
         # Ensemble voting (need ≥2 algorithms to agree)
         anomalies = []

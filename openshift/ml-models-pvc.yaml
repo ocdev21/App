@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: l1-ml-models-pvc
+  namespace: l1-app-ai
+  labels:
+    app: l1-troubleshooting
+    component: ml-storage
+spec:
+  accessModes:
+    - ReadWriteOnce  # Single pod read-write access
+  resources:
+    requests:
+      storage: 5Gi   # 5GB storage for ML models
+  storageClassName: ""  # Uses default storage class
+  volumeMode: Filesystem

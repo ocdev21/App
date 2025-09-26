@@ -29,7 +29,7 @@ except ImportError as e:
 class MLAnomalyDetector:
     """ML-based anomaly detection for PCAP files with model persistence"""
     
-    def __init__(self, models_dir="./models"):
+    def __init__(self, models_dir="/app/models"):
         """Initialize detector with model persistence"""
         self.models_dir = models_dir
         os.makedirs(models_dir, exist_ok=True)

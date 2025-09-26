@@ -4,31 +4,31 @@ import { clickhouse } from '../clickhouse';
 export class StartupService {
 
   async initializeServices(): Promise<void> {
-    log('🚀 Initializing L1 Network Troubleshooting System...');
+    log('Initializing L1 Network Troubleshooting System...');
     
     // Initialize ClickHouse connection
     await this.initializeClickHouse();
     
-    log('✅ All startup services initialized successfully');
+    log('All startup services initialized successfully');
   }
 
   private async initializeClickHouse(): Promise<void> {
-    log('🔗 Connecting to ClickHouse database...');
+    log('Connecting to ClickHouse database...');
 
     try {
       // Test connection using shared ClickHouse client
       await clickhouse.testConnection();
       
-      log('✅ ClickHouse connection established');
-      log('📊 Connected to: chi-clickhouse-single-clickhouse-0-0-0.l1-app-ai.svc.cluster.local:9000');
-      log('💾 Database: l1_anomaly_detection');
+      log('ClickHouse connection established');
+      log('Connected to: chi-clickhouse-single-clickhouse-0-0-0.l1-app-ai.svc.cluster.local:9000');
+      log('Database: l1_anomaly_detection');
 
       // Display database information
       await this.displayDatabaseInfo();
 
     } catch (error) {
-      log(`❌ ClickHouse connection failed: ${error}`);
-      log('📋 Application will continue without database features');
+      log(`ERROR: ClickHouse connection failed: ${error}`);
+      log('Application will continue without database features');
     }
   }
 
@@ -43,7 +43,7 @@ export class StartupService {
       const databaseResult = await clickhouse.query(databaseQuery);
       
       if (databaseResult && databaseResult.length > 0) {
-        log('🗄️  Database: l1_anomaly_detection [EXISTS]');
+        log('Database: l1_anomaly_detection [EXISTS]');
         
         // Get table information
         const tablesQuery = `
@@ -55,7 +55,7 @@ export class StartupService {
         const tablesResult = await clickhouse.query(tablesQuery);
         
         if (tablesResult && tablesResult.length > 0) {
-          log(`📋 Found ${tablesResult.length} tables:`);
+          log(`Found ${tablesResult.length} tables:`);
           
           let totalRows = 0;
           let totalBytes = 0;
@@ -70,21 +70,21 @@ export class StartupService {
             log(`   • ${name} (${engine}): ${rowsStr} rows, ${sizeStr}`);
           });
           
-          log(`📊 Total: ${totalRows.toLocaleString()} rows, ${this.formatBytes(totalBytes)}`);
+          log(`Total: ${totalRows.toLocaleString()} rows, ${this.formatBytes(totalBytes)}`);
         } else {
-          log('📋 No tables found - database is empty');
-          log('💡 Run setup_clickhouse_tables.py to create schema');
+          log('No tables found - database is empty');
+          log('TIP: Run setup_clickhouse_tables.py to create schema');
         }
       } else {
-        log('❗ Database l1_anomaly_detection not found');
-        log('💡 Create database: CREATE DATABASE l1_anomaly_detection');
+        log('ERROR: Database l1_anomaly_detection not found');
+        log('TIP: Create database: CREATE DATABASE l1_anomaly_detection');
       }
 
       // Display recent activity
       await this.displayRecentActivity();
 
     } catch (error) {
-      log(`⚠️  Could not retrieve database info: ${error}`);
+      log(`WARNING: Could not retrieve database info: ${error}`);
     }
   }
 
@@ -107,7 +107,7 @@ export class StartupService {
       const recentResult = await clickhouse.query(recentAnomaliesQuery);
       
       if (recentResult && recentResult.length > 0) {
-        log('📈 Recent anomaly activity (last 7 days):');
+        log('Recent anomaly activity (last 7 days):');
         recentResult.forEach((row: any[]) => {
           const [count, date] = row;
           log(`   • ${date}: ${count} anomalies detected`);
@@ -125,13 +125,13 @@ export class StartupService {
       if (sessionsResult && sessionsResult.length > 0) {
         const activeCount = sessionsResult[0][0];
         if (activeCount > 0) {
-          log(`🔄 Active analysis sessions: ${activeCount}`);
+          log(`Active analysis sessions: ${activeCount}`);
         }
       }
 
     } catch (error) {
       // Silently handle if tables don't exist yet
-      log('💡 No recent activity data available');
+      log('No recent activity data available');
     }
   }
 

@@ -17,7 +17,7 @@ class ClickHouseDB {
       database: clickhouseDatabase,
     };
 
-    console.log('🔗 Connecting to ClickHouse server at:', `${clickhouseHost}:${clickhousePort}`);
+    console.log('Connecting to ClickHouse server at:', `${clickhouseHost}:${clickhousePort}`);
     this.client = createClient(config);
   }
 
@@ -32,12 +32,12 @@ class ClickHouseDB {
         query: 'SELECT count() FROM l1_anomaly_detection.anomalies LIMIT 1'
       });
       
-      console.log('✅ ClickHouse connection successful - Real data access enabled');
+      console.log('ClickHouse connection successful - Real data access enabled');
       this.isConnected = true;
       return true;
     } catch (error: any) {
-      console.error('❌ ClickHouse connection failed:', error.message);
-      console.error('❌ REAL DATA ONLY: Cannot fallback to sample data');
+      console.error('ERROR: ClickHouse connection failed:', error.message);
+      console.error('ERROR: REAL DATA ONLY: Cannot fallback to sample data');
       console.error('Please ensure ClickHouse pod is running with l1_anomaly_detection database');
       this.isConnected = false;
       throw error;

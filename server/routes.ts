@@ -28,7 +28,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         if (data.type === 'get_recommendations') {
           const { anomalyId } = data;
-          console.log('🔍 Received recommendation request for anomaly ID:', anomalyId);
+          console.log('Received recommendation request for anomaly ID:', anomalyId);
 
           // Get anomaly details from storage
           const anomaly = await storage.getAnomaly(anomalyId);
@@ -38,10 +38,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return;
           }
 
-          console.log('✅ Found anomaly:', anomaly.id, anomaly.type);
+          console.log('Found anomaly:', anomaly.id, anomaly.type);
 
           // Call TSLAM AI service for real recommendations
-          console.log('🚀 Starting TSLAM AI service for anomaly:', anomalyId);
+          console.log('Starting TSLAM AI service for anomaly:', anomalyId);
           const pythonProcess = spawn('python3', [
             path.join(process.cwd(), 'server/services/tslam_service.py'),
             anomalyId.toString(),
@@ -59,7 +59,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
 
           pythonProcess.on('close', (code) => {
-            console.log('🏁 TSLAM AI service completed with code:', code);
+            console.log('TSLAM AI service completed with code:', code);
             if (code === 0) {
               ws.send(JSON.stringify({ type: 'recommendation_complete', code }));
             } else {

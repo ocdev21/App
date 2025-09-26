@@ -437,9 +437,9 @@ export class ClickHouseStorage implements IStorage {
       return result;
     } catch (error: any) {
       console.error('ClickHouse connection failed:', error.message);
-      console.log('💡 Note: Since ClickHouse is running on your local desktop, connection from this environment is not possible.');
-      console.log('🔗 The system is properly configured to connect to: http://clickhouse-clickhouse-single:8123');
-      console.log('📊 Query format is correct and ready for your local ClickHouse server');
+      console.log('NOTE: Since ClickHouse is running on your local desktop, connection from this environment is not possible.');
+      console.log('The system is properly configured to connect to: http://clickhouse-clickhouse-single:8123');
+      console.log('Query format is correct and ready for your local ClickHouse server');
       throw error;
     }
   }
@@ -581,7 +581,7 @@ export class ClickHouseStorage implements IStorage {
 
   async getAnomaly(id: string): Promise<Anomaly | undefined> {
     try {
-      console.log('🔍 Looking up anomaly in ClickHouse:', id);
+      console.log('Looking up anomaly in ClickHouse:', id);
       const result = await this.execClickHouseQuery("SELECT * FROM l1_anomaly_detection.anomalies WHERE id = ? LIMIT 1", [id]);
 
       if (result && result.length > 0) {
@@ -612,18 +612,18 @@ export class ClickHouseStorage implements IStorage {
           })
         };
 
-        console.log('✅ Found anomaly in ClickHouse:', anomaly.id, anomaly.type);
+        console.log('Found anomaly in ClickHouse:', anomaly.id, anomaly.type);
         return anomaly;
       }
 
-      console.log('❌ Anomaly not found in ClickHouse, trying fallback sample data...');
+      console.log('ERROR: Anomaly not found in ClickHouse, trying fallback sample data...');
 
       // Use fallback sample data when ClickHouse is not available
       const sampleAnomalies = this.getSampleAnomalies();
       const foundAnomaly = sampleAnomalies.find(a => a.id === id);
 
       if (foundAnomaly) {
-        console.log('✅ Found anomaly in sample data:', foundAnomaly.id, foundAnomaly.type);
+        console.log('Found anomaly in sample data:', foundAnomaly.id, foundAnomaly.type);
         return {
           ...foundAnomaly,
           recommendation: foundAnomaly.recommendation || null,
@@ -643,14 +643,14 @@ export class ClickHouseStorage implements IStorage {
       return undefined;
 
     } catch (error) {
-      console.error('❌ Error querying ClickHouse for anomaly:', error);
+      console.error('ERROR: Error querying ClickHouse for anomaly:', error);
 
       // Use fallback sample data when ClickHouse connection fails
       const sampleAnomalies = this.getSampleAnomalies();
       const foundAnomaly = sampleAnomalies.find(a => a.id === id);
 
       if (foundAnomaly) {
-        console.log('✅ Found anomaly in sample data fallback:', foundAnomaly.id, foundAnomaly.type);
+        console.log('Found anomaly in sample data fallback:', foundAnomaly.id, foundAnomaly.type);
         return {
           ...foundAnomaly,
           recommendation: foundAnomaly.recommendation || null,
@@ -869,7 +869,7 @@ export class ClickHouseStorage implements IStorage {
 
         const detectionRate = totalFiles > 0 ? (filesProcessed / totalFiles) * 100 : 0;
 
-        console.log('✅ Retrieved dashboard metrics from ClickHouse');
+        console.log('Retrieved dashboard metrics from ClickHouse');
         return {
           totalAnomalies,
           sessionsAnalyzed,
@@ -946,7 +946,7 @@ export class ClickHouseStorage implements IStorage {
         const detectionRateChange = calculateChange(currentMetrics.detectionRate, weekAgoDetectionRate);
         const filesProcessedChange = calculateChange(currentMetrics.filesProcessed, weekAgoFilesProcessed);
 
-        console.log('✅ Calculated real percentage changes from ClickHouse data');
+        console.log('Calculated real percentage changes from ClickHouse data');
         return {
           ...currentMetrics,
           totalAnomaliesChange: Math.round(totalAnomaliesChange * 10) / 10,
@@ -1020,7 +1020,7 @@ export class ClickHouseStorage implements IStorage {
         `);
 
         if (result.data && result.data.length > 0) {
-          console.log('✅ Retrieved anomaly breakdown from ClickHouse');
+          console.log('Retrieved anomaly breakdown from ClickHouse');
           return result.data.map((row: any) => ({
             type: row.type,
             count: row.count,
@@ -1130,8 +1130,8 @@ export class ClickHouseStorage implements IStorage {
 if (process.env.REPLIT_DB_URL || process.env.REPL_ID) {
   console.log('📝 Using sample data for Replit preview (ClickHouse disabled)');
 } else {
-  console.log('🔗 Connecting to ClickHouse storage with your real anomaly data');
-  console.log('💡 Reading from l1_anomaly_detection database at clickhouse-clickhouse-single:8123');
+  console.log('Connecting to ClickHouse storage with your real anomaly data');
+  console.log('Reading from l1_anomaly_detection database at clickhouse-clickhouse-single:8123');
 }
 
 export const storage = (process.env.REPLIT_DB_URL || process.env.REPL_ID) 

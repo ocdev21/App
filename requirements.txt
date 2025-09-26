@@ -56,3 +56,7 @@ shap>=0.42.0
 tqdm>=4.65.0
 rich>=13.4.0
 colorama>=0.4.6
+joblib
+numpy
+scapy-python3
+scikit-learn

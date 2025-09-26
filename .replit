@@ -3,7 +3,7 @@ run = "npm run dev"
 
 [nix]
 channel = "stable-25_05"
-packages = ["glibcLocales", "imagemagickBig", "sox", "tcpdump", "wireshark"]
+packages = ["bzip2", "c-blosc", "cairo", "ffmpeg-full", "freetype", "ghostscript", "glibcLocales", "gobject-introspection", "gtk3", "hdf5", "imagemagickBig", "libxcrypt", "lzo", "openssh", "pkg-config", "qhull", "sox", "tcl", "tcpdump", "tk", "wireshark", "xsimd"]
 
 [deployment]
 run = ["sh", "-c", "npm run dev"]

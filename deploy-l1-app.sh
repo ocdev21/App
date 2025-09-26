@@ -8,11 +8,11 @@ NAMESPACE="l1-app-ai"
 
 # Check if kubectl is available
 if ! command -v kubectl &> /dev/null; then
-    echo "❌ kubectl is required but not installed."
+    echo "ERROR: kubectl is required but not installed."
     exit 1
 fi
 
-echo "🚀 Starting L1 Application deployment..."
+echo "Starting L1 Application deployment..."
 
 # Step 1: Create application code ConfigMap
 echo "Step 1: Creating application code ConfigMap..."
@@ -20,7 +20,7 @@ chmod +x create-app-configmap.sh
 ./create-app-configmap.sh
 
 if [ $? -ne 0 ]; then
-    echo "❌ Failed to create application ConfigMap"
+    echo "ERROR: Failed to create application ConfigMap"
     exit 1
 fi
 
@@ -29,7 +29,7 @@ echo "Step 2: Deploying L1 application..."
 kubectl apply -f k8s-l1-app-deployment.yaml
 
 if [ $? -ne 0 ]; then
-    echo "❌ Failed to deploy L1 application"
+    echo "ERROR: Failed to deploy L1 application"
     exit 1
 fi
 
@@ -48,24 +48,24 @@ kubectl wait --for=condition=Ready pod -l app=l1-troubleshooting -n $NAMESPACE -
 # Step 6: Show deployment status
 echo "Step 6: Checking deployment status..."
 echo ""
-echo "🔍 Deployment Status:"
+echo "Deployment Status:"
 kubectl get all -n $NAMESPACE
 
 echo ""
-echo "📊 Pod Details:"
+echo "Pod Details:"
 kubectl get pods -n $NAMESPACE -o wide
 
 echo ""
-echo "🌐 Service Information:"
+echo "Service Information:"
 kubectl get svc -n $NAMESPACE
 
 echo ""
-echo "💾 Storage Information:"
+echo "Storage Information:"
 kubectl get pvc -n $NAMESPACE
 
 # Test ClickHouse connectivity from the application
 echo ""
-echo "🔗 Testing ClickHouse connectivity..."
+echo "Testing ClickHouse connectivity..."
 APP_POD=$(kubectl get pods -n $NAMESPACE -l app=l1-troubleshooting -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
 
 if [ ! -z "$APP_POD" ]; then
@@ -76,15 +76,15 @@ else
 fi
 
 echo ""
-echo "🎉 L1 Application deployment completed!"
+echo "L1 Application deployment completed!"
 echo ""
-echo "📋 Quick Commands:"
+echo "Quick Commands:"
 echo "   Check status: kubectl get all -n $NAMESPACE"
 echo "   View logs: kubectl logs deployment/l1-troubleshooting -n $NAMESPACE"
 echo "   Port forward: kubectl port-forward svc/l1-troubleshooting-service 8080:80 -n $NAMESPACE"
 echo "   Scale app: kubectl scale deployment/l1-troubleshooting --replicas=3 -n $NAMESPACE"
 echo ""
-echo "🔧 Configuration:"
+echo "Configuration:"
 echo "   - Namespace: $NAMESPACE"
 echo "   - Application Service: l1-troubleshooting-service"
 echo "   - HTTP Port: 80 (mapped to 5000)"

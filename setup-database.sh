@@ -15,7 +15,7 @@ echo "Looking for service: $SERVICE_NAME"
 timeout 300 bash -c "until kubectl get svc $SERVICE_NAME -n $NAMESPACE > /dev/null 2>&1; do echo 'Waiting for service...'; sleep 10; done"
 
 if [ $? -ne 0 ]; then
-    echo "❌ Service $SERVICE_NAME not found after 5 minutes"
+    echo "ERROR: Service $SERVICE_NAME not found after 5 minutes"
     echo "Available services in namespace $NAMESPACE:"
     kubectl get svc -n $NAMESPACE
     echo "Available CHI resources:"
@@ -23,20 +23,20 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-echo "✅ Service $SERVICE_NAME found"
+echo "Service $SERVICE_NAME found"
 
 # Test ClickHouse connection
 echo "Testing ClickHouse connection..."
 kubectl exec -n $NAMESPACE deployment/chi-clickhouse-single-clickhouse-0-0 -- clickhouse-client --password="defaultpass" --query "SELECT 1" > /dev/null 2>&1
 
 if [ $? -ne 0 ]; then
-    echo "❌ ClickHouse is not responding"
+    echo "ERROR: ClickHouse is not responding"
     echo "Pod logs:"
     kubectl logs -l clickhouse.altinity.com/chi=clickhouse-single -n $NAMESPACE --tail=50
     exit 1
 fi
 
-echo "✅ ClickHouse is responding"
+echo "ClickHouse is responding"
 
 # Create database and tables
 echo "Creating database and tables..."
@@ -87,14 +87,14 @@ ORDER BY timestamp;
 "
 
 if [ $? -eq 0 ]; then
-    echo "✅ Database setup completed successfully!"
+    echo "Database setup completed successfully!"
 else
-    echo "❌ Database setup failed"
+    echo "ERROR: Database setup failed"
     exit 1
 fi
 
 echo ""
-echo "📊 Database Information:"
+echo "Database Information:"
 echo "   - Host: $SERVICE_NAME.$NAMESPACE.svc.cluster.local"
 echo "   - HTTP Port: 9000"
 echo "   - TCP Port: 9000" 

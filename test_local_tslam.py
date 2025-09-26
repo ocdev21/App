@@ -131,8 +131,8 @@ async def main():
     # Summary
     print("\n" + "=" * 50)
     print("Local TSLAM Test Summary:")
-    print(f"{'✅' if direct_result else '❌'} Direct Service: {'Passed' if direct_result else 'Failed'}")
-    print(f"{'✅' if ws_result else '❌'} WebSocket Test: {'Passed' if ws_result else 'Failed'}")
+    print(f"{'PASS' if direct_result else 'FAIL'} Direct Service: {'Passed' if direct_result else 'Failed'}")
+    print(f"{'PASS' if ws_result else 'FAIL'} WebSocket Test: {'Passed' if ws_result else 'Failed'}")
 
 if __name__ == "__main__":
     print("Usage: python test_local_tslam.py [port]")

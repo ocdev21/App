@@ -26,26 +26,26 @@ class CombinedLLMTester:
         
     async def compare_llm_responses(self, prompt, test_name="Comparison Test"):
         """Compare responses from remote and local LLM"""
-        print(f"\n🆚 {test_name} - Comparing Remote vs Local LLM")
+        print(f"\n{test_name} - Comparing Remote vs Local LLM")
         print("=" * 60)
         
         # Test remote LLM
-        print("🌐 Testing Remote LLM...")
+        print("Testing Remote LLM...")
         remote_start = time.time()
         remote_response = await self.test_remote_llm(prompt)
         remote_time = time.time() - remote_start
         
         # Test local LLM
-        print("\n🏠 Testing Local LLM...")
+        print("\nTesting Local LLM...")
         local_start = time.time()
         local_response = await self.test_local_llm_via_websocket(prompt)
         local_time = time.time() - local_start
         
         # Comparison results
-        print("\n📊 Comparison Results:")
+        print("\nComparison Results:")
         print("-" * 40)
-        print(f"Remote LLM: {remote_time:.2f}s | {'✅' if remote_response else '❌'}")
-        print(f"Local LLM:  {local_time:.2f}s | {'✅' if local_response else '❌'}")
+        print(f"Remote LLM: {remote_time:.2f}s | {'PASS' if remote_response else 'FAIL'}")
+        print(f"Local LLM:  {local_time:.2f}s | {'PASS' if local_response else 'FAIL'}")
         
         if remote_response and local_response:
             print(f"Response Length - Remote: {len(remote_response)} | Local: {len(local_response)}")
@@ -129,7 +129,7 @@ class CombinedLLMTester:
     
     def test_connectivity(self):
         """Test connectivity to both remote and local services"""
-        print("🔍 Testing Connectivity...")
+        print("Testing Connectivity...")
         
         # Test remote health
         remote_healthy = False
@@ -139,11 +139,11 @@ class CombinedLLMTester:
         except:
             pass
         
-        print(f"🌐 Remote LLM ({self.remote_host}:{self.remote_port}): {'✅' if remote_healthy else '❌'}")
+        print(f"Remote LLM ({self.remote_host}:{self.remote_port}): {'UP' if remote_healthy else 'DOWN'}")
         
         # Test local service (basic check)
         local_healthy = True  # Assume local is available for testing
-        print(f"🏠 Local LLM (localhost:{self.local_port}): {'✅' if local_healthy else '❌'}")
+        print(f"Local LLM (localhost:{self.local_port}): {'UP' if local_healthy else 'DOWN'}")
         
         return remote_healthy, local_healthy
 
@@ -158,7 +158,7 @@ async def main():
     
     args = parser.parse_args()
     
-    print("🤖 Combined LLM Streaming Test Script")
+    print("Combined LLM Streaming Test Script")
     print("=" * 50)
     
     tester = CombinedLLMTester(
@@ -171,7 +171,7 @@ async def main():
     if args.test_type in ['connectivity', 'all']:
         remote_ok, local_ok = tester.test_connectivity()
         if not (remote_ok or local_ok):
-            print("⚠️  No services available for testing")
+            print("WARNING: No services available for testing")
             return
     
     # Telecom-specific test
@@ -190,12 +190,12 @@ Provide immediate recommendations."""
         
         await tester.compare_llm_responses(general_prompt, "General 5G Knowledge Test")
     
-    print("\n✅ All tests completed!")
+    print("\nAll tests completed!")
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("\n⏹️  Test interrupted by user")
+        print("\nTest interrupted by user")
     except Exception as e:
-        print(f"\n💥 Test failed: {str(e)}")
+        print(f"\nERROR: Test failed: {str(e)}")

@@ -16,7 +16,7 @@ import json
 # Import existing analysis modules
 from unified_l1_analyzer import UnifiedL1Analyzer
 from ml_anomaly_detection import MLAnomalyDetector
-from ue_event_analyzer import UEEventAnalyzer
+from server.services.ue_analyzer import UEEventAnalyzer
 
 class ClickHouseFolderAnalyzer:
     def __init__(self, clickhouse_host='localhost', clickhouse_port=9000):

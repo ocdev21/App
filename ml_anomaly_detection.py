@@ -22,7 +22,7 @@ try:
     SCAPY_AVAILABLE = True
     ML_AVAILABLE = True
 except ImportError as e:
-    print(f"⚠️  ML/Scapy libraries not available: {e}")
+    print(f"WARNING: ML/Scapy libraries not available: {e}")
     SCAPY_AVAILABLE = False
     ML_AVAILABLE = False
 
@@ -43,9 +43,9 @@ class MLAnomalyDetector:
         
         if ML_AVAILABLE and SCAPY_AVAILABLE:
             self.models = self.load_or_create_models()
-            print(f"🤖 MLAnomalyDetector initialized with models in {models_dir}")
+            print(f"MLAnomalyDetector initialized with models in {models_dir}")
         else:
-            print("⚠️  MLAnomalyDetector created in limited mode (no ML/Scapy)")
+            print("WARNING: MLAnomalyDetector created in limited mode (no ML/Scapy)")
             self.models = {}
     
     def load_or_create_models(self):
@@ -62,14 +62,14 @@ class MLAnomalyDetector:
         for model_name, pkl_file in model_files.items():
             if os.path.exists(pkl_file):
                 try:
-                    print(f"📦 Loading {model_name} from {pkl_file}")
+                    print(f"Loading {model_name} from {pkl_file}")
                     models[model_name] = joblib.load(pkl_file)
-                    print(f"✅ Successfully loaded {model_name}")
+                    print(f"Successfully loaded {model_name}")
                 except Exception as e:
-                    print(f"❌ Failed to load {model_name}: {e}")
+                    print(f"ERROR: Failed to load {model_name}: {e}")
                     models[model_name] = self.create_fresh_model(model_name)
             else:
-                print(f"🆕 Creating new {model_name}")
+                print(f"Creating new {model_name}")
                 models[model_name] = self.create_fresh_model(model_name)
         
         return models
@@ -101,16 +101,16 @@ class MLAnomalyDetector:
     def save_models(self):
         """Save trained models as .pkl files using joblib"""
         if not self.models:
-            print("⚠️  No models to save")
+            print("WARNING: No models to save")
             return
         
-        print(f"💾 Saving models to {self.models_dir}/")
+        print(f"Saving models to {self.models_dir}/")
         
         try:
             for model_name, model in self.models.items():
                 pkl_file = f"{self.models_dir}/{model_name}.pkl"
                 joblib.dump(model, pkl_file)
-                print(f"✅ Saved {model_name} to {pkl_file}")
+                print(f"Saved {model_name} to {pkl_file}")
             
             # Save metadata
             metadata = {
@@ -118,10 +118,10 @@ class MLAnomalyDetector:
                 'model_versions': {name: str(type(model).__name__) for name, model in self.models.items()}
             }
             joblib.dump(metadata, f"{self.models_dir}/metadata.pkl")
-            print("✅ All models saved successfully!")
+            print("All models saved successfully!")
             
         except Exception as e:
-            print(f"❌ Error saving models: {e}")
+            print(f"ERROR: Error saving models: {e}")
     
     def analyze_pcap(self, pcap_file):
         """Analyze PCAP file and return anomalies (main interface method)"""
@@ -132,11 +132,11 @@ class MLAnomalyDetector:
             }
         
         try:
-            print(f"🔍 Analyzing PCAP: {os.path.basename(pcap_file)}")
+            print(f"Analyzing PCAP: {os.path.basename(pcap_file)}")
             
             # Load packets
             packets = rdpcap(pcap_file)
-            print(f"📦 Loaded {len(packets)} packets")
+            print(f"Loaded {len(packets)} packets")
             
             if len(packets) < 10:
                 return {
@@ -167,7 +167,7 @@ class MLAnomalyDetector:
             }
             
         except Exception as e:
-            print(f"❌ Error analyzing PCAP {pcap_file}: {e}")
+            print(f"ERROR: Error analyzing PCAP {pcap_file}: {e}")
             return {
                 'error': str(e),
                 'anomalies': []
@@ -189,7 +189,7 @@ class MLAnomalyDetector:
             except:
                 continue
         
-        print(f"📊 Created {len(time_windows)} time windows of {self.time_window}s each")
+        print(f"Created {len(time_windows)} time windows of {self.time_window}s each")
         
         # Extract features for each time window
         for window_idx, window_packets in time_windows.items():
@@ -339,7 +339,7 @@ class MLAnomalyDetector:
                 }
                 anomalies.append(anomaly)
         
-        print(f"🎯 Found {len(anomalies)} high-confidence anomalies (≥2 algorithm agreement)")
+        print(f"Found {len(anomalies)} high-confidence anomalies (>=2 algorithm agreement)")
         return anomalies
 
 # Test function for standalone usage

@@ -1,3 +1,22 @@
+# ML Models PVC for .pkl file storage
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: l1-ml-models-pvc
+  namespace: l1-app-ai
+  labels:
+    app: l1-troubleshooting
+    component: ml-storage
+spec:
+  accessModes:
+    - ReadWriteOnce  # Single pod read-write access
+  resources:
+    requests:
+      storage: 5Gi   # 5GB storage for ML models
+  storageClassName: ""  # Uses default storage class
+  volumeMode: Filesystem
+---
+# L1 Production Pod
 apiVersion: v1
 kind: Pod
 metadata:
@@ -27,6 +46,13 @@ spec:
       value: "defaultpass"
     - name: CLICKHOUSE_DATABASE
       value: "l1_anomaly_detection"
+    volumeMounts:
+    - name: ml-models-storage
+      mountPath: /app/models
+  volumes:
+  - name: ml-models-storage
+    persistentVolumeClaim:
+      claimName: l1-ml-models-pvc
   imagePullSecrets:
   - name: l1-app-secret
 ---

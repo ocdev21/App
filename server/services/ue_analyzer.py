@@ -6,7 +6,7 @@ import uuid
 import re
 from datetime import datetime
 import json
-from clickhouse_client import clickhouse_client
+from server.services.clickhouse_client import clickhouse_client
 
 class UEEventAnalyzer:
     def __init__(self):

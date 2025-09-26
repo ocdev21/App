@@ -1,0 +1,372 @@
+#!/usr/bin/env python3
+"""
+ML Anomaly Detection Module with Joblib Persistence
+Provides MLAnomalyDetector class for PCAP analysis with model persistence
+"""
+
+import os
+import numpy as np
+import joblib
+from datetime import datetime
+from collections import defaultdict
+import warnings
+warnings.filterwarnings('ignore')
+
+try:
+    from scapy.all import rdpcap, Ether
+    from sklearn.ensemble import IsolationForest
+    from sklearn.svm import OneClassSVM
+    from sklearn.cluster import DBSCAN
+    from sklearn.neighbors import LocalOutlierFactor
+    from sklearn.preprocessing import StandardScaler
+    SCAPY_AVAILABLE = True
+    ML_AVAILABLE = True
+except ImportError as e:
+    print(f"⚠️  ML/Scapy libraries not available: {e}")
+    SCAPY_AVAILABLE = False
+    ML_AVAILABLE = False
+
+class MLAnomalyDetector:
+    """ML-based anomaly detection for PCAP files with model persistence"""
+    
+    def __init__(self, models_dir="./models"):
+        """Initialize detector with model persistence"""
+        self.models_dir = models_dir
+        os.makedirs(models_dir, exist_ok=True)
+        
+        # Equipment MAC addresses (from folder_anomaly_analyzer_clickhouse.py)
+        self.DU_MAC = "00:11:22:33:44:67"
+        self.RU_MAC = "6c:ad:ad:00:03:2a"
+        
+        # Time window for analysis (100ms)
+        self.time_window = 0.1
+        
+        if ML_AVAILABLE and SCAPY_AVAILABLE:
+            self.models = self.load_or_create_models()
+            print(f"🤖 MLAnomalyDetector initialized with models in {models_dir}")
+        else:
+            print("⚠️  MLAnomalyDetector created in limited mode (no ML/Scapy)")
+            self.models = {}
+    
+    def load_or_create_models(self):
+        """Load existing models or create new ones with joblib persistence"""
+        model_files = {
+            'isolation_forest': f"{self.models_dir}/isolation_forest.pkl",
+            'one_class_svm': f"{self.models_dir}/one_class_svm.pkl", 
+            'dbscan': f"{self.models_dir}/dbscan.pkl",
+            'scaler': f"{self.models_dir}/scaler.pkl"
+        }
+        
+        models = {}
+        
+        for model_name, pkl_file in model_files.items():
+            if os.path.exists(pkl_file):
+                try:
+                    print(f"📦 Loading {model_name} from {pkl_file}")
+                    models[model_name] = joblib.load(pkl_file)
+                    print(f"✅ Successfully loaded {model_name}")
+                except Exception as e:
+                    print(f"❌ Failed to load {model_name}: {e}")
+                    models[model_name] = self.create_fresh_model(model_name)
+            else:
+                print(f"🆕 Creating new {model_name}")
+                models[model_name] = self.create_fresh_model(model_name)
+        
+        return models
+    
+    def create_fresh_model(self, model_name):
+        """Create a fresh model instance"""
+        if model_name == 'isolation_forest':
+            return IsolationForest(
+                contamination=0.1, 
+                random_state=42,
+                n_estimators=100
+            )
+        elif model_name == 'one_class_svm':
+            return OneClassSVM(
+                nu=0.1, 
+                gamma='auto',
+                kernel='rbf'
+            )
+        elif model_name == 'dbscan':
+            return DBSCAN(
+                eps=0.5, 
+                min_samples=5
+            )
+        elif model_name == 'scaler':
+            return StandardScaler()
+        else:
+            return None
+    
+    def save_models(self):
+        """Save trained models as .pkl files using joblib"""
+        if not self.models:
+            print("⚠️  No models to save")
+            return
+        
+        print(f"💾 Saving models to {self.models_dir}/")
+        
+        try:
+            for model_name, model in self.models.items():
+                pkl_file = f"{self.models_dir}/{model_name}.pkl"
+                joblib.dump(model, pkl_file)
+                print(f"✅ Saved {model_name} to {pkl_file}")
+            
+            # Save metadata
+            metadata = {
+                'last_updated': datetime.now().isoformat(),
+                'model_versions': {name: str(type(model).__name__) for name, model in self.models.items()}
+            }
+            joblib.dump(metadata, f"{self.models_dir}/metadata.pkl")
+            print("✅ All models saved successfully!")
+            
+        except Exception as e:
+            print(f"❌ Error saving models: {e}")
+    
+    def analyze_pcap(self, pcap_file):
+        """Analyze PCAP file and return anomalies (main interface method)"""
+        if not SCAPY_AVAILABLE or not ML_AVAILABLE:
+            return {
+                'error': 'Scapy or ML libraries not available',
+                'anomalies': []
+            }
+        
+        try:
+            print(f"🔍 Analyzing PCAP: {os.path.basename(pcap_file)}")
+            
+            # Load packets
+            packets = rdpcap(pcap_file)
+            print(f"📦 Loaded {len(packets)} packets")
+            
+            if len(packets) < 10:
+                return {
+                    'warning': f'Too few packets ({len(packets)}) for reliable ML analysis',
+                    'anomalies': []
+                }
+            
+            # Extract features using the same logic as unified_l1_analyzer
+            features, packet_metadata = self.extract_pcap_features_basic(packets)
+            
+            if len(features) < 3:
+                return {
+                    'warning': f'Insufficient feature windows ({len(features)}) for ML analysis',
+                    'anomalies': []
+                }
+            
+            # Run ML analysis with ensemble voting
+            anomalies = self.run_ml_ensemble_analysis(features, packet_metadata)
+            
+            # Save updated models after training
+            self.save_models()
+            
+            return {
+                'total_packets': len(packets),
+                'feature_windows': len(features),
+                'anomalies': anomalies,
+                'analysis_time': datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            print(f"❌ Error analyzing PCAP {pcap_file}: {e}")
+            return {
+                'error': str(e),
+                'anomalies': []
+            }
+    
+    def extract_pcap_features_basic(self, packets):
+        """Extract 12-dimensional features from PCAP packets (same as unified_l1_analyzer)"""
+        features = []
+        packet_metadata = []
+        
+        # Group packets by time windows (100ms)
+        time_windows = defaultdict(list)
+        start_time = packets[0].time if packets else 0
+        
+        for i, packet in enumerate(packets):
+            try:
+                window_index = int((packet.time - start_time) / self.time_window)
+                time_windows[window_index].append((i, packet))
+            except:
+                continue
+        
+        print(f"📊 Created {len(time_windows)} time windows of {self.time_window}s each")
+        
+        # Extract features for each time window
+        for window_idx, window_packets in time_windows.items():
+            try:
+                window_features = self.extract_window_features(window_packets)
+                if window_features:
+                    features.append(window_features)
+                    packet_metadata.append({
+                        'window_index': window_idx,
+                        'packet_count': len(window_packets),
+                        'start_packet': window_packets[0][0] if window_packets else 0,
+                        'end_packet': window_packets[-1][0] if window_packets else 0
+                    })
+            except Exception as e:
+                print(f"Warning: Failed to extract features for window {window_idx}: {e}")
+                continue
+        
+        return features, packet_metadata
+    
+    def extract_window_features(self, window_packets):
+        """Extract 12-dimensional feature vector for a time window"""
+        if not window_packets:
+            return None
+        
+        du_count = 0
+        ru_count = 0
+        inter_arrival_times = []
+        packet_sizes = []
+        response_times = []
+        missing_responses = 0
+        
+        previous_time = None
+        
+        for packet_idx, packet in window_packets:
+            try:
+                if packet.haslayer(Ether):
+                    eth_layer = packet[Ether]
+                    src_mac = eth_layer.src.lower()
+                    dst_mac = eth_layer.dst.lower()
+                    
+                    # Count DU and RU packets
+                    if src_mac == self.DU_MAC.lower():
+                        du_count += 1
+                    elif src_mac == self.RU_MAC.lower():
+                        ru_count += 1
+                    
+                    # Calculate inter-arrival times
+                    if previous_time is not None:
+                        inter_arrival = packet.time - previous_time
+                        if inter_arrival > 0:
+                            inter_arrival_times.append(inter_arrival)
+                    previous_time = packet.time
+                    
+                    # Collect packet sizes
+                    packet_sizes.append(len(packet))
+                
+            except Exception:
+                continue
+        
+        # Calculate derived metrics
+        total_packets = len(window_packets)
+        communication_ratio = ru_count / du_count if du_count > 0 else 0
+        missing_responses = max(0, du_count - ru_count)
+        
+        # Timing statistics
+        avg_inter_arrival = np.mean(inter_arrival_times) if inter_arrival_times else 0
+        jitter = np.std(inter_arrival_times) if len(inter_arrival_times) > 1 else 0
+        max_gap = max(inter_arrival_times) if inter_arrival_times else 0
+        min_gap = min(inter_arrival_times) if inter_arrival_times else 0
+        
+        # Response time estimate (simple heuristic)
+        estimated_response_time = avg_inter_arrival * 2 if avg_inter_arrival > 0 else 0
+        response_violations = 1 if estimated_response_time > 0.001 else 0  # 1ms threshold
+        
+        # Packet size statistics  
+        avg_size = np.mean(packet_sizes) if packet_sizes else 0
+        size_variance = np.var(packet_sizes) if len(packet_sizes) > 1 else 0
+        
+        # Return 12-dimensional feature vector
+        return [
+            du_count,
+            ru_count, 
+            communication_ratio,
+            missing_responses,
+            avg_inter_arrival,
+            jitter,
+            max_gap,
+            min_gap,
+            estimated_response_time,
+            response_violations,
+            avg_size,
+            size_variance
+        ]
+    
+    def run_ml_ensemble_analysis(self, features, packet_metadata):
+        """Run ML ensemble analysis with voting"""
+        print(f"🧠 Running ML ensemble analysis on {len(features)} feature windows")
+        
+        # Convert to numpy array
+        features_array = np.array(features)
+        
+        # Scale features (and potentially retrain scaler)
+        features_scaled = self.models['scaler'].fit_transform(features_array)
+        print("📏 Features normalized with StandardScaler")
+        
+        # Apply ML algorithms (train + predict)
+        iso_predictions = self.models['isolation_forest'].fit_predict(features_scaled)
+        svm_predictions = self.models['one_class_svm'].fit_predict(features_scaled) 
+        dbscan_labels = self.models['dbscan'].fit_predict(features_scaled)
+        
+        # LOF requires a separate instance (doesn't persist well)
+        lof = LocalOutlierFactor(n_neighbors=min(20, len(features)), contamination=0.1)
+        lof_predictions = lof.fit_predict(features_scaled)
+        
+        print("🤖 All ML algorithms completed training and prediction")
+        
+        # Ensemble voting (need ≥2 algorithms to agree)
+        anomalies = []
+        for i in range(len(features)):
+            votes = 0
+            algorithm_votes = {}
+            
+            if iso_predictions[i] == -1:
+                votes += 1
+                algorithm_votes['isolation_forest'] = True
+            if svm_predictions[i] == -1:
+                votes += 1  
+                algorithm_votes['one_class_svm'] = True
+            if dbscan_labels[i] == -1:
+                votes += 1
+                algorithm_votes['dbscan'] = True
+            if lof_predictions[i] == -1:
+                votes += 1
+                algorithm_votes['lof'] = True
+            
+            # High confidence: ≥2 algorithms agree
+            if votes >= 2:
+                anomaly = {
+                    'window_index': i,
+                    'packet_number': packet_metadata[i]['start_packet'],
+                    'confidence': votes / 4.0,  # 0.5 to 1.0
+                    'algorithms_voting': algorithm_votes,
+                    'feature_values': features[i],
+                    'missing_responses': features[i][3],
+                    'communication_ratio': features[i][2],
+                    'timing_violation': features[i][9] > 0
+                }
+                anomalies.append(anomaly)
+        
+        print(f"🎯 Found {len(anomalies)} high-confidence anomalies (≥2 algorithm agreement)")
+        return anomalies
+
+# Test function for standalone usage
+def main():
+    """Test the MLAnomalyDetector"""
+    if len(sys.argv) != 2:
+        print("Usage: python ml_anomaly_detection.py <pcap_file>")
+        return
+    
+    pcap_file = sys.argv[1]
+    detector = MLAnomalyDetector()
+    result = detector.analyze_pcap(pcap_file)
+    
+    print("\n" + "="*50)
+    print("ML ANOMALY DETECTION RESULTS")
+    print("="*50)
+    print(f"Total packets: {result.get('total_packets', 'N/A')}")
+    print(f"Feature windows: {result.get('feature_windows', 'N/A')}")
+    print(f"Anomalies found: {len(result.get('anomalies', []))}")
+    
+    for i, anomaly in enumerate(result.get('anomalies', [])[:5]):
+        print(f"\nAnomaly {i+1}:")
+        print(f"  Packet: {anomaly['packet_number']}")
+        print(f"  Confidence: {anomaly['confidence']:.2f}")
+        print(f"  Missing responses: {anomaly['missing_responses']}")
+        print(f"  Communication ratio: {anomaly['communication_ratio']:.3f}")
+
+if __name__ == "__main__":
+    import sys
+    main()

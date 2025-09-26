@@ -39,8 +39,8 @@ class UnifiedL1Analyzer:
         # Initialize ClickHouse client
         try:
             self.clickhouse_client = clickhouse_connect.get_client(
-                host=os.getenv('CLICKHOUSE_HOST', 'chi-clickhouse-single-clickhouse-0-0-0.l1-app-ai.svc.cluster.local'),
-                port=int(os.getenv('CLICKHOUSE_PORT', '9000')),
+                host=os.getenv('CLICKHOUSE_HOST', 'clickhouse-clickhouse-single'),
+                port=int(os.getenv('CLICKHOUSE_PORT', '8123')),
                 username=os.getenv('CLICKHOUSE_USERNAME', 'default'),
                 password=os.getenv('CLICKHOUSE_PASSWORD', 'defaultpass'),
                 database=os.getenv('CLICKHOUSE_DATABASE', 'l1_anomaly_detection')

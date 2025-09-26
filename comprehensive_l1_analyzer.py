@@ -130,10 +130,10 @@ class ComprehensiveL1Analyzer:
         """Setup ClickHouse for comprehensive L1 analysis storage"""
         try:
             self.clickhouse_client = clickhouse_connect.get_client(
-                host=os.getenv('CLICKHOUSE_HOST', 'clickhouse-service'),
-                port=int(os.getenv('CLICKHOUSE_PORT', '9000')),
+                host=os.getenv('CLICKHOUSE_HOST', 'clickhouse-clickhouse-single'),
+                port=int(os.getenv('CLICKHOUSE_PORT', '8123')),
                 username=os.getenv('CLICKHOUSE_USERNAME', 'default'),
-                password=os.getenv('CLICKHOUSE_PASSWORD', ''),
+                password=os.getenv('CLICKHOUSE_PASSWORD', 'defaultpass'),
                 database=os.getenv('CLICKHOUSE_DATABASE', 'l1_anomaly_detection')
             )
             

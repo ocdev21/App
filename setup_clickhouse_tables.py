@@ -26,13 +26,13 @@ class ClickHouseTableSetup:
         """Setup ClickHouse connection"""
         try:
             self.client = clickhouse_connect.get_client(
-                host=os.getenv('CLICKHOUSE_HOST', 'clickhouse-service'),
-                port=int(os.getenv('CLICKHOUSE_PORT', '9000')),
+                host=os.getenv('CLICKHOUSE_HOST', 'clickhouse-clickhouse-single'),
+                port=int(os.getenv('CLICKHOUSE_PORT', '8123')),
                 username=os.getenv('CLICKHOUSE_USERNAME', 'default'),
-                password=os.getenv('CLICKHOUSE_PASSWORD', ''),
+                password=os.getenv('CLICKHOUSE_PASSWORD', 'defaultpass'),
                 database=os.getenv('CLICKHOUSE_DATABASE', 'default')
             )
-            print(f"[SUCCESS] Connected to ClickHouse at {os.getenv('CLICKHOUSE_HOST', 'clickhouse-service')}")
+            print(f"[SUCCESS] Connected to ClickHouse at {os.getenv('CLICKHOUSE_HOST', 'clickhouse-clickhouse-single')}")
         except Exception as e:
             print(f"[ERROR] Failed to connect to ClickHouse: {e}")
             sys.exit(1)

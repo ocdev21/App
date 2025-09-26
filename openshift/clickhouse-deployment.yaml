@@ -19,7 +19,7 @@ spec:
       - name: clickhouse
         image: clickhouse/clickhouse-server:24.1
         ports:
-        - containerPort: 8123
+        - containerPort: 9000
         - containerPort: 9000
         env:
         - name: CLICKHOUSE_DB
@@ -59,8 +59,8 @@ spec:
   ports:
   - name: http
     protocol: TCP
-    port: 8123
-    targetPort: 8123
+    port: 9000
+    targetPort: 9000
   - name: native
     protocol: TCP
     port: 9000

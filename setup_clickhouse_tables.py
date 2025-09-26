@@ -27,7 +27,7 @@ class ClickHouseTableSetup:
         try:
             self.client = clickhouse_connect.get_client(
                 host=os.getenv('CLICKHOUSE_HOST', 'clickhouse-service'),
-                port=int(os.getenv('CLICKHOUSE_PORT', '8123')),
+                port=int(os.getenv('CLICKHOUSE_PORT', '9000')),
                 username=os.getenv('CLICKHOUSE_USERNAME', 'default'),
                 password=os.getenv('CLICKHOUSE_PASSWORD', ''),
                 database=os.getenv('CLICKHOUSE_DATABASE', 'default')

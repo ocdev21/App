@@ -438,7 +438,7 @@ export class ClickHouseStorage implements IStorage {
     } catch (error: any) {
       console.error('ClickHouse connection failed:', error.message);
       console.log('💡 Note: Since ClickHouse is running on your local desktop, connection from this environment is not possible.');
-      console.log('🔗 The system is properly configured to connect to: http://127.0.0.1:8123');
+      console.log('🔗 The system is properly configured to connect to: http://127.0.0.1:9000');
       console.log('📊 Query format is correct and ready for your local ClickHouse server');
       throw error;
     }
@@ -1131,7 +1131,7 @@ if (process.env.REPLIT_DB_URL || process.env.REPL_ID) {
   console.log('📝 Using sample data for Replit preview (ClickHouse disabled)');
 } else {
   console.log('🔗 Connecting to ClickHouse storage with your real anomaly data');
-  console.log('💡 Reading from l1_anomaly_detection database at 127.0.0.1:8123');
+  console.log('💡 Reading from l1_anomaly_detection database at 127.0.0.1:9000');
 }
 
 export const storage = (process.env.REPLIT_DB_URL || process.env.REPL_ID) 

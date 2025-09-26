@@ -40,7 +40,7 @@ data:
             <level>information</level>
             <console>true</console>
         </logger>
-        <http_port>8123</http_port>
+        <http_port>9000</http_port>
         <tcp_port>9000</tcp_port>
         <listen_host>0.0.0.0</listen_host>
         <max_connections>4096</max_connections>
@@ -140,7 +140,7 @@ spec:
             type: RuntimeDefault
         ports:
         - name: http
-          containerPort: 8123
+          containerPort: 9000
           protocol: TCP
         - name: native
           containerPort: 9000
@@ -173,7 +173,7 @@ spec:
         livenessProbe:
           httpGet:
             path: /ping
-            port: 8123
+            port: 9000
           initialDelaySeconds: 30
           periodSeconds: 10
           timeoutSeconds: 5
@@ -181,7 +181,7 @@ spec:
         readinessProbe:
           httpGet:
             path: /ping
-            port: 8123
+            port: 9000
           initialDelaySeconds: 5
           periodSeconds: 5
           timeoutSeconds: 3
@@ -209,8 +209,8 @@ spec:
   ports:
   - name: http
     protocol: TCP
-    port: 8123
-    targetPort: 8123
+    port: 9000
+    targetPort: 9000
   - name: native
     protocol: TCP
     port: 9000

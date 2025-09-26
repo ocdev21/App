@@ -180,7 +180,7 @@ spec:
         image: clickhouse/clickhouse-server:24.1
         imagePullPolicy: IfNotPresent
         ports:
-        - containerPort: 8123
+        - containerPort: 9000
         - containerPort: 9000
         env:
         - name: CLICKHOUSE_DB
@@ -221,8 +221,8 @@ spec:
   ports:
   - name: http
     protocol: TCP
-    port: 8123
-    targetPort: 8123
+    port: 9000
+    targetPort: 9000
   - name: native
     protocol: TCP
     port: 9000
@@ -238,9 +238,9 @@ metadata:
 data:
   NODE_ENV: "production"
   PORT: "5000"
-  CLICKHOUSE_URL: "http://clickhouse-service.l1-app.svc.cluster.local:8123"
+  CLICKHOUSE_URL: "http://clickhouse-service.l1-app.svc.cluster.local:9000"
   CLICKHOUSE_HOST: "clickhouse-service.l1-app.svc.cluster.local"
-  CLICKHOUSE_PORT: "8123"
+  CLICKHOUSE_PORT: "9000"
   CLICKHOUSE_DATABASE: "l1_anomaly_detection"
   CLICKHOUSE_USER: "default"
   CLICKHOUSE_USERNAME: "default"
@@ -290,11 +290,11 @@ spec:
         - name: NODE_ENV
           value: "production"
         - name: CLICKHOUSE_URL
-          value: "http://clickhouse-service.l1-app.svc.cluster.local:8123"
+          value: "http://clickhouse-service.l1-app.svc.cluster.local:9000"
         - name: CLICKHOUSE_HOST
           value: "clickhouse-service.l1-app.svc.cluster.local"
         - name: CLICKHOUSE_PORT
-          value: "8123"
+          value: "9000"
         - name: CLICKHOUSE_DATABASE
           value: "l1_anomaly_detection"
         - name: CLICKHOUSE_USER

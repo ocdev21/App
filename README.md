@@ -8,7 +8,7 @@ This is a complete L1 Network Troubleshooting System with full TSLAM-4B AI integ
 
 1. **Node.js 18+** and **Python 3.11+**
 2. **Tesla P40 GPU** (24GB VRAM) with proper CUDA drivers
-3. **ClickHouse Server** running on `127.0.0.1:8123`
+3. **ClickHouse Server** running on `127.0.0.1:9000`
 4. **TSLAM-4B Model** installed at `/home/users/praveen.joe/TSLAM-4B`
 
 ### Installation
@@ -55,7 +55,7 @@ The application will be available at `http://0.0.0.0:5000`
 
 ### 🗄️ Dual Database Support
 - **PostgreSQL**: Primary application data with Drizzle ORM
-- **ClickHouse**: High-volume analytics at `127.0.0.1:8123`
+- **ClickHouse**: High-volume analytics at `127.0.0.1:9000`
 - **Fallback Logic**: Sample data when databases unavailable
 
 ## File Processing
@@ -96,7 +96,7 @@ The application will be available at `http://0.0.0.0:5000`
 ### Environment Variables
 ```bash
 DATABASE_URL=your_postgresql_connection_string
-CLICKHOUSE_URL=http://127.0.0.1:8123
+CLICKHOUSE_URL=http://127.0.0.1:9000
 CLICKHOUSE_DATABASE=l1_anomaly_detection
 PORT=5000
 ```
@@ -177,10 +177,10 @@ python folder_anomaly_analyzer_clickhouse.py
 ### ClickHouse Connection Issues
 ```bash
 # Check ClickHouse status
-curl http://127.0.0.1:8123/ping
+curl http://127.0.0.1:9000/ping
 
 # Verify database exists
-curl "http://127.0.0.1:8123/?query=SHOW DATABASES"
+curl "http://127.0.0.1:9000/?query=SHOW DATABASES"
 ```
 
 ### GPU Memory Issues

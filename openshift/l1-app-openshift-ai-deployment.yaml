@@ -18,9 +18,9 @@ metadata:
 data:
   NODE_ENV: "production"
   PORT: "5000"
-  CLICKHOUSE_URL: "http://clickhouse-service.l1-app-ai.svc.cluster.local:8123"
+  CLICKHOUSE_URL: "http://clickhouse-service.l1-app-ai.svc.cluster.local:9000"
   CLICKHOUSE_HOST: "clickhouse-service.l1-app-ai.svc.cluster.local"
-  CLICKHOUSE_PORT: "8123"
+  CLICKHOUSE_PORT: "9000"
   CLICKHOUSE_DATABASE: "l1_anomaly_detection"
   CLICKHOUSE_USER: "default"
   CLICKHOUSE_USERNAME: "default"
@@ -131,7 +131,7 @@ spec:
           allowPrivilegeEscalation: false
         ports:
         - name: http
-          containerPort: 8123
+          containerPort: 9000
         - name: tcp
           containerPort: 9000
         env:
@@ -160,13 +160,13 @@ spec:
         livenessProbe:
           httpGet:
             path: /ping
-            port: 8123
+            port: 9000
           initialDelaySeconds: 30
           periodSeconds: 30
         readinessProbe:
           httpGet:
             path: /ping
-            port: 8123
+            port: 9000
           initialDelaySeconds: 10
           periodSeconds: 10
       volumes:
@@ -188,8 +188,8 @@ spec:
   ports:
   - name: http
     protocol: TCP
-    port: 8123
-    targetPort: 8123
+    port: 9000
+    targetPort: 9000
   - name: tcp
     protocol: TCP
     port: 9000
@@ -724,7 +724,7 @@ spec:
           name: redhat-ods-applications
     ports:
     - protocol: TCP
-      port: 8123
+      port: 9000
     - protocol: TCP
       port: 9000
     - protocol: TCP

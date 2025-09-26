@@ -96,7 +96,7 @@ fi
 echo ""
 echo "📊 Database Information:"
 echo "   - Host: $SERVICE_NAME.$NAMESPACE.svc.cluster.local"
-echo "   - HTTP Port: 8123"
+echo "   - HTTP Port: 9000"
 echo "   - TCP Port: 9000" 
 echo "   - Database: l1_anomaly_detection"
 echo "   - Username: default"

@@ -70,7 +70,7 @@ APP_POD=$(kubectl get pods -n $NAMESPACE -l app=l1-troubleshooting -o jsonpath='
 
 if [ ! -z "$APP_POD" ]; then
     echo "Testing from pod: $APP_POD"
-    kubectl exec -n $NAMESPACE $APP_POD -- sh -c 'curl -s http://chi-clickhouse-single-clickhouse-0-0.l1-app-ai.svc.cluster.local:8123/ping || echo "ClickHouse not reachable"'
+    kubectl exec -n $NAMESPACE $APP_POD -- sh -c 'curl -s http://chi-clickhouse-single-clickhouse-0-0.l1-app-ai.svc.cluster.local:9000/ping || echo "ClickHouse not reachable"'
 else
     echo "No application pod found for connectivity test"
 fi

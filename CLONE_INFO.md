@@ -58,7 +58,7 @@
 
 ### Database Configuration
 - **Primary**: PostgreSQL with Drizzle ORM
-- **Analytics**: ClickHouse at `127.0.0.1:8123`
+- **Analytics**: ClickHouse at `127.0.0.1:9000`
 - **Database**: `l1_anomaly_detection`
 - **Fallback**: Sample data when ClickHouse unavailable
 

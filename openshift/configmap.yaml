@@ -7,9 +7,9 @@ metadata:
 data:
   NODE_ENV: "production"
   PORT: "5000"
-  CLICKHOUSE_URL: "http://clickhouse-service.l1-app.svc.cluster.local:8123"
+  CLICKHOUSE_URL: "http://clickhouse-service.l1-app.svc.cluster.local:9000"
   CLICKHOUSE_HOST: "clickhouse-service.l1-app.svc.cluster.local"
-  CLICKHOUSE_PORT: "8123"
+  CLICKHOUSE_PORT: "9000"
   CLICKHOUSE_DATABASE: "l1_anomaly_detection"
   CLICKHOUSE_USER: "default"
   CLICKHOUSE_USERNAME: "default"

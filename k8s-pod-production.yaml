@@ -3,14 +3,58 @@ kind: Pod
 metadata:
   name: l1-prod-app
   namespace: l1-app-ai
+  labels:
+    app: l1-prod-app
+    version: production
 spec:
   containers:
   - name: l1-prod-app
     image: image-registry.openshift-image-registry.svc:5000/l1-app-ai/l1-app-production
     ports:
     - containerPort: 3000
+      name: http
     envFrom:
     - secretRef:
         name: l1-app-secret
+    env:
+    - name: CLICKHOUSE_HOST
+      value: "clickhouse-clickhouse-single"
+    - name: CLICKHOUSE_PORT
+      value: "8123"
+    - name: CLICKHOUSE_USERNAME
+      value: "default"
+    - name: CLICKHOUSE_PASSWORD
+      value: "defaultpass"
+    - name: CLICKHOUSE_DATABASE
+      value: "l1_anomaly_detection"
   imagePullSecrets:
   - name: l1-app-secret
+---
+# L1 Production Service - NodePort
+apiVersion: v1
+kind: Service
+metadata:
+  name: l1-prod-app-service
+  namespace: l1-app-ai
+  labels:
+    app: l1-prod-app
+    version: production
+spec:
+  selector:
+    app: l1-prod-app
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: 3000
+    nodePort: 30090
+  - name: https
+    protocol: TCP
+    port: 443
+    targetPort: 3000
+    nodePort: 30490
+  type: NodePort
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 3600

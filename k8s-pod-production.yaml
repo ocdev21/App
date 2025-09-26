@@ -11,7 +11,7 @@ spec:
   - name: l1-prod-app
     image: image-registry.openshift-image-registry.svc:5000/l1-app-ai/l1-app-production
     ports:
-    - containerPort: 3000
+    - containerPort: 5000
       name: http
     envFrom:
     - secretRef:
@@ -46,13 +46,8 @@ spec:
   - name: http
     protocol: TCP
     port: 80
-    targetPort: 3000
-    nodePort: 30090
-  - name: https
-    protocol: TCP
-    port: 443
-    targetPort: 3000
-    nodePort: 30490
+    targetPort: 5000
+    nodePort: 30542
   type: NodePort
   sessionAffinity: ClientIP
   sessionAffinityConfig:

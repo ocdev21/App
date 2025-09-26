@@ -28,3 +28,9 @@ Access the application at http://0.0.0.0:5000
 - **Backend**: Express.js with WebSocket support
 - **AI**: TSLAM-4B model integration
 - **Database**: PostgreSQL + ClickHouse analytics
+
+## Recent Changes
+
+- **Emoji Cleanup (Sept 26, 2025)**: Removed all emojis and visual icons from print statements, logs, and output throughout the entire project for clean, professional output
+- **Persistent Storage**: Implemented complete PVC configuration with dual volume mounts for ML models and input files
+- **OpenShift AI Integration**: Enhanced deployment for Red Hat OpenShift AI platform with namespace l1-app-ai

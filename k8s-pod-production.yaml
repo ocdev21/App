@@ -12,7 +12,7 @@ spec:
     - ReadWriteOnce  # Single pod read-write access
   resources:
     requests:
-      storage: 5Gi   # 5GB storage for ML models
+      storage: 10Gi  # 10GB storage for ML models + input files
   storageClassName: ""  # Uses default storage class
   volumeMode: Filesystem
 ---
@@ -49,10 +49,17 @@ spec:
     volumeMounts:
     - name: ml-models-storage
       mountPath: /app/models
+    - name: input-files-storage
+      mountPath: /app/input_files
   volumes:
   - name: ml-models-storage
     persistentVolumeClaim:
       claimName: l1-ml-models-pvc
+    subPath: models
+  - name: input-files-storage
+    persistentVolumeClaim:
+      claimName: l1-ml-models-pvc  
+    subPath: input_files
   imagePullSecrets:
   - name: l1-app-secret
 ---

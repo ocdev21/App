@@ -54,7 +54,7 @@ class ClickHouseFolderAnalyzer:
             print("📊 Running in console-only mode")
             self.client = None
 
-    def scan_folder(self, folder_path):
+    def scan_folder(self, folder_path="/app/input_files"):
         """Scan folder for network files"""
         print(f"\nSCANNING FOLDER: {folder_path}")
         print("-" * 40)
@@ -460,17 +460,27 @@ def main():
     print("• ClickHouse database integration")
     print("• Batch processing with summary report")
 
-    # Get folder path from command line
-    if len(sys.argv) != 2:
-        print("\nUsage: python folder_anomaly_analyzer_clickhouse.py <folder_path>")
-        print("Example: python folder_anomaly_analyzer_clickhouse.py ./network_data")
-        sys.exit(1)
-
-    folder_path = sys.argv[1]
+    # Get folder path from command line or use default
+    if len(sys.argv) < 2:
+        folder_path = "/app/input_files"
+        print(f"\nℹ️  No folder specified, using default: {folder_path}")
+    else:
+        folder_path = sys.argv[1]
+        print(f"\n📁 Using specified folder: {folder_path}")
 
     if not os.path.exists(folder_path):
         print(f"\n❌ Error: Folder '{folder_path}' does not exist")
-        sys.exit(1)
+        if folder_path == "/app/input_files":
+            print("💡 Tip: Upload PCAP/text files to /app/input_files directory")
+            # Create the directory if it doesn't exist
+            try:
+                os.makedirs(folder_path, exist_ok=True)
+                print(f"📁 Created directory: {folder_path}")
+            except Exception as e:
+                print(f"⚠️  Could not create directory: {e}")
+                sys.exit(1)
+        else:
+            sys.exit(1)
 
     # Initialize analyzer
     analyzer = ClickHouseFolderAnalyzer()

@@ -25,11 +25,11 @@ data:
   CLICKHOUSE_USER: "default"
   CLICKHOUSE_USERNAME: "default"
   CLICKHOUSE_PASSWORD: "defaultpass"
-  TSLAM_REMOTE_HOST: "10.193.0.4"
-  TSLAM_REMOTE_PORT: "8080"
+  TSLAM_REMOTE_HOST: "tslam-vllm-service.l1-app-ai.svc.cluster.local"
+  TSLAM_REMOTE_PORT: "8000"
   # OpenShift AI Model Serving Endpoints
-  RHOAI_MODEL_SERVING: "false"
-  RHOAI_INFERENCE_ENDPOINT: "http://tslam-model-service.l1-app-ai.svc.cluster.local:8080/predict"
+  RHOAI_MODEL_SERVING: "true"
+  RHOAI_INFERENCE_ENDPOINT: "http://tslam-vllm-service.l1-app-ai.svc.cluster.local:8000/v1/chat/completions"
   JUPYTER_SERVICE_URL: "http://jupyter-service.l1-app-ai.svc.cluster.local:8888"
 ---
 # L1 Application Secrets

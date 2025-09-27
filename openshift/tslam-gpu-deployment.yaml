@@ -1,0 +1,198 @@
+---
+# Namespace for OpenShift AI
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: l1-app-ai
+  labels:
+    name: l1-app-ai
+    purpose: l1-troubleshooting-ai-platform
+    opendatahub.io/dashboard: 'true'
+---
+# TSLAM ML Models PVC with NFS storage class
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: l1-ml-models-pvc
+  namespace: l1-app-ai
+  labels:
+    app: l1-troubleshooting
+    component: ml-storage
+    model-type: tslam-4b
+    usage: gpu-inference
+spec:
+  accessModes:
+    - ReadWriteMany  # Multiple GPU pods can read the same model files
+  resources:
+    requests:
+      storage: 20Gi   # 20GB storage for TSLAM-4B (8-15GB) + ensemble models
+  storageClassName: "nfs"  # Use NFS storage class that works
+  volumeMode: Filesystem
+---
+# Model Upload Pod for TSLAM-4B
+apiVersion: v1
+kind: Pod
+metadata:
+  name: tslam-model-uploader
+  namespace: l1-app-ai
+  labels:
+    app: model-uploader
+    model: tslam-4b
+spec:
+  restartPolicy: Never
+  containers:
+  - name: uploader
+    image: busybox:1.35
+    command: ["sleep", "3600"]
+    volumeMounts:
+    - name: model-storage
+      mountPath: /models
+  volumes:
+  - name: model-storage
+    persistentVolumeClaim:
+      claimName: l1-ml-models-pvc
+---
+# TSLAM vLLM GPU Inference Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tslam-vllm-deployment
+  namespace: l1-app-ai
+  labels:
+    app: tslam-vllm
+    model: tslam-4b
+    component: gpu-inference
+spec:
+  replicas: 3  # One replica per GPU node
+  selector:
+    matchLabels:
+      app: tslam-vllm
+  template:
+    metadata:
+      labels:
+        app: tslam-vllm
+        model: tslam-4b
+        component: gpu-inference
+    spec:
+      # Distribute pods across specific GPU nodes
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values: ["tslam-vllm"]
+              topologyKey: kubernetes.io/hostname
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values: 
+                - "rhocp-gx5wg-worker-0-vfm8l"
+                - "rhocp-gx5wg-worker-0-pdg59"
+                - "rhocp-gx5wg-worker-0-cbmkw"
+      containers:
+      - name: vllm-server
+        image: vllm/vllm-openai:latest
+        ports:
+        - name: http
+          containerPort: 8000
+          protocol: TCP
+        command: ["python", "-m", "vllm.entrypoints.openai.api_server"]
+        args:
+        - "--model=/models/tslam-4b"
+        - "--host=0.0.0.0"
+        - "--port=8000"
+        - "--served-model-name=tslam-4b"
+        - "--max-model-len=4096"
+        - "--gpu-memory-utilization=0.9"
+        - "--tensor-parallel-size=1"
+        - "--dtype=float16"
+        - "--trust-remote-code"
+        - "--enable-chunked-prefill"
+        - "--max-num-seqs=128"
+        resources:
+          requests:
+            nvidia.com/gpu: 1
+            memory: "16Gi"
+            cpu: "4"
+          limits:
+            nvidia.com/gpu: 1
+            memory: "32Gi"
+            cpu: "8"
+        env:
+        - name: CUDA_VISIBLE_DEVICES
+          value: "0"
+        - name: VLLM_WORKER_MULTIPROC_METHOD
+          value: "spawn"
+        volumeMounts:
+        - name: model-storage
+          mountPath: /models
+          readOnly: true
+        - name: tmp-storage
+          mountPath: /tmp
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+          successThreshold: 1
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30
+          successThreshold: 1
+      volumes:
+      - name: model-storage
+        persistentVolumeClaim:
+          claimName: l1-ml-models-pvc
+      - name: tmp-storage
+        emptyDir:
+          sizeLimit: 4Gi
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+---
+# TSLAM vLLM Load Balancer Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: tslam-vllm-service
+  namespace: l1-app-ai
+  labels:
+    app: tslam-vllm
+    model: tslam-4b
+    component: gpu-inference
+spec:
+  selector:
+    app: tslam-vllm
+  ports:
+  - name: http
+    protocol: TCP
+    port: 8000
+    targetPort: 8000
+  type: ClusterIP
+  sessionAffinity: None

@@ -61,25 +61,30 @@ echo "Waiting for upload pod to be ready..."
 oc wait --for=condition=Ready pod/tslam-model-uploader -n $PROJECT_NAME --timeout=120s
 
 echo ""
-echo "Step 4: Model Upload Instructions"
-echo "================================"
+echo "Step 4: Uploading TSLAM Model from /home/cloud-user/pjoe/model"
+echo "=============================================================="
 
-echo "IMPORTANT: Upload your TSLAM-4B model files now!"
-echo ""
-echo "From your local machine with the TSLAM model folder, run:"
-echo "  oc cp /path/to/your/tslam-model/ $PROJECT_NAME/tslam-model-uploader:/models/tslam-4b"
-echo ""
-echo "Required files in your TSLAM model folder:"
-echo "  - config.json"
-echo "  - pytorch_model.bin (or model.safetensors)"
-echo "  - tokenizer.json"
-echo "  - tokenizer_config.json"
-echo "  - vocab.txt"
-echo ""
-echo "Example upload command:"
-echo "  oc cp ./my-tslam-4b-folder/ $PROJECT_NAME/tslam-model-uploader:/models/tslam-4b"
-echo ""
-read -p "Press ENTER after you have uploaded the model files..."
+echo "Uploading TSLAM-4B model files from local path..."
+echo "Source: /home/cloud-user/pjoe/model"
+echo "Target: PVC /models/tslam-4b"
+
+# Upload the model files directly
+if [ -d "/home/cloud-user/pjoe/model" ]; then
+    echo "✓ Found TSLAM model directory"
+    echo "Copying model files to PVC..."
+    oc cp /home/cloud-user/pjoe/model/ $PROJECT_NAME/tslam-model-uploader:/models/tslam-4b
+    
+    if [ $? -eq 0 ]; then
+        echo "✓ Model files uploaded successfully"
+    else
+        echo "✗ Model upload failed"
+        exit 1
+    fi
+else
+    echo "✗ TSLAM model directory not found at /home/cloud-user/pjoe/model"
+    echo "Please verify the path exists and try again"
+    exit 1
+fi
 
 echo ""
 echo "Step 5: Verifying Model Upload"

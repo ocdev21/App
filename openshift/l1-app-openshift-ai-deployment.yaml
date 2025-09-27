@@ -73,7 +73,7 @@ spec:
     requests:
       storage: 10Gi
 ---
-# ML Models PVC for .pkl file storage
+# Enhanced ML Models PVC for TSLAM-4B and ensemble models
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -82,12 +82,14 @@ metadata:
   labels:
     app: l1-troubleshooting
     component: ml-storage
+    model-type: tslam-4b
+    usage: gpu-inference
 spec:
   accessModes:
-    - ReadWriteOnce  # Single pod read-write access
+    - ReadWriteMany  # Multiple GPU pods can read the same model files
   resources:
     requests:
-      storage: 5Gi   # 5GB storage for ML models
+      storage: 20Gi   # 20GB storage for TSLAM-4B (8-15GB) + ensemble models
   storageClassName: ""  # Uses default storage class
   volumeMode: Filesystem
 ---
@@ -214,93 +216,161 @@ spec:
     targetPort: 9000
   type: ClusterIP
 ---
-# TSLAM Model Service (Standard Deployment instead of InferenceService)
+# Model Upload Job for TSLAM-4B
+apiVersion: v1
+kind: Pod
+metadata:
+  name: tslam-model-uploader
+  namespace: l1-app-ai
+  labels:
+    app: model-uploader
+    model: tslam-4b
+spec:
+  restartPolicy: Never
+  containers:
+  - name: uploader
+    image: busybox:1.35
+    command: ["sleep", "3600"]  # Stays alive for 1 hour for manual upload
+    volumeMounts:
+    - name: model-storage
+      mountPath: /models
+  volumes:
+  - name: model-storage
+    persistentVolumeClaim:
+      claimName: l1-ml-models-pvc
+---
+# TSLAM vLLM GPU Inference Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: tslam-model-deployment
+  name: tslam-vllm-deployment
   namespace: l1-app-ai
   labels:
-    app: tslam-model
+    app: tslam-vllm
+    model: tslam-4b
     opendatahub.io/dashboard: 'true'
 spec:
-  replicas: 1
+  replicas: 3  # One per GPU node
   selector:
     matchLabels:
-      app: tslam-model
+      app: tslam-vllm
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   template:
     metadata:
       labels:
-        app: tslam-model
+        app: tslam-vllm
+        model: tslam-4b
     spec:
       serviceAccountName: l1-app-ai-sa
+      # Ensure pods are distributed across GPU nodes
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                - rhocp-gx5wg-worker-0-vfm8l
+                - rhocp-gx5wg-worker-0-pdg59
+                - rhocp-gx5wg-worker-0-cbmkw
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app: tslam-vllm
+            topologyKey: kubernetes.io/hostname
       containers:
-      - name: tslam-server
-        image: python:3.11-slim
+      - name: vllm-server
+        image: vllm/vllm-openai:v0.6.2
         ports:
         - name: http
-          containerPort: 8080
-        command: ["python", "-c"]
+          containerPort: 8000
+        command:
+        - python
+        - -m
+        - vllm.entrypoints.openai.api_server
         args:
-        - |
-          import http.server
-          import socketserver
-          import json
-
-          class TSLAMHandler(http.server.BaseHTTPRequestHandler):
-              def do_POST(self):
-                  if self.path == '/predict':
-                      content_length = int(self.headers['Content-Length'])
-                      post_data = self.rfile.read(content_length)
-
-                      self.send_response(200)
-                      self.send_header('Content-type', 'application/json')
-                      self.end_headers()
-
-                      response = {
-                          "prediction": "TSLAM model placeholder response",
-                          "confidence": 0.85,
-                          "recommendations": ["Check fronthaul latency", "Verify UE connection"]
-                      }
-                      self.wfile.write(json.dumps(response).encode())
-                  else:
-                      self.send_error(404)
-
-          with socketserver.TCPServer(("", 8080), TSLAMHandler) as httpd:
-              print("TSLAM Model Server running on port 8080")
-              httpd.serve_forever()
+        - --model
+        - /models/tslam-4b
+        - --host
+        - 0.0.0.0
+        - --port
+        - "8000"
+        - --tensor-parallel-size
+        - "1"
+        - --max-model-len
+        - "2048"
+        - --gpu-memory-utilization
+        - "0.8"
+        - --served-model-name
+        - tslam-4b
+        env:
+        - name: CUDA_VISIBLE_DEVICES
+          value: "0"
+        - name: VLLM_WORKER_MULTIPROC_METHOD
+          value: spawn
         volumeMounts:
-        - name: model-data
-          mountPath: /app/models
+        - name: model-storage
+          mountPath: /models
+          readOnly: true
+        - name: tmp-storage
+          mountPath: /tmp
         resources:
           requests:
-            memory: "2Gi"
-            cpu: "1000m"
+            nvidia.com/gpu: 1
+            memory: "8Gi"
+            cpu: "4000m"
           limits:
-            memory: "4Gi"
-            cpu: "2000m"
+            nvidia.com/gpu: 1
+            memory: "16Gi"
+            cpu: "8000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 120
+          periodSeconds: 30
+          timeoutSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
       volumes:
-      - name: model-data
+      - name: model-storage
         persistentVolumeClaim:
-          claimName: l1-app-ai-data-pvc
+          claimName: l1-ml-models-pvc
+      - name: tmp-storage
+        emptyDir:
+          sizeLimit: 4Gi
 ---
-# TSLAM Model Service
+# TSLAM vLLM Load Balancer Service
 apiVersion: v1
 kind: Service
 metadata:
-  name: tslam-model-service
+  name: tslam-vllm-service
   namespace: l1-app-ai
   labels:
-    app: tslam-model
+    app: tslam-vllm
+    model: tslam-4b
+    service-type: gpu-inference
 spec:
   selector:
-    app: tslam-model
+    app: tslam-vllm
   ports:
   - name: http
     protocol: TCP
-    port: 8080
-    targetPort: 8080
+    port: 8000
+    targetPort: 8000
   type: ClusterIP
+  sessionAffinity: None  # Load balance across all GPU nodes
 ---
 # ConfigMap with basic application code
 apiVersion: v1

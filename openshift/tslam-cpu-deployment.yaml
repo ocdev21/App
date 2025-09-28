@@ -1,0 +1,152 @@
+---
+# Namespace for OpenShift AI
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: l1-app-ai
+  labels:
+    name: l1-app-ai
+    purpose: l1-troubleshooting-ai-platform
+    opendatahub.io/dashboard: 'true'
+---
+# TSLAM ML Models PVC with NFS storage class
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: l1-ml-models-pvc
+  namespace: l1-app-ai
+  labels:
+    app: l1-troubleshooting
+    component: ml-storage
+    model-type: tslam-4b
+    usage: cpu-inference
+spec:
+  accessModes:
+    - ReadWriteMany  # Multiple CPU pods can read the same model files
+  resources:
+    requests:
+      storage: 20Gi   # 20GB storage for TSLAM-4B model
+  storageClassName: "nfs"  # Use NFS storage class that works
+  volumeMode: Filesystem
+---
+# TSLAM vLLM CPU Inference Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tslam-vllm-cpu-deployment
+  namespace: l1-app-ai
+  labels:
+    app: tslam-vllm-cpu
+    model: tslam-4b
+    component: cpu-inference
+spec:
+  replicas: 2  # Two CPU replicas for load balancing
+  selector:
+    matchLabels:
+      app: tslam-vllm-cpu
+  template:
+    metadata:
+      labels:
+        app: tslam-vllm-cpu
+        model: tslam-4b
+        component: cpu-inference
+    spec:
+      # No node affinity - can run on any worker node
+      containers:
+      - name: vllm-server
+        image: vllm/vllm-openai:latest
+        ports:
+        - name: http
+          containerPort: 8000
+          protocol: TCP
+        command: ["python", "-m", "vllm.entrypoints.openai.api_server"]
+        args:
+        - "--model=/models/tslam-4b"
+        - "--host=0.0.0.0"
+        - "--port=8000"
+        - "--served-model-name=tslam-4b"
+        - "--max-model-len=2048"
+        - "--dtype=float16"
+        - "--trust-remote-code"
+        - "--tensor-parallel-size=1"
+        - "--max-num-seqs=64"
+        - "--enforce-eager"
+        - "--disable-log-stats"
+        resources:
+          requests:
+            memory: "8Gi"
+            cpu: "4"
+          limits:
+            memory: "16Gi"
+            cpu: "8"
+        env:
+        - name: VLLM_WORKER_MULTIPROC_METHOD
+          value: "spawn"
+        - name: OMP_NUM_THREADS
+          value: "4"
+        volumeMounts:
+        - name: model-storage
+          mountPath: /models
+          readOnly: true
+        - name: tmp-storage
+          mountPath: /tmp
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 120
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+          successThreshold: 1
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 60
+          periodSeconds: 15
+          timeoutSeconds: 5
+          failureThreshold: 40  # Longer startup time for CPU
+          successThreshold: 1
+      volumes:
+      - name: model-storage
+        persistentVolumeClaim:
+          claimName: l1-ml-models-pvc
+      - name: tmp-storage
+        emptyDir:
+          sizeLimit: 2Gi
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+---
+# TSLAM vLLM CPU Load Balancer Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: tslam-vllm-service
+  namespace: l1-app-ai
+  labels:
+    app: tslam-vllm-cpu
+    model: tslam-4b
+    component: cpu-inference
+spec:
+  selector:
+    app: tslam-vllm-cpu
+  ports:
+  - name: http
+    protocol: TCP
+    port: 8000
+    targetPort: 8000
+  type: ClusterIP
+  sessionAffinity: None

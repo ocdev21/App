@@ -22,7 +22,7 @@ metadata:
     usage: cpu-inference
 spec:
   accessModes:
-    - ReadWriteMany  # Multiple CPU pods can read the same model files
+    - ReadWriteOnce  # Single pod can read/write the model files
   resources:
     requests:
       storage: 20Gi   # 20GB storage for TSLAM-4B model
@@ -40,7 +40,7 @@ metadata:
     model: tslam-4b
     component: cpu-inference
 spec:
-  replicas: 2  # Two CPU replicas for load balancing
+  replicas: 1  # Single CPU replica for ReadWriteOnce PVC
   selector:
     matchLabels:
       app: tslam-vllm-cpu

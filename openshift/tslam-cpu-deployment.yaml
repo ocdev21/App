@@ -59,7 +59,7 @@ spec:
         - name: http
           containerPort: 8000
           protocol: TCP
-        command: ["python", "-m", "vllm.entrypoints.openai.api_server"]
+        # Use the default vLLM OpenAI image entrypoint
         args:
         - "--model=/models/tslam-4b"
         - "--host=0.0.0.0"

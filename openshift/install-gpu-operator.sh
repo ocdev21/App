@@ -119,16 +119,41 @@ metadata:
 spec:
   operator:
     defaultRuntime: crio
-  dcgm:
-    enabled: true
+    use_ocp_driver_toolkit: true
   driver:
     enabled: true
+    use_ocp_driver_toolkit: true
   toolkit:
     enabled: true
   devicePlugin:
     enabled: true
-  nodeFeatureDiscovery:
+  dcgm:
     enabled: true
+  dcgmExporter:
+    enabled: true
+  daemonsets:
+    updateStrategy: "RollingUpdate"
+    rollingUpdate:
+      maxUnavailable: "1"
+  gfd:
+    enabled: true
+  migManager:
+    enabled: true
+  nodeStatusExporter:
+    enabled: true
+  validator:
+    plugin:
+      env:
+      - name: WITH_WORKLOAD
+        value: "true"
+  vfioManager:
+    enabled: true
+  sandboxWorkloads:
+    enabled: false
+    defaultWorkload: "container"
+  cdi:
+    enabled: false
+    default: false
 EOF
 
 echo "✅ ClusterPolicy created"

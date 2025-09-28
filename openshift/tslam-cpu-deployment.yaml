@@ -62,22 +62,26 @@ spec:
         command: ["/bin/bash", "-c"]
         args:
         - |
-          pip install vllm accelerate transformers torch --extra-index-url https://download.pytorch.org/whl/cpu && \
+          pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && \
+          pip install vllm transformers accelerate && \
           export CUDA_VISIBLE_DEVICES="" && \
           export VLLM_LOGGING_LEVEL=DEBUG && \
+          export VLLM_WORKER_MULTIPROC_METHOD=spawn && \
+          export VLLM_CPU_KVCACHE_SPACE=8 && \
+          export TORCH_DEVICE=cpu && \
           python -m vllm.entrypoints.openai.api_server \
             --model /models/tslam-4b \
             --host 0.0.0.0 \
             --port 8000 \
             --served-model-name tslam-4b \
-            --max-model-len 1024 \
-            --dtype auto \
+            --max-model-len 512 \
+            --dtype bfloat16 \
             --trust-remote-code \
             --tensor-parallel-size 1 \
-            --max-num-seqs 32 \
+            --max-num-seqs 16 \
             --enforce-eager \
             --disable-log-stats \
-            --device cpu
+            --cpu-offload-gb 8
         resources:
           requests:
             memory: "8Gi"
@@ -96,10 +100,16 @@ spec:
           value: "4"
         - name: TOKENIZERS_PARALLELISM
           value: "false"
-        - name: VLLM_ATTENTION_BACKEND
-          value: "FLASHINFER"
+        - name: TORCH_DEVICE
+          value: "cpu"
+        - name: VLLM_CPU_KVCACHE_SPACE
+          value: "8"
         - name: VLLM_USE_MODELSCOPE
           value: "False"
+        - name: PYTORCH_CUDA_ALLOC_CONF
+          value: ""
+        - name: HF_HUB_DISABLE_SYMLINKS_WARNING
+          value: "1"
         volumeMounts:
         - name: model-storage
           mountPath: /models

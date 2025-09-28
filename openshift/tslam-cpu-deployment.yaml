@@ -54,7 +54,7 @@ spec:
       # No node affinity - can run on any worker node
       containers:
       - name: vllm-server
-        image: python:3.11-slim
+        image: registry.access.redhat.com/ubi9/python-311
         ports:
         - name: http
           containerPort: 8000

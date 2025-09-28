@@ -54,24 +54,27 @@ spec:
       # No node affinity - can run on any worker node
       containers:
       - name: vllm-server
-        image: vllm/vllm-openai:latest
+        image: python:3.11-slim
         ports:
         - name: http
           containerPort: 8000
           protocol: TCP
-        # Use the default vLLM OpenAI image entrypoint
+        command: ["/bin/bash", "-c"]
         args:
-        - "--model=/models/tslam-4b"
-        - "--host=0.0.0.0"
-        - "--port=8000"
-        - "--served-model-name=tslam-4b"
-        - "--max-model-len=2048"
-        - "--dtype=float16"
-        - "--trust-remote-code"
-        - "--tensor-parallel-size=1"
-        - "--max-num-seqs=64"
-        - "--enforce-eager"
-        - "--disable-log-stats"
+        - |
+          pip install vllm[cpu] accelerate transformers torch --extra-index-url https://download.pytorch.org/whl/cpu && \
+          python -m vllm.entrypoints.openai.api_server \
+            --model /models/tslam-4b \
+            --host 0.0.0.0 \
+            --port 8000 \
+            --served-model-name tslam-4b \
+            --max-model-len 2048 \
+            --dtype float16 \
+            --trust-remote-code \
+            --tensor-parallel-size 1 \
+            --max-num-seqs 64 \
+            --enforce-eager \
+            --disable-log-stats
         resources:
           requests:
             memory: "8Gi"
@@ -84,6 +87,14 @@ spec:
           value: "spawn"
         - name: OMP_NUM_THREADS
           value: "4"
+        - name: VLLM_CPU_KVCACHE_SPACE
+          value: "8"
+        - name: VLLM_ATTENTION_BACKEND
+          value: "XFORMERS"
+        - name: PYTORCH_CUDA_ALLOC_CONF
+          value: "backend:cudaMallocAsync"
+        - name: TOKENIZERS_PARALLELISM
+          value: "false"
         volumeMounts:
         - name: model-storage
           mountPath: /models

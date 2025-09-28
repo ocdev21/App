@@ -62,19 +62,22 @@ spec:
         command: ["/bin/bash", "-c"]
         args:
         - |
-          pip install vllm[cpu] accelerate transformers torch --extra-index-url https://download.pytorch.org/whl/cpu && \
+          pip install vllm accelerate transformers torch --extra-index-url https://download.pytorch.org/whl/cpu && \
+          export CUDA_VISIBLE_DEVICES="" && \
+          export VLLM_LOGGING_LEVEL=DEBUG && \
           python -m vllm.entrypoints.openai.api_server \
             --model /models/tslam-4b \
             --host 0.0.0.0 \
             --port 8000 \
             --served-model-name tslam-4b \
-            --max-model-len 2048 \
-            --dtype float16 \
+            --max-model-len 1024 \
+            --dtype auto \
             --trust-remote-code \
             --tensor-parallel-size 1 \
-            --max-num-seqs 64 \
+            --max-num-seqs 32 \
             --enforce-eager \
-            --disable-log-stats
+            --disable-log-stats \
+            --device cpu
         resources:
           requests:
             memory: "8Gi"
@@ -83,18 +86,20 @@ spec:
             memory: "16Gi"
             cpu: "8"
         env:
+        - name: CUDA_VISIBLE_DEVICES
+          value: ""
+        - name: VLLM_LOGGING_LEVEL
+          value: "DEBUG"
         - name: VLLM_WORKER_MULTIPROC_METHOD
           value: "spawn"
         - name: OMP_NUM_THREADS
           value: "4"
-        - name: VLLM_CPU_KVCACHE_SPACE
-          value: "8"
-        - name: VLLM_ATTENTION_BACKEND
-          value: "XFORMERS"
-        - name: PYTORCH_CUDA_ALLOC_CONF
-          value: "backend:cudaMallocAsync"
         - name: TOKENIZERS_PARALLELISM
           value: "false"
+        - name: VLLM_ATTENTION_BACKEND
+          value: "FLASHINFER"
+        - name: VLLM_USE_MODELSCOPE
+          value: "False"
         volumeMounts:
         - name: model-storage
           mountPath: /models

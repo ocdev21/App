@@ -1,0 +1,127 @@
+---
+# Namespace for L1 AI
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: l1-app-ai
+  labels:
+    name: l1-app-ai
+    purpose: l1-troubleshooting-ai-platform
+---
+# TSLAM CPU vLLM Deployment - Direct Model Access
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tslam-vllm-deployment
+  namespace: l1-app-ai
+  labels:
+    app: tslam-vllm
+    model: tslam-4b
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tslam-vllm
+  template:
+    metadata:
+      labels:
+        app: tslam-vllm
+        model: tslam-4b
+    spec:
+      containers:
+      - name: vllm-server
+        image: vllm/vllm-openai:v0.3.0
+        ports:
+        - name: http
+          containerPort: 8000
+          protocol: TCP
+        command: ["python", "-m", "vllm.entrypoints.openai.api_server"]
+        args:
+        - "--model=/models/tslam-4b"
+        - "--host=0.0.0.0"
+        - "--port=8000"
+        - "--served-model-name=tslam-4b"
+        - "--max-model-len=1024"
+        - "--dtype=auto"
+        - "--trust-remote-code"
+        - "--enforce-eager"
+        - "--disable-log-stats"
+        - "--max-num-seqs=8"
+        resources:
+          requests:
+            memory: "8Gi"
+            cpu: "4"
+          limits:
+            memory: "16Gi"
+            cpu: "8"
+        env:
+        - name: CUDA_VISIBLE_DEVICES
+          value: ""
+        - name: VLLM_CPU_EXECUTOR
+          value: "1"
+        - name: TOKENIZERS_PARALLELISM
+          value: "false"
+        - name: HF_HUB_DISABLE_SYMLINKS_WARNING
+          value: "1"
+        volumeMounts:
+        - name: model-storage
+          mountPath: /models/tslam-4b
+          readOnly: true
+        - name: tmp-storage
+          mountPath: /tmp
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 180
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 120
+          periodSeconds: 15
+          timeoutSeconds: 5
+          failureThreshold: 5
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 20
+      volumes:
+      - name: model-storage
+        hostPath:
+          path: /home/cloud-user/pjoe/model
+          type: Directory
+      - name: tmp-storage
+        emptyDir:
+          sizeLimit: 4Gi
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+---
+# TSLAM Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: tslam-vllm-service
+  namespace: l1-app-ai
+  labels:
+    app: tslam-vllm
+    model: tslam-4b
+spec:
+  selector:
+    app: tslam-vllm
+  ports:
+  - name: http
+    protocol: TCP
+    port: 8000
+    targetPort: 8000
+  type: ClusterIP

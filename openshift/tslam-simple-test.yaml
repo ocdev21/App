@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tslam-vllm-simple
+  namespace: l1-app-ai
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tslam-simple
+  template:
+    metadata:
+      labels:
+        app: tslam-simple
+    spec:
+      containers:
+      - name: vllm-test
+        image: vllm/vllm-openai:latest
+        ports:
+        - containerPort: 8000
+        command: ["/bin/bash", "-c"]
+        args:
+        - |
+          echo "Starting test container..."
+          which python3 || echo "Python3 not found"
+          python3 --version || echo "Python3 version failed"
+          ls -la /models || echo "Models directory not found"
+          sleep 3600
+        volumeMounts:
+        - name: model-storage
+          mountPath: /models
+          readOnly: true
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1"
+      volumes:
+      - name: model-storage
+        persistentVolumeClaim:
+          claimName: tslam-model-storage-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tslam-simple-service
+  namespace: l1-app-ai
+spec:
+  selector:
+    app: tslam-simple
+  ports:
+  - port: 8000
+    targetPort: 8000

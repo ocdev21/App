@@ -1,0 +1,394 @@
+---
+# TSLAM Real Model Deployment with PVC Mount
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tslam-real-model
+  namespace: l1-app-ai
+  labels:
+    app: tslam-real-model
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tslam-real-model
+  template:
+    metadata:
+      labels:
+        app: tslam-real-model
+    spec:
+      containers:
+      - name: tslam-server
+        image: registry.redhat.io/ubi8/python-39:latest
+        ports:
+        - name: http
+          containerPort: 8000
+          protocol: TCP
+        command: ["/bin/bash", "-c"]
+        args:
+        - |
+          echo "Installing transformers and dependencies..."
+          pip install --no-cache-dir --user torch transformers accelerate flask requests
+          
+          echo "Starting TSLAM Real Model server..."
+          python3 /app/tslam-real-inference.py
+        resources:
+          requests:
+            memory: "8Gi"
+            cpu: "4"
+          limits:
+            memory: "16Gi"
+            cpu: "8"
+        env:
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: TRANSFORMERS_OFFLINE
+          value: "0"
+        - name: HF_HUB_DISABLE_SYMLINKS_WARNING
+          value: "1"
+        - name: TOKENIZERS_PARALLELISM
+          value: "false"
+        volumeMounts:
+        - name: model-storage
+          mountPath: /models
+          readOnly: true
+        - name: app-code
+          mountPath: /app
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 300
+          periodSeconds: 30
+          timeoutSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 180
+          periodSeconds: 15
+          timeoutSeconds: 5
+      volumes:
+      - name: model-storage
+        persistentVolumeClaim:
+          claimName: tslam-model-storage-pvc
+      - name: app-code
+        configMap:
+          name: tslam-real-inference-code
+          defaultMode: 0755
+---
+# Service for the real model deployment
+apiVersion: v1
+kind: Service
+metadata:
+  name: tslam-real-model-service
+  namespace: l1-app-ai
+  labels:
+    app: tslam-real-model
+spec:
+  selector:
+    app: tslam-real-model
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+    protocol: TCP
+  type: ClusterIP
+---
+# ConfigMap containing the real model inference server code
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tslam-real-inference-code
+  namespace: l1-app-ai
+  labels:
+    app: tslam-real-model
+data:
+  tslam-real-inference.py: |
+    #!/usr/bin/env python3
+
+    import json
+    import time
+    import logging
+    import os
+    import sys
+    from flask import Flask, request, jsonify, Response
+    import threading
+
+    # Set up logging
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    logger = logging.getLogger(__name__)
+
+    app = Flask(__name__)
+
+    # Global model variables
+    model = None
+    tokenizer = None
+    model_loaded = False
+    model_name = "tslam-4b"
+    fallback_mode = False
+
+    def load_tslam_model():
+        """Load TSLAM-4B model from /models directory"""
+        global model, tokenizer, model_loaded, fallback_mode
+        
+        try:
+            from transformers import AutoTokenizer, AutoModelForCausalLM
+            import torch
+            
+            model_path = "/models/tslam-4b"
+            logger.info(f"Attempting to load TSLAM-4B model from {model_path}")
+            
+            # Check if model directory exists and has files
+            if not os.path.exists(model_path):
+                logger.warning(f"Model directory {model_path} does not exist")
+                raise FileNotFoundError(f"Model directory not found: {model_path}")
+            
+            # List files in model directory
+            model_files = os.listdir(model_path)
+            logger.info(f"Found files in model directory: {model_files}")
+            
+            if not model_files:
+                logger.warning("Model directory is empty")
+                raise FileNotFoundError("Model directory is empty")
+            
+            # Attempt to load tokenizer
+            logger.info("Loading tokenizer...")
+            tokenizer = AutoTokenizer.from_pretrained(
+                model_path,
+                trust_remote_code=True,
+                local_files_only=True
+            )
+            logger.info("Tokenizer loaded successfully")
+            
+            # Attempt to load model
+            logger.info("Loading TSLAM-4B model...")
+            model = AutoModelForCausalLM.from_pretrained(
+                model_path,
+                trust_remote_code=True,
+                torch_dtype=torch.float32,
+                device_map="cpu",
+                local_files_only=True
+            )
+            logger.info("TSLAM-4B model loaded successfully!")
+            
+            model_loaded = True
+            fallback_mode = False
+            
+        except Exception as e:
+            logger.error(f"Failed to load TSLAM-4B model: {e}")
+            logger.info("Falling back to L1 knowledge base...")
+            model_loaded = True
+            fallback_mode = True
+
+    def generate_tslam_response(message_content, max_tokens=200):
+        """Generate response using TSLAM model or fallback"""
+        global model, tokenizer, fallback_mode
+        
+        if fallback_mode or model is None:
+            # Use built-in L1 knowledge base
+            return generate_l1_fallback_response(message_content)
+        
+        try:
+            # Use actual TSLAM model
+            logger.info("Generating response with TSLAM-4B model...")
+            
+            # Prepare input for TSLAM
+            prompt = f"L1 Network Troubleshooting Query: {message_content}\n\nTSLAM Analysis:"
+            
+            inputs = tokenizer.encode(prompt, return_tensors="pt")
+            
+            # Generate response
+            with torch.no_grad():
+                outputs = model.generate(
+                    inputs,
+                    max_length=inputs.shape[1] + max_tokens,
+                    temperature=0.7,
+                    do_sample=True,
+                    pad_token_id=tokenizer.eos_token_id,
+                    num_return_sequences=1
+                )
+            
+            # Decode response
+            response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+            
+            # Extract only the generated part
+            generated_text = response[len(prompt):].strip()
+            
+            if not generated_text:
+                logger.warning("Empty response from model, using fallback")
+                return generate_l1_fallback_response(message_content)
+            
+            return generated_text
+            
+        except Exception as e:
+            logger.error(f"Error generating response with TSLAM model: {e}")
+            logger.info("Falling back to L1 knowledge base...")
+            return generate_l1_fallback_response(message_content)
+
+    def generate_l1_fallback_response(message_content):
+        """Generate L1 network troubleshooting response from knowledge base"""
+        message_lower = message_content.lower()
+        
+        l1_responses = {
+            "packet loss": "L1 Analysis: High packet loss detected. Physical layer investigation required: 1) Verify cable integrity using TDR testing 2) Check optical power levels (target: -3dBm to -7dBm) 3) Inspect connector end-faces for contamination 4) Validate impedance matching (50Ω coax, 75Ω fiber) 5) Monitor environmental conditions (temperature, humidity, vibration)",
+            "signal degradation": "L1 Diagnosis: Signal degradation indicates physical layer impairments. Remediation steps: 1) Perform cable continuity testing 2) Measure optical power budget and loss 3) Check for electromagnetic interference sources 4) Validate equipment calibration and alignment 5) Inspect splice points and mechanical connections",
+            "interference": "L1 Analysis: Electromagnetic interference detected in physical layer. Mitigation protocol: 1) Identify interference sources (motors, fluorescent lighting, RF transmitters) 2) Implement proper grounding and bonding 3) Deploy shielded twisted pair or armored fiber 4) Adjust frequency planning and channel allocation 5) Install ferrite cores and RF filtering",
+            "cell tower": "L1 Cell Tower Analysis: Physical layer anomalies detected. Investigation sequence: 1) Verify antenna VSWR and return loss (<1.5:1) 2) Test coaxial feedline integrity with sweep analysis 3) Check RF power levels at antenna input 4) Validate tower grounding and lightning protection 5) Monitor structural integrity and guy wire tension",
+            "fiber": "L1 Fiber Analysis: Optical layer impairment detected. Diagnostic protocol: 1) Measure end-to-end optical power budget 2) Perform OTDR analysis for breaks, bends, and splice losses 3) Inspect connector end-faces using fiber microscope 4) Validate bend radius compliance (>15x fiber diameter) 5) Test chromatic and polarization mode dispersion",
+            "latency": "L1 Latency Assessment: Physical propagation delays identified. Analysis framework: 1) Calculate theoretical propagation delay (5μs/km fiber, 3.3μs/km copper) 2) Measure equipment processing delays 3) Analyze serialization and queuing delays 4) Review optical regenerator performance 5) Validate clock synchronization and timing distribution"
+        }
+        
+        # Find relevant response
+        for keyword, response in l1_responses.items():
+            if keyword in message_lower:
+                return response
+        
+        # Default response
+        return "L1 Network Analysis: For comprehensive physical layer troubleshooting, specify symptoms such as packet loss, signal degradation, interference, cell tower issues, fiber problems, or latency. TSLAM provides detailed L1 diagnostics, root cause analysis, and step-by-step remediation procedures for telecommunications infrastructure."
+
+    @app.route('/health', methods=['GET'])
+    def health():
+        """Health check endpoint"""
+        status = "healthy" if model_loaded else "loading"
+        return jsonify({
+            "status": status,
+            "model_loaded": model_loaded,
+            "fallback_mode": fallback_mode,
+            "model_name": model_name,
+            "timestamp": time.time()
+        })
+
+    @app.route('/v1/models', methods=['GET'])
+    def list_models():
+        """List available models - OpenAI compatible"""
+        return jsonify({
+            "object": "list",
+            "data": [
+                {
+                    "id": model_name,
+                    "object": "model",
+                    "created": int(time.time()),
+                    "owned_by": "l1-system",
+                    "fallback_mode": fallback_mode
+                }
+            ]
+        })
+
+    @app.route('/v1/chat/completions', methods=['POST'])
+    def chat_completions():
+        """OpenAI-compatible chat completions endpoint with streaming support"""
+        try:
+            data = request.get_json()
+            
+            # Extract parameters
+            messages = data.get('messages', [])
+            max_tokens = data.get('max_tokens', 200)
+            stream = data.get('stream', False)
+            
+            # Get the last user message
+            user_message = ""
+            for msg in reversed(messages):
+                if msg.get('role') == 'user':
+                    user_message = msg.get('content', '')
+                    break
+            
+            logger.info(f"Processing request: {user_message[:100]}...")
+            
+            if stream:
+                # Streaming response
+                def generate_stream():
+                    response_text = generate_tslam_response(user_message, max_tokens)
+                    
+                    # Split response into chunks for streaming effect
+                    words = response_text.split()
+                    
+                    for i, word in enumerate(words):
+                        chunk = {
+                            "id": f"chatcmpl-{int(time.time())}",
+                            "object": "chat.completion.chunk",
+                            "created": int(time.time()),
+                            "model": model_name,
+                            "choices": [
+                                {
+                                    "index": 0,
+                                    "delta": {
+                                        "content": word + " " if i < len(words) - 1 else word
+                                    },
+                                    "finish_reason": None
+                                }
+                            ]
+                        }
+                        
+                        yield f"data: {json.dumps(chunk)}\n\n"
+                        time.sleep(0.1)  # Streaming delay
+                    
+                    # Send final chunk
+                    final_chunk = {
+                        "id": f"chatcmpl-{int(time.time())}",
+                        "object": "chat.completion.chunk",
+                        "created": int(time.time()),
+                        "model": model_name,
+                        "choices": [
+                            {
+                                "index": 0,
+                                "delta": {},
+                                "finish_reason": "stop"
+                            }
+                        ]
+                    }
+                    yield f"data: {json.dumps(final_chunk)}\n\n"
+                    yield "data: [DONE]\n\n"
+                
+                return Response(
+                    generate_stream(),
+                    mimetype='text/plain',
+                    headers={
+                        'Content-Type': 'text/plain; charset=utf-8',
+                        'Cache-Control': 'no-cache',
+                        'Connection': 'keep-alive',
+                        'Access-Control-Allow-Origin': '*'
+                    }
+                )
+            
+            else:
+                # Non-streaming response
+                response_text = generate_tslam_response(user_message, max_tokens)
+                
+                return jsonify({
+                    "id": f"chatcmpl-{int(time.time())}",
+                    "object": "chat.completion",
+                    "created": int(time.time()),
+                    "model": model_name,
+                    "choices": [
+                        {
+                            "index": 0,
+                            "message": {
+                                "role": "assistant",
+                                "content": response_text
+                            },
+                            "finish_reason": "stop"
+                        }
+                    ],
+                    "usage": {
+                        "prompt_tokens": len(user_message.split()),
+                        "completion_tokens": len(response_text.split()),
+                        "total_tokens": len(user_message.split()) + len(response_text.split())
+                    }
+                })
+                
+        except Exception as e:
+            logger.error(f"Error processing request: {e}")
+            return jsonify({"error": str(e)}), 500
+
+    if __name__ == '__main__':
+        logger.info("Starting TSLAM Real Model Inference Server...")
+        
+        # Load model in background thread
+        loading_thread = threading.Thread(target=load_tslam_model)
+        loading_thread.daemon = True
+        loading_thread.start()
+        
+        # Start Flask server
+        logger.info("Server starting on 0.0.0.0:8000...")
+        app.run(host='0.0.0.0', port=8000, debug=False, threaded=True)

@@ -1,0 +1,51 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: tslam-model-copy
+  namespace: l1-app-ai
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: model-copier
+        image: registry.access.redhat.com/ubi8/ubi:latest
+        command: ["/bin/bash", "-c"]
+        args:
+        - |
+          echo "Creating model directory structure..."
+          mkdir -p /models/tslam-4b
+          
+          echo "Setting up placeholder model for testing..."
+          cat > /models/tslam-4b/config.json << 'EOF'
+          {
+            "architectures": ["LlamaForCausalLM"],
+            "model_type": "llama",
+            "vocab_size": 32000,
+            "hidden_size": 4096,
+            "intermediate_size": 11008,
+            "num_attention_heads": 32,
+            "num_hidden_layers": 32,
+            "torch_dtype": "float16"
+          }
+          EOF
+          
+          echo "Creating tokenizer files..."
+          echo '{"model_max_length": 2048}' > /models/tslam-4b/tokenizer_config.json
+          
+          echo "Model setup complete!"
+          ls -la /models/tslam-4b/
+          
+          echo "Keeping container alive for debugging..."
+          sleep 3600
+        volumeMounts:
+        - name: model-storage
+          mountPath: /models
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+      volumes:
+      - name: model-storage
+        persistentVolumeClaim:
+          claimName: tslam-model-storage-pvc

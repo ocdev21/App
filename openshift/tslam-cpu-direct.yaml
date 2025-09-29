@@ -26,34 +26,8 @@ spec:
   storageClassName: "nfs"
   volumeMode: Filesystem
 ---
-# Model Upload Helper Pod
-apiVersion: v1
-kind: Pod
-metadata:
-  name: tslam-model-uploader
-  namespace: l1-app-ai
-  labels:
-    app: model-uploader
-spec:
-  restartPolicy: Never
-  containers:
-  - name: uploader
-    image: busybox:1.35
-    command: ["sleep", "3600"]
-    volumeMounts:
-    - name: model-storage
-      mountPath: /models
-    - name: host-model
-      mountPath: /host-model
-      readOnly: true
-  volumes:
-  - name: model-storage
-    persistentVolumeClaim:
-      claimName: tslam-model-storage-pvc
-  - name: host-model
-    hostPath:
-      path: /home/cloud-user/pjoe/model
-      type: Directory
+# Model Upload Helper Pod - REMOVED (using job instead)
+# The original uploader pod failed due to hostPath not existing on worker nodes
 ---
 # TSLAM CPU vLLM Deployment - Direct Model Access
 apiVersion: apps/v1

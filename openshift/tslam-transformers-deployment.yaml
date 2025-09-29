@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
       - name: tslam-server
-        image: python:3.11-slim
+        image: registry.redhat.io/ubi8/python-39:latest
         ports:
         - name: http
           containerPort: 8000
@@ -30,9 +30,9 @@ spec:
         args:
         - |
           echo "Installing dependencies..."
-          pip install --no-cache-dir flask transformers torch accelerate
+          pip install --no-cache-dir --user flask
           
-          echo "Starting TSLAM Transformers server..."
+          echo "Starting TSLAM Inference server..."
           python3 /app/tslam-inference-server.py
         resources:
           requests:

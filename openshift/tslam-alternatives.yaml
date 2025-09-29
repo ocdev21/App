@@ -1,0 +1,11 @@
+# Alternative 1: Quay.io (Red Hat's public registry)
+image: quay.io/ubi8/python-39:latest
+
+# Alternative 2: OpenShift built-in UBI
+image: registry.access.redhat.com/ubi8/python-39:latest  
+
+# Alternative 3: GitHub Container Registry
+image: ghcr.io/library/python:3.11-slim
+
+# Alternative 4: Google Container Registry
+image: gcr.io/google-appengine/python:3.11-slim

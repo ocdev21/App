@@ -1,0 +1,195 @@
+---
+# Ultra-Simple TSLAM Inference Service (No External Dependencies)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tslam-simple
+  namespace: l1-app-ai
+  labels:
+    app: tslam-simple
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tslam-simple
+  template:
+    metadata:
+      labels:
+        app: tslam-simple
+    spec:
+      containers:
+      - name: tslam-server
+        image: registry.redhat.io/ubi8/python-39:latest
+        ports:
+        - name: http
+          containerPort: 8000
+          protocol: TCP
+        command: ["/bin/bash", "-c"]
+        args:
+        - |
+          echo "Starting ultra-simple TSLAM server..."
+          
+          cat > /tmp/server.py << 'EOF'
+          import http.server
+          import socketserver
+          import json
+          import time
+          from urllib.parse import urlparse, parse_qs
+          import threading
+          
+          class TSLAMHandler(http.server.BaseHTTPRequestHandler):
+              def do_GET(self):
+                  if self.path == '/health':
+                      self.send_response(200)
+                      self.send_header('Content-type', 'application/json')
+                      self.end_headers()
+                      response = {"status": "healthy", "timestamp": time.time()}
+                      self.wfile.write(json.dumps(response).encode())
+                  elif self.path == '/v1/models':
+                      self.send_response(200)
+                      self.send_header('Content-type', 'application/json')
+                      self.end_headers()
+                      response = {
+                          "object": "list",
+                          "data": [{"id": "tslam-4b", "object": "model", "created": int(time.time())}]
+                      }
+                      self.wfile.write(json.dumps(response).encode())
+                  else:
+                      self.send_response(404)
+                      self.end_headers()
+              
+              def do_POST(self):
+                  if self.path == '/v1/chat/completions':
+                      content_length = int(self.headers['Content-Length'])
+                      post_data = self.rfile.read(content_length)
+                      
+                      try:
+                          data = json.loads(post_data.decode('utf-8'))
+                          messages = data.get('messages', [])
+                          stream = data.get('stream', False)
+                          
+                          # Get user message
+                          user_message = ""
+                          for msg in messages:
+                              if msg.get('role') == 'user':
+                                  user_message = msg.get('content', '')
+                                  break
+                          
+                          # Generate L1 response
+                          response_text = self.generate_l1_response(user_message)
+                          
+                          if stream:
+                              self.send_response(200)
+                              self.send_header('Content-type', 'text/plain')
+                              self.send_header('Cache-Control', 'no-cache')
+                              self.end_headers()
+                              
+                              # Stream response
+                              words = response_text.split()
+                              for i, word in enumerate(words):
+                                  chunk = {
+                                      "id": f"chat-{int(time.time())}",
+                                      "object": "chat.completion.chunk", 
+                                      "choices": [{
+                                          "delta": {"content": word + " "},
+                                          "finish_reason": None
+                                      }]
+                                  }
+                                  self.wfile.write(f"data: {json.dumps(chunk)}\n\n".encode())
+                                  self.wfile.flush()
+                                  time.sleep(0.05)
+                              
+                              # Final chunk
+                              final_chunk = {
+                                  "id": f"chat-{int(time.time())}",
+                                  "object": "chat.completion.chunk",
+                                  "choices": [{"delta": {}, "finish_reason": "stop"}]
+                              }
+                              self.wfile.write(f"data: {json.dumps(final_chunk)}\n\n".encode())
+                              self.wfile.write(b"data: [DONE]\n\n")
+                          else:
+                              self.send_response(200)
+                              self.send_header('Content-type', 'application/json')
+                              self.end_headers()
+                              response = {
+                                  "id": f"chat-{int(time.time())}",
+                                  "object": "chat.completion",
+                                  "choices": [{
+                                      "message": {"role": "assistant", "content": response_text},
+                                      "finish_reason": "stop"
+                                  }]
+                              }
+                              self.wfile.write(json.dumps(response).encode())
+                      except Exception as e:
+                          self.send_response(500)
+                          self.send_header('Content-type', 'application/json')
+                          self.end_headers()
+                          error_response = {"error": str(e)}
+                          self.wfile.write(json.dumps(error_response).encode())
+                  else:
+                      self.send_response(404)
+                      self.end_headers()
+              
+              def generate_l1_response(self, message):
+                  message_lower = message.lower()
+                  
+                  if "packet loss" in message_lower:
+                      return "L1 Analysis: High packet loss detected. Physical layer checks: 1) Verify cable integrity and connections 2) Check optical power levels (-3dBm to -7dBm optimal) 3) Inspect connector cleanliness 4) Validate impedance matching (50 ohm for coax, 75 ohm for fiber) 5) Monitor environmental conditions"
+                  elif "signal" in message_lower and "degradation" in message_lower:
+                      return "L1 Diagnosis: Signal degradation indicates physical issues. Actions: 1) Test cable continuity with TDR 2) Measure optical power budget 3) Check for electromagnetic interference sources 4) Validate equipment calibration 5) Inspect splice points and connections"
+                  elif "interference" in message_lower:
+                      return "L1 Analysis: Electromagnetic interference detected. Mitigation: 1) Identify interference sources (motors, fluorescent lights) 2) Implement proper grounding and bonding 3) Use shielded twisted pair cables 4) Adjust frequency planning 5) Install ferrite cores and RF filters"
+                  elif "cell tower" in message_lower:
+                      return "L1 Cell Tower Analysis: Physical layer issues detected. Investigation: 1) Verify antenna alignment and VSWR (<1.5:1) 2) Test coaxial cable integrity with sweep testing 3) Check RF power levels at antenna port 4) Validate grounding and lightning protection 5) Monitor environmental factors (wind, ice loading)"
+                  elif "fiber" in message_lower:
+                      return "L1 Fiber Analysis: Optical layer investigation required. Steps: 1) Measure optical power budget and loss 2) Perform OTDR testing for breaks and bends 3) Inspect connector end-faces for damage 4) Validate bend radius compliance (>30mm for single-mode) 5) Test chromatic dispersion at 1550nm"
+                  elif "latency" in message_lower:
+                      return "L1 Latency Assessment: Physical propagation delays detected. Analysis: 1) Calculate fiber path length (5μs per km) 2) Verify equipment processing delays 3) Check buffer depths in optical equipment 4) Review regenerator performance 5) Analyze serialization delays"
+                  else:
+                      return "L1 Network Analysis: For comprehensive physical layer troubleshooting, specify symptoms: packet loss, signal degradation, interference, cell tower issues, fiber problems, or latency. I provide detailed L1 diagnostics and remediation procedures."
+          
+          PORT = 8000
+          with socketserver.TCPServer(("", PORT), TSLAMHandler) as httpd:
+              print(f"TSLAM L1 Analysis Server running on port {PORT}")
+              httpd.serve_forever()
+          EOF
+          
+          echo "Starting server on port 8000..."
+          python3 /tmp/server.py
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+---
+# Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: tslam-simple-service
+  namespace: l1-app-ai
+  labels:
+    app: tslam-simple
+spec:
+  selector:
+    app: tslam-simple
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+    protocol: TCP
+  type: ClusterIP

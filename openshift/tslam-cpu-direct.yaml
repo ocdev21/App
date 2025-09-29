@@ -77,23 +77,28 @@ spec:
     spec:
       containers:
       - name: vllm-server
-        image: vllm/vllm-openai:v0.3.0
+        image: vllm/vllm-openai:latest
         ports:
         - name: http
           containerPort: 8000
           protocol: TCP
-        command: ["python", "-m", "vllm.entrypoints.openai.api_server"]
+        command: ["/bin/bash", "-c"]
         args:
-        - "--model=/models/tslam-4b"
-        - "--host=0.0.0.0"
-        - "--port=8000"
-        - "--served-model-name=tslam-4b"
-        - "--max-model-len=1024"
-        - "--dtype=auto"
-        - "--trust-remote-code"
-        - "--enforce-eager"
-        - "--disable-log-stats"
-        - "--max-num-seqs=8"
+        - |
+          export CUDA_VISIBLE_DEVICES=""
+          export VLLM_CPU_EXECUTOR=1
+          which python3 && python3 --version
+          python3 -m vllm.entrypoints.openai.api_server \
+            --model /models/tslam-4b \
+            --host 0.0.0.0 \
+            --port 8000 \
+            --served-model-name tslam-4b \
+            --max-model-len 1024 \
+            --dtype auto \
+            --trust-remote-code \
+            --enforce-eager \
+            --disable-log-stats \
+            --max-num-seqs 8
         resources:
           requests:
             memory: "8Gi"

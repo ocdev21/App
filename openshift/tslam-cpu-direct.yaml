@@ -8,6 +8,53 @@ metadata:
     name: l1-app-ai
     purpose: l1-troubleshooting-ai-platform
 ---
+# TSLAM Model Storage PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tslam-model-storage-pvc
+  namespace: l1-app-ai
+  labels:
+    app: tslam-storage
+    component: model-storage
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: "nfs"
+  volumeMode: Filesystem
+---
+# Model Upload Helper Pod
+apiVersion: v1
+kind: Pod
+metadata:
+  name: tslam-model-uploader
+  namespace: l1-app-ai
+  labels:
+    app: model-uploader
+spec:
+  restartPolicy: Never
+  containers:
+  - name: uploader
+    image: busybox:1.35
+    command: ["sleep", "3600"]
+    volumeMounts:
+    - name: model-storage
+      mountPath: /models
+    - name: host-model
+      mountPath: /host-model
+      readOnly: true
+  volumes:
+  - name: model-storage
+    persistentVolumeClaim:
+      claimName: tslam-model-storage-pvc
+  - name: host-model
+    hostPath:
+      path: /home/cloud-user/pjoe/model
+      type: Directory
+---
 # TSLAM CPU vLLM Deployment - Direct Model Access
 apiVersion: apps/v1
 kind: Deployment
@@ -65,7 +112,7 @@ spec:
           value: "1"
         volumeMounts:
         - name: model-storage
-          mountPath: /models/tslam-4b
+          mountPath: /models
           readOnly: true
         - name: tmp-storage
           mountPath: /tmp
@@ -98,9 +145,8 @@ spec:
           failureThreshold: 20
       volumes:
       - name: model-storage
-        hostPath:
-          path: /home/cloud-user/pjoe/model
-          type: Directory
+        persistentVolumeClaim:
+          claimName: tslam-model-storage-pvc
       - name: tmp-storage
         emptyDir:
           sizeLimit: 4Gi

@@ -18,16 +18,21 @@ echo ""
 echo "Step 1: Installing Node Feature Discovery (NFD) Operator"
 echo "======================================================="
 
-echo "Creating NFD namespace..."
-oc create -f - <<EOF
+echo "Checking NFD namespace..."
+if oc get namespace openshift-nfd >/dev/null 2>&1; then
+    echo "✅ NFD namespace already exists"
+else
+    echo "Creating NFD namespace..."
+    oc apply -f - <<EOF
 apiVersion: v1
 kind: Namespace
 metadata:
   name: openshift-nfd
 EOF
+fi
 
-echo "Creating NFD OperatorGroup..."
-oc create -f - <<EOF
+echo "Creating/updating NFD OperatorGroup..."
+oc apply -f - <<EOF
 apiVersion: operators.coreos.com/v1
 kind: OperatorGroup
 metadata:
@@ -38,8 +43,8 @@ spec:
   - openshift-nfd
 EOF
 
-echo "Installing NFD Subscription..."
-oc create -f - <<EOF
+echo "Installing/updating NFD Subscription..."
+oc apply -f - <<EOF
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
 metadata:
@@ -53,27 +58,39 @@ spec:
   sourceNamespace: openshift-marketplace
 EOF
 
-echo "✅ NFD Operator installation initiated"
+echo "✅ NFD Operator configuration applied"
 echo ""
 
-# Wait for NFD to be ready
+# Wait for NFD CSV to be ready
 echo "Waiting for NFD operator to be ready..."
-sleep 30
+echo "Checking NFD CSV status..."
+timeout=300
+counter=0
+while [ $counter -lt $timeout ]; do
+    CSV_PHASE=$(oc get csv -n openshift-nfd --no-headers 2>/dev/null | grep nfd | awk '{print $6}' | head -1)
+    if [ "$CSV_PHASE" = "Succeeded" ]; then
+        echo "✅ NFD operator is ready"
+        break
+    fi
+    echo "⏳ NFD CSV phase: $CSV_PHASE"
+    sleep 10
+    counter=$((counter + 10))
+done
 
 # Step 2: Install NVIDIA GPU Operator
 echo "Step 2: Installing NVIDIA GPU Operator"
 echo "======================================"
 
-echo "Creating GPU operator namespace..."
-oc create -f - <<EOF
+echo "Creating/updating GPU operator namespace..."
+oc apply -f - <<EOF
 apiVersion: v1
 kind: Namespace
 metadata:
   name: nvidia-gpu-operator
 EOF
 
-echo "Creating GPU OperatorGroup..."
-oc create -f - <<EOF
+echo "Creating/updating GPU OperatorGroup..."
+oc apply -f - <<EOF
 apiVersion: operators.coreos.com/v1
 kind: OperatorGroup
 metadata:
@@ -84,8 +101,8 @@ spec:
   - nvidia-gpu-operator
 EOF
 
-echo "Installing GPU Operator Subscription..."
-oc create -f - <<EOF
+echo "Installing/updating GPU Operator Subscription..."
+oc apply -f - <<EOF
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
 metadata:
@@ -102,16 +119,53 @@ EOF
 echo "✅ GPU Operator installation initiated"
 echo ""
 
-# Wait for GPU operator to be ready
+# Wait for GPU operator CSV to be ready
 echo "Waiting for GPU operator to be ready..."
-sleep 60
+echo "Checking GPU operator CSV status..."
+timeout=600
+counter=0
+while [ $counter -lt $timeout ]; do
+    CSV_PHASE=$(oc get csv -n nvidia-gpu-operator --no-headers 2>/dev/null | grep gpu-operator | awk '{print $6}' | head -1)
+    if [ "$CSV_PHASE" = "Succeeded" ]; then
+        echo "✅ GPU operator is ready"
+        break
+    fi
+    echo "⏳ GPU operator CSV phase: $CSV_PHASE"
+    sleep 15
+    counter=$((counter + 15))
+done
+
+if [ $counter -ge $timeout ]; then
+    echo "❌ GPU operator installation timeout"
+    echo "Check status: oc get csv -n nvidia-gpu-operator"
+    exit 1
+fi
 
 # Step 3: Create ClusterPolicy
 echo "Step 3: Creating ClusterPolicy for Tesla P40 GPUs"
 echo "==============================================="
 
-echo "Creating ClusterPolicy..."
-oc create -f - <<EOF
+# Wait for ClusterPolicy CRD to be available
+echo "Waiting for ClusterPolicy CRD..."
+timeout=180
+counter=0
+while [ $counter -lt $timeout ]; do
+    if oc get crd clusterpolicies.nvidia.com >/dev/null 2>&1; then
+        echo "✅ ClusterPolicy CRD is available"
+        break
+    fi
+    echo "⏳ Waiting for ClusterPolicy CRD..."
+    sleep 10
+    counter=$((counter + 10))
+done
+
+if [ $counter -ge $timeout ]; then
+    echo "❌ ClusterPolicy CRD not available"
+    exit 1
+fi
+
+echo "Creating/updating ClusterPolicy..."
+oc apply -f - <<EOF
 apiVersion: nvidia.com/v1
 kind: ClusterPolicy
 metadata:

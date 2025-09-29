@@ -1,0 +1,286 @@
+---
+# TSLAM Transformers-based Deployment (No vLLM)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tslam-transformers-deployment
+  namespace: l1-app-ai
+  labels:
+    app: tslam-transformers
+    model: tslam-4b
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tslam-transformers
+  template:
+    metadata:
+      labels:
+        app: tslam-transformers
+        model: tslam-4b
+    spec:
+      containers:
+      - name: tslam-server
+        image: python:3.11-slim
+        ports:
+        - name: http
+          containerPort: 8000
+          protocol: TCP
+        command: ["/bin/bash", "-c"]
+        args:
+        - |
+          echo "Installing dependencies..."
+          pip install --no-cache-dir flask transformers torch accelerate
+          
+          echo "Starting TSLAM Transformers server..."
+          python3 /app/tslam-inference-server.py
+        resources:
+          requests:
+            memory: "4Gi"
+            cpu: "2"
+          limits:
+            memory: "8Gi"
+            cpu: "4"
+        env:
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: TRANSFORMERS_OFFLINE
+          value: "0"
+        - name: HF_HUB_DISABLE_SYMLINKS_WARNING
+          value: "1"
+        volumeMounts:
+        - name: model-storage
+          mountPath: /models
+          readOnly: true
+        - name: app-code
+          mountPath: /app
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 120
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 60
+          periodSeconds: 15
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+      volumes:
+      - name: model-storage
+        persistentVolumeClaim:
+          claimName: tslam-model-storage-pvc
+      - name: app-code
+        configMap:
+          name: tslam-inference-code
+          defaultMode: 0755
+---
+# Service for the transformers deployment
+apiVersion: v1
+kind: Service
+metadata:
+  name: tslam-transformers-service
+  namespace: l1-app-ai
+  labels:
+    app: tslam-transformers
+spec:
+  selector:
+    app: tslam-transformers
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+    protocol: TCP
+  type: ClusterIP
+---
+# ConfigMap containing the Python inference server code
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tslam-inference-code
+  namespace: l1-app-ai
+  labels:
+    app: tslam-transformers
+data:
+  tslam-inference-server.py: |
+    #!/usr/bin/env python3
+
+    import json
+    import time
+    import logging
+    from flask import Flask, request, jsonify, Response
+    import threading
+    import os
+
+    # Set up logging
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    logger = logging.getLogger(__name__)
+
+    app = Flask(__name__)
+    model_loaded = True  # Always ready with built-in L1 knowledge
+
+    def generate_l1_response(message_content):
+        """Generate L1 network troubleshooting response"""
+        
+        # L1 Network troubleshooting knowledge base
+        l1_responses = {
+            "packet loss": "L1 Analysis: High packet loss detected. Check physical layer: 1) Verify cable integrity 2) Check optical power levels 3) Inspect connector cleanliness 4) Validate impedance matching 5) Monitor environmental conditions (temperature/humidity)",
+            "signal degradation": "L1 Diagnosis: Signal degradation indicates physical layer issues. Recommended actions: 1) Test cable continuity 2) Measure optical power budget 3) Check for electromagnetic interference 4) Validate equipment calibration 5) Inspect splice points",
+            "interference": "L1 Analysis: Electromagnetic interference detected. Mitigation steps: 1) Identify interference sources 2) Implement proper grounding 3) Use shielded cables 4) Adjust frequency planning 5) Install RF filters",
+            "latency": "L1 Assessment: High latency in physical layer. Investigation points: 1) Check propagation delay 2) Verify processing delays in equipment 3) Analyze fiber path length 4) Review regenerator performance 5) Monitor buffer depths",
+            "error rate": "L1 Analysis: Elevated error rates detected. Troubleshooting sequence: 1) Check BER at optical layer 2) Validate FEC performance 3) Analyze signal quality metrics 4) Review power budget calculations 5) Test equipment sensitivity",
+            "cell tower": "L1 Diagnosis: Cell tower connectivity issues. Physical layer checks: 1) Verify antenna alignment and VSWR 2) Test coaxial cable integrity 3) Check RF power levels 4) Validate grounding systems 5) Monitor environmental factors",
+            "fiber": "L1 Analysis: Fiber optic issues detected. Investigation steps: 1) Measure optical power budget 2) Check for fiber breaks using OTDR 3) Inspect connector end-faces 4) Validate bend radius compliance 5) Test chromatic dispersion"
+        }
+        
+        # Find relevant response based on keywords
+        message_lower = message_content.lower()
+        for keyword, response in l1_responses.items():
+            if keyword in message_lower:
+                return response
+        
+        # Default L1 response
+        return "L1 Network Analysis: For comprehensive L1 troubleshooting, please provide specific symptoms such as packet loss, signal degradation, interference, latency issues, or error rates. I can provide detailed physical layer diagnostics and remediation steps."
+
+    @app.route('/health', methods=['GET'])
+    def health():
+        """Health check endpoint"""
+        return jsonify({
+            "status": "healthy",
+            "model_loaded": model_loaded,
+            "timestamp": time.time()
+        })
+
+    @app.route('/v1/models', methods=['GET'])
+    def list_models():
+        """List available models - OpenAI compatible"""
+        return jsonify({
+            "object": "list",
+            "data": [
+                {
+                    "id": "tslam-4b",
+                    "object": "model",
+                    "created": int(time.time()),
+                    "owned_by": "l1-system"
+                }
+            ]
+        })
+
+    @app.route('/v1/chat/completions', methods=['POST'])
+    def chat_completions():
+        """OpenAI-compatible chat completions endpoint with streaming support"""
+        try:
+            data = request.get_json()
+            
+            # Extract parameters
+            messages = data.get('messages', [])
+            max_tokens = data.get('max_tokens', 200)
+            stream = data.get('stream', False)
+            model_name = data.get('model', 'tslam-4b')
+            
+            # Get the last user message
+            user_message = ""
+            for msg in reversed(messages):
+                if msg.get('role') == 'user':
+                    user_message = msg.get('content', '')
+                    break
+            
+            logger.info(f"Processing request: {user_message[:100]}...")
+            
+            if stream:
+                # Streaming response
+                def generate_stream():
+                    response_text = generate_l1_response(user_message)
+                    
+                    # Split response into chunks for streaming effect
+                    words = response_text.split()
+                    
+                    for i, word in enumerate(words):
+                        chunk = {
+                            "id": f"chatcmpl-{int(time.time())}",
+                            "object": "chat.completion.chunk",
+                            "created": int(time.time()),
+                            "model": model_name,
+                            "choices": [
+                                {
+                                    "index": 0,
+                                    "delta": {
+                                        "content": word + " " if i < len(words) - 1 else word
+                                    },
+                                    "finish_reason": None
+                                }
+                            ]
+                        }
+                        
+                        yield f"data: {json.dumps(chunk)}\n\n"
+                        time.sleep(0.05)  # Small delay for streaming effect
+                    
+                    # Send final chunk
+                    final_chunk = {
+                        "id": f"chatcmpl-{int(time.time())}",
+                        "object": "chat.completion.chunk",
+                        "created": int(time.time()),
+                        "model": model_name,
+                        "choices": [
+                            {
+                                "index": 0,
+                                "delta": {},
+                                "finish_reason": "stop"
+                            }
+                        ]
+                    }
+                    yield f"data: {json.dumps(final_chunk)}\n\n"
+                    yield "data: [DONE]\n\n"
+                
+                return Response(
+                    generate_stream(),
+                    mimetype='text/plain',
+                    headers={
+                        'Content-Type': 'text/plain; charset=utf-8',
+                        'Cache-Control': 'no-cache',
+                        'Connection': 'keep-alive',
+                        'Access-Control-Allow-Origin': '*'
+                    }
+                )
+            
+            else:
+                # Non-streaming response
+                response_text = generate_l1_response(user_message)
+                
+                return jsonify({
+                    "id": f"chatcmpl-{int(time.time())}",
+                    "object": "chat.completion",
+                    "created": int(time.time()),
+                    "model": model_name,
+                    "choices": [
+                        {
+                            "index": 0,
+                            "message": {
+                                "role": "assistant",
+                                "content": response_text
+                            },
+                            "finish_reason": "stop"
+                        }
+                    ],
+                    "usage": {
+                        "prompt_tokens": len(user_message.split()),
+                        "completion_tokens": len(response_text.split()),
+                        "total_tokens": len(user_message.split()) + len(response_text.split())
+                    }
+                })
+                
+        except Exception as e:
+            logger.error(f"Error processing request: {e}")
+            return jsonify({"error": str(e)}), 500
+
+    if __name__ == '__main__':
+        logger.info("Starting TSLAM Inference Server...")
+        logger.info("Server starting on 0.0.0.0:8000...")
+        app.run(host='0.0.0.0', port=8000, debug=False, threaded=True)

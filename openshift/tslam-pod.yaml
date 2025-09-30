@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: tslam-container
+  namespace: l1-app-ai
+spec:
+  containers:
+    - name: tslam-server
+      image: localhost:5000/tslam-with-model:latest
+      ports:
+        - containerPort: 8000
+      env:
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: TRANSFORMERS_OFFLINE
+          value: "0"
+        - name: HF_HUB_DISABLE_SYMLINKS_WARNING
+          value: "1"
+        - name: TOKENIZERS_PARALLELISM
+          value: "false"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tslam-container-service
+  namespace: l1-app-ai
+spec:
+  selector:
+    name: tslam-container
+  ports:
+    - port: 8000
+      targetPort: 8000
+  type: ClusterIP

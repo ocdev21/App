@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: model-uploader
+  namespace: l1-app-ai
+spec:
+  containers:
+  - name: uploader
+    image: registry.redhat.io/ubi8/ubi:latest
+    command: ["sleep", "infinity"]
+    volumeMounts:
+    - name: model-storage
+      mountPath: /models
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "250m"
+      limits:
+        memory: "2Gi"
+        cpu: "1"
+  volumes:
+  - name: model-storage
+    persistentVolumeClaim:
+      claimName: tslam-model-storage-pvc
+  restartPolicy: Never

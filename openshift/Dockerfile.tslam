@@ -1,0 +1,28 @@
+FROM registry.redhat.io/ubi8/python-39:latest
+
+USER root
+
+RUN yum install -y gcc gcc-c++ python3-devel && yum clean all
+
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir transformers accelerate flask requests sentencepiece protobuf
+
+COPY model/ /models/tslam-4b/
+
+RUN chmod -R 755 /models && \
+    chown -R 1001:0 /models
+
+COPY tslam-container-server.py /app/tslam-server.py
+
+RUN chmod +x /app/tslam-server.py
+
+USER 1001
+
+EXPOSE 8000
+
+ENV PYTHONUNBUFFERED=1
+ENV TRANSFORMERS_OFFLINE=0
+ENV HF_HUB_DISABLE_SYMLINKS_WARNING=1
+ENV TOKENIZERS_PARALLELISM=false
+
+CMD ["python3", "/app/tslam-server.py"]

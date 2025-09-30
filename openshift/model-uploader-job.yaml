@@ -1,0 +1,32 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: model-uploader-job
+  namespace: l1-app-ai
+spec:
+  ttlSecondsAfterFinished: 600
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: model-uploader
+    spec:
+      containers:
+      - name: uploader
+        image: registry.redhat.io/ubi8/ubi:latest
+        command: ["sleep", "3600"]
+        volumeMounts:
+        - name: model-storage
+          mountPath: /models
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "4Gi"
+            cpu: "2"
+      volumes:
+      - name: model-storage
+        persistentVolumeClaim:
+          claimName: tslam-model-storage-pvc
+      restartPolicy: Never

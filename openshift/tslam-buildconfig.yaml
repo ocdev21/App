@@ -1,0 +1,23 @@
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: tslam-with-model
+  namespace: l1-app-ai
+spec:
+  output:
+    to:
+      kind: ImageStreamTag
+      name: tslam-with-model:latest
+  source:
+    type: Binary
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Dockerfile
+  triggers: []
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: tslam-with-model
+  namespace: l1-app-ai

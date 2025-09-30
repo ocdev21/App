@@ -5,9 +5,8 @@ echo "============================"
 echo ""
 
 MODEL_SOURCE="/home/cloud-user/pjoe/model"
-IMAGE_NAME="tslam-with-model"
+IMAGE_NAME="l1-app-ai/tslam-with-model"
 IMAGE_TAG="latest"
-REGISTRY="localhost:5000"
 
 # Check if model source exists
 if [ ! -d "$MODEL_SOURCE" ]; then
@@ -28,7 +27,7 @@ ls -lh build-context/model/ | head -10
 
 echo ""
 echo "Step 3: Building container image..."
-echo "   Image: $REGISTRY/$IMAGE_NAME:$IMAGE_TAG"
+echo "   Image: $IMAGE_NAME:$IMAGE_TAG"
 echo ""
 
 cd build-context
@@ -46,7 +45,7 @@ fi
 echo "Using builder: $BUILDER"
 echo ""
 
-$BUILDER build -t $REGISTRY/$IMAGE_NAME:$IMAGE_TAG . --no-cache
+$BUILDER build -t $IMAGE_NAME:$IMAGE_TAG . --no-cache
 
 if [ $? -ne 0 ]; then
     echo "ERROR: Build failed!"
@@ -56,20 +55,9 @@ fi
 echo ""
 echo "Step 4: Container image built successfully!"
 echo ""
-echo "Step 5: Pushing to local registry..."
+echo "✅ Image built: $IMAGE_NAME:$IMAGE_TAG"
 echo ""
-
-$BUILDER push $REGISTRY/$IMAGE_NAME:$IMAGE_TAG
-
-if [ $? -ne 0 ]; then
-    echo "ERROR: Failed to push to registry!"
-    echo "Make sure local registry is running at $REGISTRY"
-    exit 1
-fi
-
-echo ""
-echo "✅ Image pushed successfully to $REGISTRY/$IMAGE_NAME:$IMAGE_TAG"
-echo ""
-echo "Next step: Deploy with ./deploy-container.sh"
+echo "Note: Image is now available locally on this machine"
+echo "Next step: Deploy with ./deploy-pod.sh"
 
 cd ..

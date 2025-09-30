@@ -7,8 +7,7 @@ echo ""
 MODEL_SOURCE="/home/cloud-user/pjoe/model"
 IMAGE_NAME="tslam-with-model"
 IMAGE_TAG="latest"
-REGISTRY="quay.io"  # Change this to your registry
-REGISTRY_USER="your-username"  # Change this to your username
+REGISTRY="localhost:5000"
 
 # Check if model source exists
 if [ ! -d "$MODEL_SOURCE" ]; then
@@ -29,7 +28,7 @@ ls -lh build-context/model/ | head -10
 
 echo ""
 echo "Step 3: Building container image..."
-echo "   Image: $REGISTRY/$REGISTRY_USER/$IMAGE_NAME:$IMAGE_TAG"
+echo "   Image: $REGISTRY/$IMAGE_NAME:$IMAGE_TAG"
 echo ""
 
 cd build-context
@@ -47,7 +46,7 @@ fi
 echo "Using builder: $BUILDER"
 echo ""
 
-$BUILDER build -t $REGISTRY/$REGISTRY_USER/$IMAGE_NAME:$IMAGE_TAG . --no-cache
+$BUILDER build -t $REGISTRY/$IMAGE_NAME:$IMAGE_TAG . --no-cache
 
 if [ $? -ne 0 ]; then
     echo "ERROR: Build failed!"
@@ -57,17 +56,20 @@ fi
 echo ""
 echo "Step 4: Container image built successfully!"
 echo ""
-echo "Step 5: Pushing to registry..."
-echo "   (Make sure you're logged in: $BUILDER login $REGISTRY)"
+echo "Step 5: Pushing to local registry..."
 echo ""
 
-# Uncomment the next line to auto-push
-# $BUILDER push $REGISTRY/$REGISTRY_USER/$IMAGE_NAME:$IMAGE_TAG
+$BUILDER push $REGISTRY/$IMAGE_NAME:$IMAGE_TAG
 
-echo "To push manually, run:"
-echo "   $BUILDER push $REGISTRY/$REGISTRY_USER/$IMAGE_NAME:$IMAGE_TAG"
+if [ $? -ne 0 ]; then
+    echo "ERROR: Failed to push to registry!"
+    echo "Make sure local registry is running at $REGISTRY"
+    exit 1
+fi
+
 echo ""
-echo "After pushing, update tslam-container-deployment.yaml with your image path"
-echo "Then deploy with: ./deploy-container.sh"
+echo "✅ Image pushed successfully to $REGISTRY/$IMAGE_NAME:$IMAGE_TAG"
+echo ""
+echo "Next step: Deploy with ./deploy-container.sh"
 
 cd ..

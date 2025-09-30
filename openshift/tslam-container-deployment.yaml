@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: tslam-server
-        image: quay.io/your-username/tslam-with-model:latest
+        image: localhost:5000/tslam-with-model:latest
         imagePullPolicy: Always
         ports:
         - name: http

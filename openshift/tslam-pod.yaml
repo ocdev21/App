@@ -6,7 +6,7 @@ metadata:
 spec:
   containers:
     - name: tslam-server
-      image: localhost:5000/tslam-with-model:latest
+      image: 10.0.1.224:5000/tslam-with-model:latest
       imagePullPolicy: IfNotPresent
       ports:
         - containerPort: 8000

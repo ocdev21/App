@@ -5,7 +5,7 @@ USER root
 RUN yum install -y gcc gcc-c++ python3-devel && yum clean all
 
 RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
-    pip install --no-cache-dir transformers accelerate flask requests sentencepiece protobuf bitsandbytes
+    pip install --no-cache-dir transformers accelerate flask requests sentencepiece protobuf
 
 COPY model/ /models/tslam-4b/
 

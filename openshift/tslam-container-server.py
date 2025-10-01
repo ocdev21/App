@@ -48,16 +48,19 @@ def load_tslam_model():
             logger.error(f"Failed to load tokenizer: {e}")
             raise
         
-        logger.info("Loading TSLAM-4B model...")
+        logger.info("Loading TSLAM-4B model without quantization (CPU mode)...")
         model = AutoModelForCausalLM.from_pretrained(
             model_path,
             trust_remote_code=True,
             torch_dtype=torch.float32,
             device_map="cpu",
-            local_files_only=True
+            local_files_only=True,
+            load_in_4bit=False,
+            load_in_8bit=False,
+            quantization_config=None
         )
         
-        logger.info("TSLAM-4B model loaded successfully!")
+        logger.info("TSLAM-4B model loaded successfully in full precision!")
         model_loaded = True
         fallback_mode = False
         

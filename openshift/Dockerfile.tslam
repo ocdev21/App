@@ -9,14 +9,9 @@ RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/wh
 
 COPY model/ /models/tslam-4b/
 
-RUN python3 -c "import json; \
-    config = json.load(open('/models/tslam-4b/config.json')); \
-    config.pop('quantization_config', None); \
-    json.dump(config, open('/models/tslam-4b/config.json', 'w'), indent=2)"
-
 RUN chmod -R 755 /models
 
-# Force rebuild - Updated Oct 1 2025 v3
+# Force rebuild - Updated Oct 1 2025 v4
 COPY tslam-container-server.py /app/tslam-server.py
 
 RUN chmod +x /app/tslam-server.py

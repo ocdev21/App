@@ -49,12 +49,7 @@ def load_tslam_model():
             logger.info(f"Model type: {config.get('model_type')}")
             logger.info(f"Has quantization_config: {'quantization_config' in config}")
             if 'quantization_config' in config:
-                logger.warning(f"Quantization config still present: {config['quantization_config']}")
-                logger.info("Removing quantization_config from config...")
-                del config['quantization_config']
-                with open(config_path, 'w') as f:
-                    json.dump(config, f, indent=2)
-                logger.info("Quantization config removed successfully")
+                logger.info(f"Quantization config present: {config['quantization_config']}")
         
         logger.info("Loading tokenizer...")
         try:
@@ -74,9 +69,20 @@ def load_tslam_model():
         logger.info("Attempting to load 4-bit quantized model on CPU using bitsandbytes")
         
         try:
+            from transformers import BitsAndBytesConfig
+            
+            # Configure 4-bit quantization for CPU
+            bnb_config = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_compute_dtype=torch.float32,
+                bnb_4bit_use_double_quant=False,
+                bnb_4bit_quant_type="nf4"
+            )
+            
             model = AutoModelForCausalLM.from_pretrained(
                 model_path,
                 trust_remote_code=True,
+                quantization_config=bnb_config,
                 device_map="cpu",
                 local_files_only=True,
                 low_cpu_mem_usage=True

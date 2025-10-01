@@ -6,7 +6,7 @@ metadata:
 spec:
   containers:
     - name: tslam-server
-      image: image-registry.openshift-image-registry.svc:5000/l1-app-ai/tslam-with-model:latest
+      image: localhost:5000/tslam-with-model:latest
       imagePullPolicy: IfNotPresent
       ports:
         - containerPort: 8000

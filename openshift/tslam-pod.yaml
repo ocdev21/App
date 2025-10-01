@@ -3,6 +3,8 @@ kind: Pod
 metadata:
   name: tslam-container
   namespace: l1-app-ai
+  labels:
+    app: tslam-container
 spec:
   containers:
     - name: tslam-server
@@ -23,11 +25,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: tslam-container-service
+  name: tslam-vllm-service
   namespace: l1-app-ai
 spec:
   selector:
-    name: tslam-container
+    app: tslam-container
   ports:
     - port: 8000
       targetPort: 8000

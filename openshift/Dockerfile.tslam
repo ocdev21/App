@@ -5,7 +5,7 @@ USER root
 RUN yum install -y gcc gcc-c++ python3-devel && yum clean all
 
 RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
-    pip install --no-cache-dir transformers accelerate flask requests sentencepiece protobuf
+    pip install --no-cache-dir transformers accelerate flask requests sentencepiece protobuf bitsandbytes
 
 COPY model/ /models/tslam-4b/
 
@@ -28,5 +28,7 @@ ENV PYTHONUNBUFFERED=1
 ENV TRANSFORMERS_OFFLINE=0
 ENV HF_HUB_DISABLE_SYMLINKS_WARNING=1
 ENV TOKENIZERS_PARALLELISM=false
+ENV BNB_CUDA_VERSION=""
+ENV BITSANDBYTES_NOWELCOME=1
 
 CMD ["python3", "/app/tslam-server.py"]

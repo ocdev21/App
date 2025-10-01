@@ -24,6 +24,10 @@ def load_tslam_model():
     global model, tokenizer, model_loaded, fallback_mode
     
     try:
+        import os
+        os.environ['BNB_CUDA_VERSION'] = ''
+        os.environ['BITSANDBYTES_NOWELCOME'] = '1'
+        
         from transformers import AutoTokenizer, AutoModelForCausalLM
         import torch
         
@@ -66,19 +70,16 @@ def load_tslam_model():
             logger.error(f"Traceback: {traceback.format_exc()}")
             raise
         
-        logger.info("Loading TSLAM-4B model without quantization (CPU mode)...")
-        logger.info("Model loading parameters: torch_dtype=float32, device_map=cpu, load_in_4bit=False, load_in_8bit=False")
+        logger.info("Loading TSLAM-4B model with CPU-compatible quantization...")
+        logger.info("Attempting to load 4-bit quantized model on CPU using bitsandbytes")
         
         try:
             model = AutoModelForCausalLM.from_pretrained(
                 model_path,
                 trust_remote_code=True,
-                torch_dtype=torch.float32,
                 device_map="cpu",
                 local_files_only=True,
-                load_in_4bit=False,
-                load_in_8bit=False,
-                quantization_config=None
+                low_cpu_mem_usage=True
             )
             
             logger.info("TSLAM-4B model loaded successfully in full precision!")

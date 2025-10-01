@@ -16,6 +16,7 @@ RUN python3 -c "import json; \
 
 RUN chmod -R 755 /models
 
+# Force rebuild - Updated Oct 1 2025 v3
 COPY tslam-container-server.py /app/tslam-server.py
 
 RUN chmod +x /app/tslam-server.py

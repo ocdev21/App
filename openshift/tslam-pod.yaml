@@ -7,7 +7,7 @@ spec:
   containers:
     - name: tslam-server
       image: 10.0.1.224:5000/tslam-with-model:latest
-      imagePullPolicy: IfNotPresent
+      imagePullPolicy: Always
       ports:
         - containerPort: 8000
       env:

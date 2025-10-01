@@ -7,7 +7,7 @@ echo ""
 MODEL_SOURCE="/home/cloud-user/pjoe/model"
 IMAGE_NAME="tslam-with-model"
 IMAGE_TAG="latest"
-REGISTRY="localhost:5000"
+REGISTRY="10.0.1.224:5000"
 
 # Check if model source exists
 if [ ! -d "$MODEL_SOURCE" ]; then

@@ -36,6 +36,22 @@ def load_tslam_model():
         model_files = os.listdir(model_path)
         logger.info(f"Found {len(model_files)} files in model directory")
         
+        # Check and display config.json
+        import json
+        config_path = os.path.join(model_path, "config.json")
+        if os.path.exists(config_path):
+            with open(config_path, 'r') as f:
+                config = json.load(f)
+            logger.info(f"Model type: {config.get('model_type')}")
+            logger.info(f"Has quantization_config: {'quantization_config' in config}")
+            if 'quantization_config' in config:
+                logger.warning(f"Quantization config still present: {config['quantization_config']}")
+                logger.info("Removing quantization_config from config...")
+                del config['quantization_config']
+                with open(config_path, 'w') as f:
+                    json.dump(config, f, indent=2)
+                logger.info("Quantization config removed successfully")
+        
         logger.info("Loading tokenizer...")
         try:
             tokenizer = AutoTokenizer.from_pretrained(
@@ -43,29 +59,44 @@ def load_tslam_model():
                 trust_remote_code=True,
                 local_files_only=True
             )
-            logger.info("Tokenizer loaded successfully")
+            logger.info(f"Tokenizer loaded successfully. Vocab size: {len(tokenizer)}")
         except Exception as e:
             logger.error(f"Failed to load tokenizer: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             raise
         
         logger.info("Loading TSLAM-4B model without quantization (CPU mode)...")
-        model = AutoModelForCausalLM.from_pretrained(
-            model_path,
-            trust_remote_code=True,
-            torch_dtype=torch.float32,
-            device_map="cpu",
-            local_files_only=True,
-            load_in_4bit=False,
-            load_in_8bit=False,
-            quantization_config=None
-        )
+        logger.info("Model loading parameters: torch_dtype=float32, device_map=cpu, load_in_4bit=False, load_in_8bit=False")
         
-        logger.info("TSLAM-4B model loaded successfully in full precision!")
-        model_loaded = True
-        fallback_mode = False
+        try:
+            model = AutoModelForCausalLM.from_pretrained(
+                model_path,
+                trust_remote_code=True,
+                torch_dtype=torch.float32,
+                device_map="cpu",
+                local_files_only=True,
+                load_in_4bit=False,
+                load_in_8bit=False,
+                quantization_config=None
+            )
+            
+            logger.info("TSLAM-4B model loaded successfully in full precision!")
+            logger.info(f"Model device: {next(model.parameters()).device}")
+            logger.info(f"Model dtype: {next(model.parameters()).dtype}")
+            model_loaded = True
+            fallback_mode = False
+            
+        except Exception as model_error:
+            logger.error(f"Model loading failed with error: {model_error}")
+            import traceback
+            logger.error(f"Full traceback: {traceback.format_exc()}")
+            raise
         
     except Exception as e:
         logger.error(f"Failed to load TSLAM model: {e}")
+        import traceback
+        logger.error(f"Exception traceback: {traceback.format_exc()}")
         logger.info("Using L1 knowledge base fallback")
         model_loaded = True
         fallback_mode = True

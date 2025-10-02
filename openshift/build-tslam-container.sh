@@ -24,26 +24,24 @@ echo "Found GGUF model: $MODEL_SIZE"
 
 echo ""
 echo "Step 1: Preparing build context..."
+rm -rf build-context
 mkdir -p build-context
 
-# Copy project files
-echo "  Copying L1 application files..."
-cp -r ../package*.json build-context/ 2>/dev/null || true
-cp -r ../tsconfig.json build-context/ 2>/dev/null || true
-cp -r ../vite.config.ts build-context/ 2>/dev/null || true
-cp -r ../tailwind.config.ts build-context/ 2>/dev/null || true
-cp -r ../postcss.config.js build-context/ 2>/dev/null || true
-cp -r ../index.html build-context/ 2>/dev/null || true
-cp -r ../client build-context/ 2>/dev/null || true
-cp -r ../server build-context/ 2>/dev/null || true
-cp -r ../db build-context/ 2>/dev/null || true
-cp -r ../shared build-context/ 2>/dev/null || true
+# Copy entire parent directory (excluding node_modules and build artifacts)
+echo "  Copying L1 application files from parent directory..."
+rsync -a --exclude='node_modules' \
+         --exclude='dist' \
+         --exclude='build' \
+         --exclude='.git' \
+         --exclude='build-context' \
+         --exclude='*.log' \
+         ../ build-context/
 
 # Copy GGUF model
-echo "  Copying GGUF model..."
+echo "  Copying GGUF model ($MODEL_SIZE)..."
 cp "$MODEL_SOURCE" build-context/mistral-7b-instruct-v0.2.Q4_K_M.gguf
 
-# Copy Docker files
+# Copy Docker files from current directory
 echo "  Copying Dockerfile and scripts..."
 cp Dockerfile.tslam build-context/Dockerfile
 cp gguf-inference-server.py build-context/
@@ -70,7 +68,7 @@ fi
 echo "Using builder: $BUILDER"
 echo ""
 
-$BUILDER build -t $REGISTRY/$IMAGE_NAME:$IMAGE_TAG . --no-cache
+$BUILDER build -t $REGISTRY/$IMAGE_NAME:$IMAGE_TAG .
 
 if [ $? -ne 0 ]; then
     echo "ERROR: Build failed!"
@@ -96,6 +94,9 @@ echo "  - L1 Web Application (port 5000)"
 echo "  - AI Inference Server (port 8000)"
 echo "=========================================="
 echo ""
-echo "Next: Update tslam-pod.yaml with new image name and deploy"
+echo "Next steps:"
+echo "  1. Delete old pod: oc delete pod tslam-container -n l1-app-ai --force"
+echo "  2. Deploy: oc apply -f tslam-pod.yaml"
+echo "  3. Check logs: oc logs -f l1-integrated -n l1-app-ai"
 
 cd ..

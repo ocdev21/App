@@ -1,10 +1,10 @@
 #!/bin/bash
 
-echo "Mistral HF Container Build Script"
-echo "=================================="
+echo "Llama 3.1 8B Container Build Script"
+echo "===================================="
 echo ""
 
-MODEL_SOURCE="/home/cloud-user/pjoe/model/mistral7b-hf"
+MODEL_SOURCE="/home/cloud-user/pjoe/model/llama-3.1-8b"
 IMAGE_NAME="tslam-with-model"
 IMAGE_TAG="latest"
 REGISTRY="10.0.1.224:5000"
@@ -13,8 +13,8 @@ REGISTRY="10.0.1.224:5000"
 if [ ! -d "$MODEL_SOURCE" ]; then
     echo "ERROR: Model directory $MODEL_SOURCE does not exist!"
     echo ""
-    echo "Please download Mistral-7B-Instruct-v0.2 first:"
-    echo "  huggingface-cli download mistralai/Mistral-7B-Instruct-v0.2 \\"
+    echo "Please download Llama 3.1 8B Instruct first:"
+    echo "  huggingface-cli download meta-llama/Llama-3.1-8B-Instruct \\"
     echo "    --local-dir $MODEL_SOURCE \\"
     echo "    --local-dir-use-symlinks False"
     exit 1
@@ -31,14 +31,14 @@ for file in "${REQUIRED_FILES[@]}"; do
 done
 
 echo "Step 1: Preparing build context..."
-mkdir -p build-context/mistral7b-hf
-cp -r $MODEL_SOURCE/* build-context/mistral7b-hf/
+mkdir -p build-context/llama-3.1-8b
+cp -r $MODEL_SOURCE/* build-context/llama-3.1-8b/
 
-MODEL_FILES=$(find build-context/mistral7b-hf -type f | wc -l)
+MODEL_FILES=$(find build-context/llama-3.1-8b -type f | wc -l)
 echo "   Copied $MODEL_FILES model files"
 
 cp Dockerfile.tslam build-context/Dockerfile
-cp mistral-inference-server.py build-context/
+cp llama-inference-server.py build-context/
 
 echo ""
 echo "Step 2: Building container image..."
@@ -76,7 +76,7 @@ if [ $? -ne 0 ]; then
 fi
 
 echo ""
-echo "✅ Image ready: $REGISTRY/$IMAGE_NAME:$IMAGE_TAG"
+echo "Build Complete: $REGISTRY/$IMAGE_NAME:$IMAGE_TAG"
 echo ""
 echo "Next: oc apply -f tslam-pod.yaml"
 

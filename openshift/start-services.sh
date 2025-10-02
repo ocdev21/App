@@ -39,7 +39,7 @@ echo ""
 # Start L1 Application (frontend + backend)
 echo "[2/2] Starting L1 Web Application (port 5000)..."
 cd /app
-NODE_ENV=production npm start &
+NODE_ENV=production tsx server/index.ts &
 APP_PID=$!
 echo "  L1 App PID: $APP_PID"
 echo ""

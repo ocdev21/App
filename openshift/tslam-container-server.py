@@ -4,9 +4,8 @@ import json
 import time
 import logging
 import os
-import sys
 from flask import Flask, request, jsonify, Response
-import threading
+from llama_cpp import Llama
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -14,180 +13,110 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 model = None
-tokenizer = None
 model_loaded = False
-model_name = "tslam-4b"
-fallback_mode = False
+model_name = "mistral-7b-instruct"
 
-def load_tslam_model():
-    """Load TSLAM-4B model from /models directory"""
-    global model, tokenizer, model_loaded, fallback_mode
+def load_mistral_model():
+    """Load Mistral-7B GGUF model using llama-cpp"""
+    global model, model_loaded
     
     try:
-        import os
-        os.environ['BNB_CUDA_VERSION'] = ''
-        os.environ['BITSANDBYTES_NOWELCOME'] = '1'
-        
-        from transformers import AutoTokenizer, AutoModelForCausalLM
-        import torch
-        
-        model_path = "/models/tslam-4b"
-        logger.info(f"Loading TSLAM-4B model from {model_path}")
+        model_path = "/models/mistral-7b.gguf"
+        logger.info(f"Loading Mistral-7B GGUF model from {model_path}")
         
         if not os.path.exists(model_path):
-            raise FileNotFoundError(f"Model directory {model_path} not found")
+            raise FileNotFoundError(f"Model file {model_path} not found")
         
-        model_files = os.listdir(model_path)
-        logger.info(f"Found {len(model_files)} files in model directory")
+        # Load GGUF model with llama-cpp-python
+        model = Llama(
+            model_path=model_path,
+            n_ctx=4096,           # Context window
+            n_threads=8,          # CPU threads (adjust based on available cores)
+            n_batch=512,          # Batch size for prompt processing
+            verbose=False
+        )
         
-        # Check and display config.json
-        import json
-        config_path = os.path.join(model_path, "config.json")
-        if os.path.exists(config_path):
-            with open(config_path, 'r') as f:
-                config = json.load(f)
-            logger.info(f"Model type: {config.get('model_type')}")
-            logger.info(f"Has quantization_config: {'quantization_config' in config}")
-            if 'quantization_config' in config:
-                logger.info(f"Quantization config present: {config['quantization_config']}")
-        
-        logger.info("Loading tokenizer...")
-        try:
-            tokenizer = AutoTokenizer.from_pretrained(
-                model_path,
-                trust_remote_code=True,
-                local_files_only=True
-            )
-            logger.info(f"Tokenizer loaded successfully. Vocab size: {len(tokenizer)}")
-        except Exception as e:
-            logger.error(f"Failed to load tokenizer: {e}")
-            import traceback
-            logger.error(f"Traceback: {traceback.format_exc()}")
-            raise
-        
-        logger.info("Loading TSLAM-4B model with CPU-compatible quantization...")
-        logger.info("Attempting to load 4-bit quantized model on CPU using bitsandbytes")
-        
-        try:
-            from transformers import BitsAndBytesConfig
-            
-            # Configure 4-bit quantization for CPU
-            bnb_config = BitsAndBytesConfig(
-                load_in_4bit=True,
-                bnb_4bit_compute_dtype=torch.float32,
-                bnb_4bit_use_double_quant=False,
-                bnb_4bit_quant_type="nf4"
-            )
-            
-            model = AutoModelForCausalLM.from_pretrained(
-                model_path,
-                trust_remote_code=True,
-                quantization_config=bnb_config,
-                device_map="cpu",
-                local_files_only=True,
-                low_cpu_mem_usage=True
-            )
-            
-            logger.info("TSLAM-4B model loaded successfully in full precision!")
-            logger.info(f"Model device: {next(model.parameters()).device}")
-            logger.info(f"Model dtype: {next(model.parameters()).dtype}")
-            model_loaded = True
-            fallback_mode = False
-            
-        except Exception as model_error:
-            logger.error(f"Model loading failed with error: {model_error}")
-            import traceback
-            logger.error(f"Full traceback: {traceback.format_exc()}")
-            raise
+        logger.info("Mistral-7B model loaded successfully on CPU!")
+        logger.info(f"Context size: 4096 tokens, Threads: 8")
+        model_loaded = True
         
     except Exception as e:
-        logger.error(f"Failed to load TSLAM model: {e}")
+        logger.error(f"Failed to load Mistral model: {e}")
         import traceback
-        logger.error(f"Exception traceback: {traceback.format_exc()}")
-        logger.info("Using L1 knowledge base fallback")
-        model_loaded = True
-        fallback_mode = True
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        model_loaded = False
 
-def generate_tslam_response(message_content, max_tokens=200):
-    """Generate response using TSLAM model or fallback"""
-    global model, tokenizer, fallback_mode
+def generate_mistral_response(message_content, max_tokens=500, stream=False):
+    """Generate response using Mistral model"""
+    global model
     
-    if fallback_mode or model is None or tokenizer is None:
-        return generate_l1_fallback_response(message_content)
+    if not model_loaded or model is None:
+        logger.error("Model not loaded, cannot generate response")
+        return None
     
     try:
-        logger.info("Generating response with TSLAM-4B model...")
+        # L1 network troubleshooting system prompt
+        system_prompt = """You are an expert L1 Network Troubleshooting AI assistant specializing in telecommunications infrastructure. 
+Analyze network anomalies at the physical layer and provide specific, actionable technical recommendations.
+Focus on: signal quality, cable issues, interference, power levels, optical parameters, RF diagnostics, and hardware troubleshooting."""
         
-        prompt = f"L1 Network Troubleshooting Analysis:\n\nQuery: {message_content}\n\nTSLAM Expert Response:"
+        # Format prompt for Mistral Instruct
+        prompt = f"""<s>[INST] {system_prompt}
+
+User Query: {message_content}
+
+Provide a detailed L1 network analysis with specific troubleshooting steps. [/INST]"""
         
-        inputs = tokenizer.encode(prompt, return_tensors="pt")
+        logger.info(f"Generating response for query: {message_content[:100]}...")
         
-        with torch.no_grad():
-            outputs = model.generate(
-                inputs,
-                max_length=inputs.shape[1] + max_tokens,
+        if stream:
+            # Streaming response
+            def generate():
+                for chunk in model(
+                    prompt,
+                    max_tokens=max_tokens,
+                    temperature=0.7,
+                    top_p=0.95,
+                    repeat_penalty=1.1,
+                    stop=["</s>", "[INST]", "[/INST]"],
+                    stream=True
+                ):
+                    if 'choices' in chunk and len(chunk['choices']) > 0:
+                        delta = chunk['choices'][0].get('text', '')
+                        if delta:
+                            yield delta
+            return generate()
+        else:
+            # Non-streaming response
+            output = model(
+                prompt,
+                max_tokens=max_tokens,
                 temperature=0.7,
-                do_sample=True,
-                pad_token_id=tokenizer.eos_token_id,
-                num_return_sequences=1
+                top_p=0.95,
+                repeat_penalty=1.1,
+                stop=["</s>", "[INST]", "[/INST]"],
+                echo=False
             )
-        
-        response = tokenizer.decode(outputs[0], skip_special_tokens=True)
-        generated_text = response[len(prompt):].strip()
-        
-        if not generated_text or len(generated_text) < 10:
-            logger.warning("Short response from model, using fallback")
-            return generate_l1_fallback_response(message_content)
-        
-        return generated_text
-        
+            
+            if 'choices' in output and len(output['choices']) > 0:
+                return output['choices'][0]['text'].strip()
+            return None
+            
     except Exception as e:
         logger.error(f"Error generating response: {e}")
-        return generate_l1_fallback_response(message_content)
-
-def generate_l1_fallback_response(message_content):
-    """Enhanced L1 network troubleshooting knowledge base"""
-    message_lower = message_content.lower()
-    
-    l1_responses = {
-        "packet loss": "TSLAM L1 Analysis: High packet loss detected - comprehensive physical layer investigation protocol initiated. Root cause analysis: 1) Cable integrity assessment using TDR (Time Domain Reflectometry) - check for impedance mismatches, shorts, opens 2) Optical power budget verification (target range: -3dBm to -7dBm for standard single-mode) 3) Connector inspection protocol - end-face contamination analysis, return loss >-40dB 4) Environmental stress factors - temperature cycling effects, humidity ingress, mechanical vibration 5) EMI/RFI interference mapping - identify noise sources, cross-talk analysis",
-        
-        "signal degradation": "TSLAM L1 Diagnosis: Signal degradation pattern analysis indicates systematic physical layer impairments. Advanced troubleshooting matrix: 1) Transmission medium characterization - cable category verification, fiber type validation 2) Power level monitoring - received signal strength indicator (RSSI) trending 3) Bit error rate (BER) correlation with environmental conditions 4) Dispersion analysis - chromatic dispersion effects on long-haul links 5) Regenerator/repeater performance assessment - gain flatness, noise figure optimization",
-        
-        "interference": "TSLAM L1 Analysis: Electromagnetic interference signature detected - implementing comprehensive EMI mitigation strategy. Interference characterization: 1) Spectrum analysis - identify frequency domain signatures, harmonics, spurious emissions 2) Near-field/far-field interference mapping - spatial correlation with infrastructure 3) Grounding system audit - equipotential bonding, isolated ground integrity 4) Shielding effectiveness testing - transfer impedance measurements 5) Filtering implementation - common-mode chokes, differential-mode suppression",
-        
-        "cell tower": "TSLAM Cell Tower L1 Analysis: Cellular infrastructure physical layer anomalies detected. RF path analysis protocol: 1) Antenna system diagnostics - VSWR trending <1.5:1, return loss validation 2) Feedline integrity assessment - coaxial cable sweep testing, connector torque verification 3) Tower structural analysis - guy wire tension, foundation settling, wind load effects 4) RF exposure compliance - power density calculations, SAR analysis 5) Lightning protection system - grounding resistance <5 ohms, surge suppressor functionality",
-        
-        "fiber": "TSLAM Fiber L1 Analysis: Optical transmission system impairment detected. Fiber characterization protocol: 1) End-to-end optical power budget analysis - insertion loss mapping, connector return loss 2) OTDR (Optical Time Domain Reflectometry) comprehensive testing - event identification, splice loss quantification 3) Fiber geometry verification - core/cladding concentricity, numerical aperture validation 4) Dispersion parameter measurement - chromatic dispersion coefficient, polarization mode dispersion 5) Bend loss assessment - macrobend/microbend sensitivity analysis, minimum bend radius compliance",
-        
-        "latency": "TSLAM L1 Latency Analysis: Physical layer propagation delay characterization. Latency decomposition analysis: 1) Propagation delay calculation - fiber: 5.0μs/km, copper: 3.33μs/km theoretical baseline 2) Equipment processing delay profiling - serialization delay, queuing latency 3) Regenerator/repeater delay accumulation - optical-electrical-optical conversion overhead 4) Clock domain crossing effects - buffer depth optimization, timestamp accuracy 5) Jitter analysis - deterministic vs. random jitter components, phase noise characterization"
-    }
-    
-    best_match = None
-    best_score = 0
-    
-    for keyword, response in l1_responses.items():
-        if keyword in message_lower:
-            score = message_lower.count(keyword)
-            if score > best_score:
-                best_score = score
-                best_match = response
-    
-    if best_match:
-        return best_match
-    
-    return "TSLAM L1 Network Analysis: Comprehensive physical layer diagnostic system activated. For optimal troubleshooting results, specify network symptoms: packet loss patterns, signal degradation characteristics, electromagnetic interference, cellular tower anomalies, fiber optic impairments, or latency issues. TSLAM provides advanced L1 root cause analysis, systematic diagnostic protocols, and step-by-step remediation procedures for telecommunications infrastructure optimization."
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return None
 
 @app.route('/health', methods=['GET'])
 def health():
     """Health check endpoint"""
-    status = "healthy" if model_loaded else "loading"
-    
     return jsonify({
-        "status": status,
+        "status": "healthy" if model_loaded else "loading",
         "model_loaded": model_loaded,
-        "fallback_mode": fallback_mode,
         "model_name": model_name,
+        "backend": "llama-cpp-python",
+        "device": "CPU",
         "timestamp": time.time()
     })
 
@@ -202,8 +131,8 @@ def list_models():
                 "object": "model",
                 "created": int(time.time()),
                 "owned_by": "l1-system",
-                "fallback_mode": fallback_mode,
-                "source": "embedded_model" if not fallback_mode else "knowledge_base"
+                "backend": "llama-cpp-python",
+                "quantization": "Q4_K_M"
             }
         ]
     })
@@ -215,88 +144,86 @@ def chat_completions():
         data = request.get_json()
         
         messages = data.get('messages', [])
-        max_tokens = data.get('max_tokens', 200)
+        max_tokens = data.get('max_tokens', 500)
         stream = data.get('stream', False)
         
+        # Extract user message
         user_message = ""
         for msg in reversed(messages):
             if msg.get('role') == 'user':
                 user_message = msg.get('content', '')
                 break
         
-        logger.info(f"Processing request: {user_message[:100]}...")
+        if not user_message:
+            return jsonify({"error": "No user message found"}), 400
+        
+        if not model_loaded:
+            return jsonify({"error": "Model not loaded"}), 503
         
         if stream:
-            def generate_stream():
-                response_text = generate_tslam_response(user_message, max_tokens)
-                
-                words = response_text.split()
-                
-                for i, word in enumerate(words):
-                    chunk = {
-                        "id": f"chatcmpl-{int(time.time())}",
+            # Streaming response (Server-Sent Events)
+            def stream_response():
+                try:
+                    generator = generate_mistral_response(user_message, max_tokens, stream=True)
+                    
+                    for chunk_text in generator:
+                        chunk_data = {
+                            "id": f"chatcmpl-{int(time.time()*1000)}",
+                            "object": "chat.completion.chunk",
+                            "created": int(time.time()),
+                            "model": model_name,
+                            "choices": [{
+                                "index": 0,
+                                "delta": {"content": chunk_text},
+                                "finish_reason": None
+                            }]
+                        }
+                        yield f"data: {json.dumps(chunk_data)}\n\n"
+                    
+                    # Send completion signal
+                    final_chunk = {
+                        "id": f"chatcmpl-{int(time.time()*1000)}",
                         "object": "chat.completion.chunk",
                         "created": int(time.time()),
                         "model": model_name,
-                        "choices": [
-                            {
-                                "index": 0,
-                                "delta": {
-                                    "content": word + " " if i < len(words) - 1 else word
-                                },
-                                "finish_reason": None
-                            }
-                        ]
-                    }
-                    
-                    yield f"data: {json.dumps(chunk)}\n\n"
-                    time.sleep(0.08)
-                
-                final_chunk = {
-                    "id": f"chatcmpl-{int(time.time())}",
-                    "object": "chat.completion.chunk",
-                    "created": int(time.time()),
-                    "model": model_name,
-                    "choices": [
-                        {
+                        "choices": [{
                             "index": 0,
                             "delta": {},
                             "finish_reason": "stop"
-                        }
-                    ]
-                }
-                yield f"data: {json.dumps(final_chunk)}\n\n"
-                yield "data: [DONE]\n\n"
+                        }]
+                    }
+                    yield f"data: {json.dumps(final_chunk)}\n\n"
+                    yield "data: [DONE]\n\n"
+                    
+                except Exception as e:
+                    logger.error(f"Streaming error: {e}")
+                    error_chunk = {
+                        "error": {"message": str(e), "type": "generation_error"}
+                    }
+                    yield f"data: {json.dumps(error_chunk)}\n\n"
             
-            return Response(
-                generate_stream(),
-                mimetype='text/plain',
-                headers={
-                    'Content-Type': 'text/plain; charset=utf-8',
-                    'Cache-Control': 'no-cache',
-                    'Connection': 'keep-alive',
-                    'Access-Control-Allow-Origin': '*'
-                }
-            )
+            return Response(stream_response(), mimetype='text/event-stream')
         
         else:
-            response_text = generate_tslam_response(user_message, max_tokens)
+            # Non-streaming response
+            response_text = generate_mistral_response(user_message, max_tokens, stream=False)
+            
+            if response_text is None:
+                return jsonify({"error": "Failed to generate response"}), 500
             
             return jsonify({
-                "id": f"chatcmpl-{int(time.time())}",
+                "id": f"chatcmpl-{int(time.time()*1000)}",
                 "object": "chat.completion",
                 "created": int(time.time()),
                 "model": model_name,
-                "choices": [
-                    {
-                        "index": 0,
-                        "message": {
-                            "role": "assistant",
-                            "content": response_text
-                        },
-                        "finish_reason": "stop"
-                    }
-                ],
+                "choices": [{
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": response_text
+                    },
+                    "finish_reason": "stop"
+                }],
                 "usage": {
                     "prompt_tokens": len(user_message.split()),
                     "completion_tokens": len(response_text.split()),
@@ -305,16 +232,19 @@ def chat_completions():
             })
             
     except Exception as e:
-        logger.error(f"Error processing request: {e}")
+        logger.error(f"Error in chat_completions: {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    logger.info("Starting TSLAM Container Inference Server...")
-    logger.info("Model embedded in container image")
+    logger.info("Starting Mistral GGUF Inference Server...")
+    logger.info("Loading model...")
+    load_mistral_model()
     
-    loading_thread = threading.Thread(target=load_tslam_model)
-    loading_thread.daemon = True
-    loading_thread.start()
+    if model_loaded:
+        logger.info("Model loaded successfully, starting Flask server...")
+    else:
+        logger.warning("Model failed to load, server starting anyway...")
     
-    logger.info("Server starting on 0.0.0.0:8000...")
-    app.run(host='0.0.0.0', port=8000, debug=False, threaded=True)
+    app.run(host='0.0.0.0', port=8000, threaded=True)

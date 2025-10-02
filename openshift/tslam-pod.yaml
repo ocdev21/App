@@ -1,36 +1,82 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: tslam-container
+  name: l1-integrated
   namespace: l1-app-ai
   labels:
-    app: tslam-container
+    app: l1-integrated
 spec:
   containers:
-    - name: tslam-server
-      image: 10.0.1.224:5000/tslam-with-model:latest
+    - name: l1-integrated
+      image: 10.0.1.224:5000/l1-integrated:latest
       imagePullPolicy: Always
       ports:
-        - containerPort: 8000
+        - name: webapp
+          containerPort: 5000
+          protocol: TCP
+        - name: ai-inference
+          containerPort: 8000
+          protocol: TCP
       env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "5000"
         - name: PYTHONUNBUFFERED
           value: "1"
-        - name: TRANSFORMERS_OFFLINE
-          value: "0"
-        - name: HF_HUB_DISABLE_SYMLINKS_WARNING
+        - name: PYTHONDONTWRITEBYTECODE
           value: "1"
-        - name: TOKENIZERS_PARALLELISM
-          value: "false"
+        - name: TSLAM_REMOTE_HOST
+          value: "localhost"
+        - name: TSLAM_REMOTE_PORT
+          value: "8000"
+      livenessProbe:
+        httpGet:
+          path: /
+          port: 5000
+        initialDelaySeconds: 120
+        periodSeconds: 30
+        timeoutSeconds: 10
+        failureThreshold: 3
+      readinessProbe:
+        httpGet:
+          path: /
+          port: 5000
+        initialDelaySeconds: 30
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: tslam-vllm-service
+  name: l1-integrated-service
   namespace: l1-app-ai
 spec:
   selector:
-    app: tslam-container
+    app: l1-integrated
   ports:
-    - port: 8000
+    - name: webapp
+      port: 5000
+      targetPort: 5000
+      protocol: TCP
+    - name: ai-inference
+      port: 8000
       targetPort: 8000
+      protocol: TCP
   type: ClusterIP
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: l1-integrated-route
+  namespace: l1-app-ai
+spec:
+  to:
+    kind: Service
+    name: l1-integrated-service
+  port:
+    targetPort: webapp
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

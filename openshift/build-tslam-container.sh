@@ -1,11 +1,13 @@
 #!/bin/bash
 
-echo "Mistral GGUF Container Build Script"
-echo "===================================="
+echo "=========================================="
+echo "L1 Integrated Container Build Script"
+echo "Frontend + Backend + AI Inference"
+echo "=========================================="
 echo ""
 
 MODEL_SOURCE="/home/cloud-user/pjoe/model/mistral7b/mistral-7b-instruct-v0.2.Q4_K_M.gguf"
-IMAGE_NAME="tslam-with-model"
+IMAGE_NAME="l1-integrated"
 IMAGE_TAG="latest"
 REGISTRY="10.0.1.224:5000"
 
@@ -24,14 +26,33 @@ echo ""
 echo "Step 1: Preparing build context..."
 mkdir -p build-context
 
-cp "$MODEL_SOURCE" build-context/mistral-7b-instruct-v0.2.Q4_K_M.gguf
-echo "   Copied GGUF model file"
+# Copy project files
+echo "  Copying L1 application files..."
+cp -r ../package*.json build-context/ 2>/dev/null || true
+cp -r ../tsconfig.json build-context/ 2>/dev/null || true
+cp -r ../vite.config.ts build-context/ 2>/dev/null || true
+cp -r ../tailwind.config.ts build-context/ 2>/dev/null || true
+cp -r ../postcss.config.js build-context/ 2>/dev/null || true
+cp -r ../index.html build-context/ 2>/dev/null || true
+cp -r ../client build-context/ 2>/dev/null || true
+cp -r ../server build-context/ 2>/dev/null || true
+cp -r ../db build-context/ 2>/dev/null || true
+cp -r ../shared build-context/ 2>/dev/null || true
 
+# Copy GGUF model
+echo "  Copying GGUF model..."
+cp "$MODEL_SOURCE" build-context/mistral-7b-instruct-v0.2.Q4_K_M.gguf
+
+# Copy Docker files
+echo "  Copying Dockerfile and scripts..."
 cp Dockerfile.tslam build-context/Dockerfile
 cp gguf-inference-server.py build-context/
+cp start-services.sh build-context/
+
+echo "  Build context prepared"
 
 echo ""
-echo "Step 2: Building container image..."
+echo "Step 2: Building integrated container image..."
 echo "   Image: $REGISTRY/$IMAGE_NAME:$IMAGE_TAG"
 echo ""
 
@@ -66,8 +87,15 @@ if [ $? -ne 0 ]; then
 fi
 
 echo ""
-echo "Build Complete: $REGISTRY/$IMAGE_NAME:$IMAGE_TAG"
+echo "=========================================="
+echo "Build Complete!"
+echo "Image: $REGISTRY/$IMAGE_NAME:$IMAGE_TAG"
 echo ""
-echo "Next: oc apply -f tslam-pod.yaml"
+echo "Services included:"
+echo "  - L1 Web Application (port 5000)"
+echo "  - AI Inference Server (port 8000)"
+echo "=========================================="
+echo ""
+echo "Next: Update tslam-pod.yaml with new image name and deploy"
 
 cd ..

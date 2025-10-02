@@ -19,7 +19,7 @@ model_loaded = False
 model_name = "mistral-7b-instruct"
 
 def load_mistral_model():
-    """Load Mistral-7B model using transformers"""
+    """Load Mistral-7B model from local HuggingFace format"""
     global model, tokenizer, model_loaded
     
     try:
@@ -27,13 +27,18 @@ def load_mistral_model():
         logger.info(f"Loading Mistral-7B model from {model_path}")
         
         if not os.path.exists(model_path):
-            # Fallback: try to load from HuggingFace
-            model_path = "mistralai/Mistral-7B-Instruct-v0.2"
-            logger.info(f"Local model not found, loading from HuggingFace: {model_path}")
+            raise FileNotFoundError(f"Model directory {model_path} not found")
+        
+        # Check for required files
+        required_files = ['config.json', 'tokenizer.json', 'tokenizer_config.json']
+        for file in required_files:
+            if not os.path.exists(os.path.join(model_path, file)):
+                logger.warning(f"Missing {file} in model directory")
         
         logger.info("Loading tokenizer...")
         tokenizer = AutoTokenizer.from_pretrained(
             model_path,
+            local_files_only=True,
             trust_remote_code=True
         )
         
@@ -43,11 +48,13 @@ def load_mistral_model():
             torch_dtype=torch.float32,
             device_map="cpu",
             low_cpu_mem_usage=True,
+            local_files_only=True,
             trust_remote_code=True
         )
         
         logger.info("Mistral-7B model loaded successfully on CPU!")
         logger.info(f"Model device: {next(model.parameters()).device}")
+        logger.info(f"Model dtype: {next(model.parameters()).dtype}")
         model_loaded = True
         
     except Exception as e:
@@ -56,7 +63,7 @@ def load_mistral_model():
         logger.error(f"Traceback: {traceback.format_exc()}")
         model_loaded = False
 
-def generate_mistral_response(message_content, max_tokens=500, stream=False):
+def generate_mistral_response(message_content, max_tokens=500):
     """Generate response using Mistral model"""
     global model, tokenizer
     
@@ -80,50 +87,23 @@ Provide detailed L1 network analysis with specific troubleshooting steps. [/INST
         
         inputs = tokenizer(prompt, return_tensors="pt")
         
-        if stream:
-            # Streaming generation
-            from transformers import TextIteratorStreamer
-            from threading import Thread
-            
-            streamer = TextIteratorStreamer(tokenizer, skip_special_tokens=True)
-            generation_kwargs = {
+        # Non-streaming generation
+        with torch.no_grad():
+            outputs = model.generate(
                 **inputs,
-                "max_new_tokens": max_tokens,
-                "temperature": 0.7,
-                "do_sample": True,
-                "top_p": 0.95,
-                "streamer": streamer
-            }
-            
-            thread = Thread(target=model.generate, kwargs=generation_kwargs)
-            thread.start()
-            
-            # Skip the prompt part and yield only generated text
-            prompt_text = tokenizer.decode(inputs['input_ids'][0], skip_special_tokens=True)
-            full_text = ""
-            for new_text in streamer:
-                full_text += new_text
-                if len(full_text) > len(prompt_text):
-                    yield full_text[len(prompt_text):]
-            
-        else:
-            # Non-streaming generation
-            with torch.no_grad():
-                outputs = model.generate(
-                    **inputs,
-                    max_new_tokens=max_tokens,
-                    temperature=0.7,
-                    do_sample=True,
-                    top_p=0.95,
-                    pad_token_id=tokenizer.eos_token_id
-                )
-            
-            response = tokenizer.decode(outputs[0], skip_special_tokens=True)
-            # Remove the prompt from response
-            prompt_text = tokenizer.decode(inputs['input_ids'][0], skip_special_tokens=True)
-            generated_text = response[len(prompt_text):].strip()
-            
-            return generated_text
+                max_new_tokens=max_tokens,
+                temperature=0.7,
+                do_sample=True,
+                top_p=0.95,
+                pad_token_id=tokenizer.eos_token_id
+            )
+        
+        response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+        # Remove the prompt from response
+        prompt_text = tokenizer.decode(inputs['input_ids'][0], skip_special_tokens=True)
+        generated_text = response[len(prompt_text):].strip()
+        
+        return generated_text
             
     except Exception as e:
         logger.error(f"Error generating response: {e}")
@@ -180,9 +160,13 @@ def chat_completions():
             return jsonify({"error": "Model not loaded"}), 503
         
         if stream:
+            # For streaming, we'll use a simpler approach
             def stream_response():
-                try:
-                    for chunk_text in generate_mistral_response(user_message, max_tokens, stream=True):
+                response_text = generate_mistral_response(user_message, max_tokens)
+                if response_text:
+                    # Send in chunks to simulate streaming
+                    words = response_text.split()
+                    for i, word in enumerate(words):
                         chunk_data = {
                             "id": f"chatcmpl-{int(time.time()*1000)}",
                             "object": "chat.completion.chunk",
@@ -190,7 +174,7 @@ def chat_completions():
                             "model": model_name,
                             "choices": [{
                                 "index": 0,
-                                "delta": {"content": chunk_text},
+                                "delta": {"content": word + " "},
                                 "finish_reason": None
                             }]
                         }
@@ -209,13 +193,10 @@ def chat_completions():
                     }
                     yield f"data: {json.dumps(final_chunk)}\n\n"
                     yield "data: [DONE]\n\n"
-                    
-                except Exception as e:
-                    logger.error(f"Streaming error: {e}")
             
             return Response(stream_response(), mimetype='text/event-stream')
         else:
-            response_text = generate_mistral_response(user_message, max_tokens, stream=False)
+            response_text = generate_mistral_response(user_message, max_tokens)
             
             if response_text is None:
                 return jsonify({"error": "Failed to generate response"}), 500

@@ -1,36 +1,41 @@
 #!/bin/bash
 
-echo "Mistral Transformers Container Build Script"
-echo "============================================"
+echo "Mistral HF Container Build Script"
+echo "=================================="
 echo ""
 
-# Check if we should download Mistral or use local copy
-if [ -d "/home/cloud-user/pjoe/model/mistral7b-hf" ]; then
-    MODEL_SOURCE="/home/cloud-user/pjoe/model/mistral7b-hf"
-    echo "Using local Mistral model from: $MODEL_SOURCE"
-else
-    echo "No local Mistral HuggingFace model found."
-    echo "Container will download from HuggingFace on first run."
-    MODEL_SOURCE=""
-fi
-
+MODEL_SOURCE="/home/cloud-user/pjoe/model/mistral7b-hf"
 IMAGE_NAME="tslam-with-model"
 IMAGE_TAG="latest"
 REGISTRY="10.0.1.224:5000"
 
-echo "Step 1: Preparing build context..."
-mkdir -p build-context
-
-if [ -n "$MODEL_SOURCE" ]; then
-    echo "Copying Mistral model files..."
-    mkdir -p build-context/mistral-model
-    cp -r $MODEL_SOURCE/* build-context/mistral-model/
-    MODEL_FILES=$(find build-context/mistral-model -type f | wc -l)
-    echo "   Copied $MODEL_FILES model files"
-else
-    mkdir -p build-context/mistral-model
-    echo "   Model will be downloaded at runtime"
+# Check if model directory exists
+if [ ! -d "$MODEL_SOURCE" ]; then
+    echo "ERROR: Model directory $MODEL_SOURCE does not exist!"
+    echo ""
+    echo "Please download Mistral-7B-Instruct-v0.2 first:"
+    echo "  huggingface-cli download mistralai/Mistral-7B-Instruct-v0.2 \\"
+    echo "    --local-dir $MODEL_SOURCE \\"
+    echo "    --local-dir-use-symlinks False"
+    exit 1
 fi
+
+# Check for required files
+echo "Checking model files..."
+REQUIRED_FILES=("config.json" "tokenizer.json" "tokenizer_config.json")
+for file in "${REQUIRED_FILES[@]}"; do
+    if [ ! -f "$MODEL_SOURCE/$file" ]; then
+        echo "ERROR: Missing $file in model directory"
+        exit 1
+    fi
+done
+
+echo "Step 1: Preparing build context..."
+mkdir -p build-context/mistral7b-hf
+cp -r $MODEL_SOURCE/* build-context/mistral7b-hf/
+
+MODEL_FILES=$(find build-context/mistral7b-hf -type f | wc -l)
+echo "   Copied $MODEL_FILES model files"
 
 cp Dockerfile.tslam build-context/Dockerfile
 cp mistral-inference-server.py build-context/

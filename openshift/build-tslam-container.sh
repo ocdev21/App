@@ -1,44 +1,34 @@
 #!/bin/bash
 
-echo "Llama 3.1 8B Container Build Script"
+echo "Mistral GGUF Container Build Script"
 echo "===================================="
 echo ""
 
-MODEL_SOURCE="/home/cloud-user/pjoe/model/llama-3.1-8b"
+MODEL_SOURCE="/home/cloud-user/pjoe/model/mistral7b/mistral-7b-instruct-v0.2.Q4_K_M.gguf"
 IMAGE_NAME="tslam-with-model"
 IMAGE_TAG="latest"
 REGISTRY="10.0.1.224:5000"
 
-# Check if model directory exists
-if [ ! -d "$MODEL_SOURCE" ]; then
-    echo "ERROR: Model directory $MODEL_SOURCE does not exist!"
+# Check if GGUF file exists
+if [ ! -f "$MODEL_SOURCE" ]; then
+    echo "ERROR: GGUF model file not found: $MODEL_SOURCE"
     echo ""
-    echo "Please download Llama 3.1 8B Instruct first:"
-    echo "  huggingface-cli download meta-llama/Llama-3.1-8B-Instruct \\"
-    echo "    --local-dir $MODEL_SOURCE \\"
-    echo "    --local-dir-use-symlinks False"
+    echo "Please verify the path to your Mistral GGUF file"
     exit 1
 fi
 
-# Check for required files
-echo "Checking model files..."
-REQUIRED_FILES=("config.json" "tokenizer.json" "tokenizer_config.json")
-for file in "${REQUIRED_FILES[@]}"; do
-    if [ ! -f "$MODEL_SOURCE/$file" ]; then
-        echo "ERROR: Missing $file in model directory"
-        exit 1
-    fi
-done
+MODEL_SIZE=$(du -h "$MODEL_SOURCE" | cut -f1)
+echo "Found GGUF model: $MODEL_SIZE"
 
+echo ""
 echo "Step 1: Preparing build context..."
-mkdir -p build-context/llama-3.1-8b
-cp -r $MODEL_SOURCE/* build-context/llama-3.1-8b/
+mkdir -p build-context
 
-MODEL_FILES=$(find build-context/llama-3.1-8b -type f | wc -l)
-echo "   Copied $MODEL_FILES model files"
+cp "$MODEL_SOURCE" build-context/mistral-7b-instruct-v0.2.Q4_K_M.gguf
+echo "   Copied GGUF model file"
 
 cp Dockerfile.tslam build-context/Dockerfile
-cp llama-inference-server.py build-context/
+cp gguf-inference-server.py build-context/
 
 echo ""
 echo "Step 2: Building container image..."

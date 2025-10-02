@@ -4,16 +4,15 @@ USER root
 
 RUN yum install -y gcc gcc-c++ python3-devel && yum clean all
 
-RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
-    pip install --no-cache-dir transformers accelerate bitsandbytes flask requests
+RUN pip install --no-cache-dir ctransformers flask requests
 
-COPY llama-3.1-8b/ /models/llama-3.1-8b/
+COPY mistral-7b-instruct-v0.2.Q4_K_M.gguf /models/mistral.gguf
 
 RUN chmod -R 755 /models
 
-COPY llama-inference-server.py /app/llama-server.py
+COPY gguf-inference-server.py /app/gguf-server.py
 
-RUN chmod +x /app/llama-server.py
+RUN chmod +x /app/gguf-server.py
 
 USER 1001
 
@@ -21,4 +20,4 @@ EXPOSE 8000
 
 ENV PYTHONUNBUFFERED=1
 
-CMD ["python3", "/app/llama-server.py"]
+CMD ["python3", "/app/gguf-server.py"]

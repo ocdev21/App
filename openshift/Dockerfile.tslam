@@ -33,30 +33,24 @@ RUN ln -sf /usr/bin/python3 /usr/bin/python \
 # Install Python AI dependencies for inference server
 RUN pip install --no-cache-dir ctransformers flask requests psutil
 
-# Copy project files (frontend + backend)
+# Copy GGUF model first (separate layer for better caching)
+COPY mistral-7b-instruct-v0.2.Q4_K_M.gguf /models/mistral.gguf
+RUN chmod -R 755 /models
+
+# Copy package files for dependency installation
 COPY package*.json ./
-COPY tsconfig.json ./
-COPY vite.config.ts ./
-COPY tailwind.config.ts ./
-COPY postcss.config.js ./
-COPY index.html ./
-COPY client/ ./client/
-COPY server/ ./server/
-COPY db/ ./db/
-COPY shared/ ./shared/
 
 # Install Node.js dependencies
 RUN npm install --production=false
+
+# Copy all application code
+COPY . .
 
 # Build frontend
 RUN npm run build
 
 # Clean up dev dependencies
 RUN npm prune --production
-
-# Copy GGUF model
-COPY mistral-7b-instruct-v0.2.Q4_K_M.gguf /models/mistral.gguf
-RUN chmod -R 755 /models
 
 # Copy GGUF inference server
 COPY gguf-inference-server.py /app/gguf-server.py

@@ -1,8 +1,6 @@
-FROM registry.access.redhat.com/ubi8/python-39:latest
+FROM python:3.11-alpine
 
-USER root
-
-RUN yum install -y gcc gcc-c++ python3-devel && yum clean all
+RUN apk add --no-cache gcc g++ musl-dev linux-headers
 
 RUN pip install --no-cache-dir ctransformers flask requests
 
@@ -14,6 +12,7 @@ COPY gguf-inference-server.py /app/gguf-server.py
 
 RUN chmod +x /app/gguf-server.py
 
+RUN adduser -D -u 1001 appuser
 USER 1001
 
 EXPOSE 8000

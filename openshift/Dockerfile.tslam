@@ -2,16 +2,15 @@ FROM registry.access.redhat.com/ubi8/python-39:latest
 
 USER root
 
-RUN yum install -y gcc gcc-c++ python3-devel && yum clean all
+RUN yum install -y gcc gcc-c++ python3-devel cmake make && yum clean all
 
-RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
-    pip install --no-cache-dir transformers accelerate flask requests sentencepiece protobuf bitsandbytes
+RUN pip install --no-cache-dir llama-cpp-python flask requests
 
-COPY model/ /models/tslam-4b/
+COPY mistral-7b-instruct-v0.2.Q4_K_M.gguf /models/mistral-7b.gguf
 
 RUN chmod -R 755 /models
 
-# Force rebuild - Updated Oct 1 2025 v4
+# Updated for Mistral GGUF - Oct 2 2025
 COPY tslam-container-server.py /app/tslam-server.py
 
 RUN chmod +x /app/tslam-server.py
@@ -21,10 +20,5 @@ USER 1001
 EXPOSE 8000
 
 ENV PYTHONUNBUFFERED=1
-ENV TRANSFORMERS_OFFLINE=0
-ENV HF_HUB_DISABLE_SYMLINKS_WARNING=1
-ENV TOKENIZERS_PARALLELISM=false
-ENV BNB_CUDA_VERSION=""
-ENV BITSANDBYTES_NOWELCOME=1
 
 CMD ["python3", "/app/tslam-server.py"]

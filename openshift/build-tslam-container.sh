@@ -1,30 +1,29 @@
 #!/bin/bash
 
-echo "TSLAM Container Build Script"
-echo "============================"
+echo "Mistral GGUF Container Build Script"
+echo "===================================="
 echo ""
 
-MODEL_SOURCE="/home/cloud-user/pjoe/model"
+MODEL_SOURCE="/home/cloud-user/pjoe/model/mistral7b/mistral-7b-instruct-v0.2.Q4_K_M.gguf"
 IMAGE_NAME="tslam-with-model"
 IMAGE_TAG="latest"
 REGISTRY="10.0.1.224:5000"
 
 # Check if model source exists
-if [ ! -d "$MODEL_SOURCE" ]; then
-    echo "ERROR: Model source directory $MODEL_SOURCE does not exist!"
+if [ ! -f "$MODEL_SOURCE" ]; then
+    echo "ERROR: Model file $MODEL_SOURCE does not exist!"
     exit 1
 fi
 
 echo "Step 1: Preparing build context..."
-mkdir -p build-context/model
-cp -r $MODEL_SOURCE/* build-context/model/
+mkdir -p build-context
+cp "$MODEL_SOURCE" build-context/mistral-7b-instruct-v0.2.Q4_K_M.gguf
 cp Dockerfile.tslam build-context/Dockerfile
 cp tslam-container-server.py build-context/
 
-echo "Step 2: Checking model files..."
-MODEL_FILE_COUNT=$(find build-context/model -type f | wc -l)
-echo "   Model files to include: $MODEL_FILE_COUNT"
-ls -lh build-context/model/ | head -10
+echo "Step 2: Checking model file..."
+MODEL_SIZE=$(du -h "build-context/mistral-7b-instruct-v0.2.Q4_K_M.gguf" | cut -f1)
+echo "   Model file size: $MODEL_SIZE"
 
 echo ""
 echo "Step 3: Building container image..."
@@ -68,6 +67,6 @@ fi
 echo ""
 echo "✅ Image pushed successfully to $REGISTRY/$IMAGE_NAME:$IMAGE_TAG"
 echo ""
-echo "Next step: Deploy with ./deploy-pod.sh"
+echo "Next step: Deploy with 'oc apply -f tslam-pod.yaml'"
 
 cd ..

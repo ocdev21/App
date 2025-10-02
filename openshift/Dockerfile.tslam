@@ -1,6 +1,9 @@
-FROM python:3.11-alpine
+FROM python:3.11-slim
 
-RUN apk add --no-cache gcc g++ musl-dev linux-headers
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends gcc g++ && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 RUN pip install --no-cache-dir ctransformers flask requests
 
@@ -12,7 +15,7 @@ COPY gguf-inference-server.py /app/gguf-server.py
 
 RUN chmod +x /app/gguf-server.py
 
-RUN adduser -D -u 1001 appuser
+RUN useradd -m -u 1001 appuser
 USER 1001
 
 EXPOSE 8000

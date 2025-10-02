@@ -1,38 +1,47 @@
 #!/bin/bash
 
-echo "Mistral GGUF Container Build Script"
-echo "===================================="
+echo "Mistral Transformers Container Build Script"
+echo "============================================"
 echo ""
 
-MODEL_SOURCE="/home/cloud-user/pjoe/model/mistral7b/mistral-7b-instruct-v0.2.Q4_K_M.gguf"
+# Check if we should download Mistral or use local copy
+if [ -d "/home/cloud-user/pjoe/model/mistral7b-hf" ]; then
+    MODEL_SOURCE="/home/cloud-user/pjoe/model/mistral7b-hf"
+    echo "Using local Mistral model from: $MODEL_SOURCE"
+else
+    echo "No local Mistral HuggingFace model found."
+    echo "Container will download from HuggingFace on first run."
+    MODEL_SOURCE=""
+fi
+
 IMAGE_NAME="tslam-with-model"
 IMAGE_TAG="latest"
 REGISTRY="10.0.1.224:5000"
 
-# Check if model source exists
-if [ ! -f "$MODEL_SOURCE" ]; then
-    echo "ERROR: Model file $MODEL_SOURCE does not exist!"
-    exit 1
-fi
-
 echo "Step 1: Preparing build context..."
 mkdir -p build-context
-cp "$MODEL_SOURCE" build-context/mistral-7b-instruct-v0.2.Q4_K_M.gguf
-cp Dockerfile.tslam build-context/Dockerfile
-cp tslam-container-server.py build-context/
 
-echo "Step 2: Checking model file..."
-MODEL_SIZE=$(du -h "build-context/mistral-7b-instruct-v0.2.Q4_K_M.gguf" | cut -f1)
-echo "   Model file size: $MODEL_SIZE"
+if [ -n "$MODEL_SOURCE" ]; then
+    echo "Copying Mistral model files..."
+    mkdir -p build-context/mistral-model
+    cp -r $MODEL_SOURCE/* build-context/mistral-model/
+    MODEL_FILES=$(find build-context/mistral-model -type f | wc -l)
+    echo "   Copied $MODEL_FILES model files"
+else
+    mkdir -p build-context/mistral-model
+    echo "   Model will be downloaded at runtime"
+fi
+
+cp Dockerfile.tslam build-context/Dockerfile
+cp mistral-inference-server.py build-context/
 
 echo ""
-echo "Step 3: Building container image..."
+echo "Step 2: Building container image..."
 echo "   Image: $REGISTRY/$IMAGE_NAME:$IMAGE_TAG"
 echo ""
 
 cd build-context
 
-# Build with podman (or docker if you prefer)
 if command -v podman &> /dev/null; then
     BUILDER="podman"
 elif command -v docker &> /dev/null; then
@@ -53,20 +62,17 @@ if [ $? -ne 0 ]; then
 fi
 
 echo ""
-echo "Step 4: Container image built successfully!"
-echo ""
-echo "Step 5: Pushing to local registry..."
+echo "Step 3: Pushing to registry..."
 $BUILDER push $REGISTRY/$IMAGE_NAME:$IMAGE_TAG
 
 if [ $? -ne 0 ]; then
-    echo "ERROR: Failed to push to $REGISTRY"
-    echo "Make sure local registry is running at $REGISTRY"
+    echo "ERROR: Push failed!"
     exit 1
 fi
 
 echo ""
-echo "✅ Image pushed successfully to $REGISTRY/$IMAGE_NAME:$IMAGE_TAG"
+echo "✅ Image ready: $REGISTRY/$IMAGE_NAME:$IMAGE_TAG"
 echo ""
-echo "Next step: Deploy with 'oc apply -f tslam-pod.yaml'"
+echo "Next: oc apply -f tslam-pod.yaml"
 
 cd ..

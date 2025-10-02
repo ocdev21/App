@@ -2,22 +2,19 @@ FROM registry.access.redhat.com/ubi8/python-39:latest
 
 USER root
 
-RUN yum install -y gcc gcc-c++ python3-devel cmake make wget && yum clean all
+RUN yum install -y gcc gcc-c++ python3-devel && yum clean all
 
-# Install pre-built llama-cpp-python wheel (CPU only, no compilation needed)
-RUN pip install --no-cache-dir --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu llama-cpp-python
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir transformers accelerate flask requests sentencepiece protobuf
 
-# Install Flask and requests
-RUN pip install --no-cache-dir flask requests
-
-COPY mistral-7b-instruct-v0.2.Q4_K_M.gguf /models/mistral-7b.gguf
+COPY mistral-model/ /models/mistral-7b/
 
 RUN chmod -R 755 /models
 
-# Updated for Mistral GGUF - Oct 2 2025 v2
-COPY tslam-container-server.py /app/tslam-server.py
+# Mistral with transformers - Oct 2 2025 v3
+COPY mistral-inference-server.py /app/mistral-server.py
 
-RUN chmod +x /app/tslam-server.py
+RUN chmod +x /app/mistral-server.py
 
 USER 1001
 
@@ -25,4 +22,4 @@ EXPOSE 8000
 
 ENV PYTHONUNBUFFERED=1
 
-CMD ["python3", "/app/tslam-server.py"]
+CMD ["python3", "/app/mistral-server.py"]

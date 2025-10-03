@@ -19,8 +19,8 @@ from ml_anomaly_detection import MLAnomalyDetector
 from server.services.ue_analyzer import UEEventAnalyzer
 
 class ClickHouseFolderAnalyzer:
-    def __init__(self, clickhouse_host='localhost', clickhouse_port=9000):
-        """Initialize folder analyzer with ClickHouse database connection"""
+    def __init__(self, clickhouse_host='localhost', clickhouse_port=9000, skip_database=False):
+        """Initialize folder analyzer with optional ClickHouse database connection"""
 
         # Equipment MAC addresses
         self.DU_MAC = "00:11:22:33:44:67"
@@ -35,24 +35,28 @@ class ClickHouseFolderAnalyzer:
         # Initialize analyzers
         self.unified_analyzer = UnifiedL1Analyzer()
 
-        # ClickHouse connection to local database
+        # ClickHouse connection to local database (skip if in dummy mode)
         self.clickhouse_available = False
-        try:
-            self.client = clickhouse_connect.get_client(
-                host=os.getenv('CLICKHOUSE_HOST', 'clickhouse-clickhouse-single'),
-                port=int(os.getenv('CLICKHOUSE_PORT', '8123')),
-                username=os.getenv('CLICKHOUSE_USERNAME', 'default'),
-                password=os.getenv('CLICKHOUSE_PASSWORD', 'defaultpass'),
-                database=os.getenv('CLICKHOUSE_DATABASE', 'l1_anomaly_detection')
-            )
-            # Test connection
-            result = self.client.command('SELECT 1')
-            self.clickhouse_available = True
-            print("ClickHouse database connected successfully")
-        except Exception as e:
-            print(f"WARNING: ClickHouse connection failed: {e}")
-            print("Running in console-only mode")
-            self.client = None
+        self.client = None
+        
+        if skip_database:
+            print("Skipping ClickHouse connection (dummy mode)")
+        else:
+            try:
+                self.client = clickhouse_connect.get_client(
+                    host=os.getenv('CLICKHOUSE_HOST', 'clickhouse-clickhouse-single'),
+                    port=int(os.getenv('CLICKHOUSE_PORT', '8123')),
+                    username=os.getenv('CLICKHOUSE_USERNAME', 'default'),
+                    password=os.getenv('CLICKHOUSE_PASSWORD', 'defaultpass'),
+                    database=os.getenv('CLICKHOUSE_DATABASE', 'l1_anomaly_detection')
+                )
+                # Test connection
+                result = self.client.command('SELECT 1')
+                self.clickhouse_available = True
+                print("ClickHouse database connected successfully")
+            except Exception as e:
+                print(f"WARNING: ClickHouse connection failed: {e}")
+                print("Running in console-only mode")
 
     def scan_folder(self, folder_path="/app/input_files"):
         """Scan folder for network files"""
@@ -232,22 +236,44 @@ class ClickHouseFolderAnalyzer:
                 with open(file_path, 'r') as f:
                     log_content = f.read()
                 
-                # Process UE log
-                anomaly_count = analyzer.process_ue_log(log_content, file_path)
+                # Parse events without database writes
+                events = analyzer.parse_ue_events(log_content)
                 
-                # Convert UEEventAnalyzer anomalies to folder analyzer format
-                for anomaly in analyzer.anomalies_detected:
-                    anomaly_record = {
-                        'file': file_path,
-                        'file_type': file_type,
-                        'packet_number': 1,
-                        'anomaly_type': anomaly.get('type', 'UE Event Pattern'),
-                        'ue_id': anomaly.get('ue_id', 'Unknown'),
-                        'details': [anomaly.get('description', 'UE anomaly detected')]
-                    }
-                    anomalies.append(anomaly_record)
-
-                print(f"  Found {anomaly_count} UE event anomalies")
+                if events:
+                    # Simple pattern analysis without database writes
+                    ue_sessions = {}
+                    for event in events:
+                        ue_id = event['ue_id']
+                        if ue_id not in ue_sessions:
+                            ue_sessions[ue_id] = []
+                        ue_sessions[ue_id].append(event)
+                    
+                    # Check for anomalous patterns
+                    for ue_id, ue_events in ue_sessions.items():
+                        attach_count = len([e for e in ue_events if e['event_type'] == 'attach'])
+                        failed_attaches = len([e for e in ue_events if e.get('event_subtype') == 'failed_attach'])
+                        abnormal_detaches = len([e for e in ue_events if e.get('event_subtype') == 'abnormal_detach'])
+                        
+                        # Flag excessive activity or failures
+                        if attach_count > 10 or failed_attaches > 3 or abnormal_detaches > 0:
+                            anomaly_record = {
+                                'file': file_path,
+                                'file_type': file_type,
+                                'packet_number': 1,
+                                'anomaly_type': 'UE Event Pattern',
+                                'ue_id': ue_id,
+                                'details': [
+                                    f"Attach attempts: {attach_count}",
+                                    f"Failed attaches: {failed_attaches}",
+                                    f"Abnormal detaches: {abnormal_detaches}"
+                                ]
+                            }
+                            anomalies.append(anomaly_record)
+                    
+                    print(f"  Parsed {len(events)} UE events, found {len(anomalies)} anomalies")
+                else:
+                    print(f"  No UE events found in file")
+                
                 self.text_files_processed += 1
 
         except Exception as e:
@@ -493,8 +519,8 @@ def main():
         else:
             sys.exit(1)
 
-    # Initialize analyzer
-    analyzer = ClickHouseFolderAnalyzer()
+    # Initialize analyzer (skip database connection in dummy mode)
+    analyzer = ClickHouseFolderAnalyzer(skip_database=dummy_mode)
 
     # Scan folder for files
     found_files = analyzer.scan_folder(folder_path)

@@ -118,16 +118,8 @@ class ClickHouseFolderAnalyzer:
             return None
 
         try:
-            # Insert session record
-            session_query = """
-            INSERT INTO sessions (
-                id, session_name, folder_path, total_files, pcap_files, 
-                text_files, total_anomalies, start_time, end_time, 
-                duration_seconds, status
-            ) VALUES
-            """
-
-            session_values = (
+            # Insert session record using list of lists format
+            session_values = [[
                 session_data['id'],
                 session_data['session_name'],
                 session_data['folder_path'],
@@ -139,9 +131,9 @@ class ClickHouseFolderAnalyzer:
                 session_data['end_time'],
                 session_data['duration_seconds'],
                 'completed'
-            )
+            ]]
 
-            self.client.insert('sessions', [session_values], column_names=[
+            self.client.insert('sessions', session_values, column_names=[
                 'id', 'session_name', 'folder_path', 'total_files', 'pcap_files',
                 'text_files', 'total_anomalies', 'start_time', 'end_time', 
                 'duration_seconds', 'status'
@@ -160,11 +152,11 @@ class ClickHouseFolderAnalyzer:
             return
 
         try:
-            # Prepare anomaly records for bulk insert
+            # Prepare anomaly records for bulk insert using list of lists
             anomaly_records = []
 
             for i, anomaly in enumerate(anomalies):
-                record = (
+                record = [
                     int(f"{session_id}{i:04d}"),  # Unique ID
                     anomaly['file'],
                     anomaly['file_type'],
@@ -178,7 +170,7 @@ class ClickHouseFolderAnalyzer:
                     self.RU_MAC,
                     datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                     'active'
-                )
+                ]
                 anomaly_records.append(record)
 
             # Bulk insert anomalies
@@ -228,22 +220,27 @@ class ClickHouseFolderAnalyzer:
             elif file_type == 'TEXT':
                 # Use UE event analyzer for text files
                 analyzer = UEEventAnalyzer()
-                result = analyzer.analyze_file(file_path)
+                
+                # Read file content
+                with open(file_path, 'r') as f:
+                    log_content = f.read()
+                
+                # Process UE log
+                anomaly_count = analyzer.process_ue_log(log_content, file_path)
+                
+                # Convert UEEventAnalyzer anomalies to folder analyzer format
+                for anomaly in analyzer.anomalies_detected:
+                    anomaly_record = {
+                        'file': file_path,
+                        'file_type': file_type,
+                        'packet_number': 1,
+                        'anomaly_type': anomaly.get('type', 'UE Event Pattern'),
+                        'ue_id': anomaly.get('ue_id', 'Unknown'),
+                        'details': [anomaly.get('description', 'UE anomaly detected')]
+                    }
+                    anomalies.append(anomaly_record)
 
-                if 'anomalous_ues' in result:
-                    for ue_id, ue_data in result['anomalous_ues'].items():
-                        anomaly_record = {
-                            'file': file_path,
-                            'file_type': file_type,
-                            'packet_number': ue_data.get('first_seen_line', 1),
-                            'anomaly_type': 'UE Event Pattern',
-                            'ue_id': ue_id,
-                            'details': self.get_ue_anomaly_details(ue_data)
-                        }
-                        anomalies.append(anomaly_record)
-
-                print(f"  Extracted {result.get('total_events', 0)} UE events")
-                print(f"  Found {len(result.get('anomalous_ues', {}))} anomalous UEs")
+                print(f"  Found {anomaly_count} UE event anomalies")
                 self.text_files_processed += 1
 
         except Exception as e:

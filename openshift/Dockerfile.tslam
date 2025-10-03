@@ -30,8 +30,18 @@ RUN apt-get update && apt-get install -y \
 RUN ln -sf /usr/bin/python3 /usr/bin/python \
     && python -m pip install --upgrade pip setuptools wheel
 
-# Install Python AI dependencies for inference server
-RUN pip install --no-cache-dir ctransformers flask requests psutil
+# Install Python AI dependencies for inference server + ML analysis
+RUN pip install --no-cache-dir \
+    ctransformers \
+    flask \
+    requests \
+    psutil \
+    clickhouse-connect \
+    scapy \
+    scikit-learn \
+    pandas \
+    numpy \
+    joblib
 
 # Copy GGUF model first (separate layer for better caching)
 COPY mistral-7b-instruct-v0.2.Q4_K_M.gguf /models/mistral.gguf
@@ -67,8 +77,8 @@ ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
-# Create cache directory
-RUN mkdir -p /app/.cache
+# Create cache and input directories
+RUN mkdir -p /app/.cache /app/input_files
 
 # Create non-root user
 RUN useradd -m -u 1001 -s /bin/bash appuser \

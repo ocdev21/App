@@ -40,17 +40,17 @@ RUN chmod -R 755 /models
 # Copy package files for dependency installation
 COPY package*.json ./
 
-# Install Node.js dependencies
-RUN npm install --production=false
+# Install ALL Node.js dependencies (dev and prod)
+RUN npm install
 
 # Copy all application code
 COPY . .
 
-# Build frontend only (vite build)
-RUN npx vite build
+# Fix vite config for Docker environment
+RUN sed -i 's/allowedHosts: "all"/allowedHosts: true/g' vite.config.ts || true
 
-# Keep tsx for running TypeScript server in production
-# Don't prune dev dependencies - we need tsx to run server code
+# Build the application (frontend + backend)
+RUN npm run build
 
 # Copy GGUF inference server
 COPY gguf-inference-server.py /app/gguf-server.py

@@ -3,10 +3,9 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertAnomalySchema, insertSessionSchema } from "@shared/schema";
 import { WebSocketServer } from "ws";
-import { spawn } from "child_process";
-import path from "path";
 import WebSocket from 'ws';
 import { clickhouse } from "./clickhouse.js";
+import axios from 'axios';
 
 
 
@@ -40,32 +39,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           console.log('Found anomaly:', anomaly.id, anomaly.type);
 
-          // Call TSLAM AI service for real recommendations
-          console.log('Starting TSLAM AI service for anomaly:', anomalyId);
-          const pythonProcess = spawn('python3', [
-            path.join(process.cwd(), 'server/services/tslam_service.py'),
-            anomalyId.toString(),
-            anomaly.description || 'Network anomaly detected'
-          ]);
+          // Call Mistral GGUF inference server for AI recommendations
+          const inferenceHost = process.env.TSLAM_REMOTE_HOST || 'localhost';
+          const inferencePort = process.env.TSLAM_REMOTE_PORT || '8000';
+          const inferenceUrl = `http://${inferenceHost}:${inferencePort}/v1/chat/completions`;
+          
+          console.log(`Connecting to AI inference server: ${inferenceUrl}`);
 
-          pythonProcess.stdout.on('data', (chunk) => {
-            const text = chunk.toString();
-            ws.send(JSON.stringify({ type: 'recommendation_chunk', data: text }));
-          });
+          try {
+            const response = await axios.post(inferenceUrl, {
+              model: "mistral-7b-instruct-gguf",
+              messages: [
+                {
+                  role: "system",
+                  content: "You are an expert L1 network troubleshooting AI assistant. Analyze the anomaly and provide specific technical recommendations for resolution."
+                },
+                {
+                  role: "user",
+                  content: `Analyze this L1 network anomaly:\n\nType: ${anomaly.type}\nDescription: ${anomaly.description || 'Network anomaly detected'}\nSeverity: ${anomaly.severity || 'unknown'}\n\nProvide detailed troubleshooting steps and root cause analysis.`
+                }
+              ],
+              max_tokens: 500,
+              temperature: 0.3,
+              stream: true
+            }, {
+              responseType: 'stream',
+              timeout: 60000
+            });
 
-          pythonProcess.stderr.on('data', (error) => {
-            console.error('TSLAM Service Log:', error.toString());
-            // Log model loading and GPU initialization messages
-          });
+            console.log('Streaming AI recommendations...');
 
-          pythonProcess.on('close', (code) => {
-            console.log('TSLAM AI service completed with code:', code);
-            if (code === 0) {
-              ws.send(JSON.stringify({ type: 'recommendation_complete', code }));
-            } else {
-              ws.send(JSON.stringify({ type: 'error', data: 'TSLAM model inference failed' }));
-            }
-          });
+            response.data.on('data', (chunk: Buffer) => {
+              const lines = chunk.toString().split('\n').filter(line => line.trim() !== '');
+              
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  const data = line.slice(6);
+                  
+                  if (data === '[DONE]') {
+                    ws.send(JSON.stringify({ type: 'recommendation_complete', code: 0 }));
+                    return;
+                  }
+
+                  try {
+                    const parsed = JSON.parse(data);
+                    const content = parsed.choices?.[0]?.delta?.content;
+                    
+                    if (content) {
+                      ws.send(JSON.stringify({ 
+                        type: 'recommendation_chunk', 
+                        data: content 
+                      }));
+                    }
+                  } catch (e) {
+                    console.error('Error parsing streaming chunk:', e);
+                  }
+                }
+              }
+            });
+
+            response.data.on('end', () => {
+              console.log('AI recommendations stream complete');
+              ws.send(JSON.stringify({ type: 'recommendation_complete', code: 0 }));
+            });
+
+            response.data.on('error', (error: Error) => {
+              console.error('Stream error:', error);
+              ws.send(JSON.stringify({ 
+                type: 'error', 
+                data: 'AI inference stream error' 
+              }));
+            });
+
+          } catch (error: any) {
+            console.error('AI inference error:', error.message);
+            ws.send(JSON.stringify({ 
+              type: 'error', 
+              data: `AI inference failed: ${error.message}` 
+            }));
+          }
         }
       } catch (error) {
         console.error('WebSocket message error:', error);

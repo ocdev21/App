@@ -190,6 +190,7 @@ class MLAnomalyDetector:
                 continue
         
         print(f"Created {len(time_windows)} time windows of {self.time_window}s each")
+        print(f"Looking for DU MAC: {self.DU_MAC} and RU MAC: {self.RU_MAC}")
         
         # Extract features for each time window
         for window_idx, window_packets in time_windows.items():
@@ -333,11 +334,12 @@ class MLAnomalyDetector:
                     'confidence': votes / 4.0,  # 0.5 to 1.0
                     'algorithms_voting': algorithm_votes,
                     'feature_values': features[i],
-                    'missing_responses': features[i][3],
-                    'communication_ratio': features[i][2],
+                    'missing_responses': int(features[i][3]),
+                    'communication_ratio': float(features[i][2]),
                     'timing_violation': features[i][9] > 0
                 }
                 anomalies.append(anomaly)
+                print(f"Anomaly detected in window {i}: {votes}/4 algorithms agree, confidence={votes/4.0:.2f}")
         
         print(f"Found {len(anomalies)} high-confidence anomalies (>=2 algorithm agreement)")
         return anomalies

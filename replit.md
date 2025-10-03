@@ -31,6 +31,8 @@ Access the application at http://0.0.0.0:5000
 
 ## Recent Changes
 
+- **ML Analysis Fixes (Oct 3, 2025)**: Fixed folder_anomaly_analyzer_clickhouse.py to correctly use UEEventAnalyzer methods and ClickHouse insert format
+- **Python Dependencies (Oct 3, 2025)**: Added complete ML dependencies to Dockerfile (clickhouse-connect, scapy, scikit-learn, pandas, numpy, joblib)
 - **Emoji Cleanup (Sept 26, 2025)**: Removed all emojis and visual icons from print statements, logs, and output throughout the entire project for clean, professional output
 - **Persistent Storage**: Implemented complete PVC configuration with dual volume mounts for ML models and input files
 - **OpenShift AI Integration**: Enhanced deployment for Red Hat OpenShift AI platform with namespace l1-app-ai

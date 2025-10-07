@@ -193,7 +193,7 @@ class ClickHouseFolderAnalyzer:
                     str(anomaly.get('ue_id', '')),
                     str(self.DU_MAC),
                     str(self.RU_MAC),
-                    datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    datetime.now(),  # Fixed: Use datetime object directly, not string
                     'active'
                 ]
                 anomaly_records.append(record)
@@ -570,7 +570,7 @@ def main():
         'pcap_files': sum(1 for f in found_files if f['type'] == 'PCAP'),
         'text_files': sum(1 for f in found_files if f['type'] == 'TEXT'),
         'total_anomalies': 0,
-        'start_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'start_time': datetime.now(),  # Fixed: Use datetime object directly
         'end_time': None,
         'duration_seconds': 0
     }
@@ -590,7 +590,7 @@ def main():
     end_time = datetime.now()
     duration = (end_time - start_time).total_seconds()
 
-    session_data['end_time'] = end_time.strftime('%Y-%m-%d %H:%M:%S')
+    session_data['end_time'] = end_time  # Fixed: Use datetime object directly
     session_data['duration_seconds'] = int(duration)
     session_data['total_anomalies'] = len(all_anomalies)
 

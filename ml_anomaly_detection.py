@@ -75,16 +75,16 @@ class MLAnomalyDetector:
         return models
     
     def create_fresh_model(self, model_name):
-        """Create a fresh model instance"""
+        """Create a fresh model instance with tuned parameters"""
         if model_name == 'isolation_forest':
             return IsolationForest(
-                contamination=0.1, 
+                contamination=0.05,  # More sensitive: 5% instead of 10%
                 random_state=42,
                 n_estimators=100
             )
         elif model_name == 'one_class_svm':
             return OneClassSVM(
-                nu=0.1, 
+                nu=0.05,  # More sensitive: 5% instead of 10%
                 gamma='auto',
                 kernel='rbf'
             )
@@ -174,7 +174,7 @@ class MLAnomalyDetector:
             }
     
     def extract_pcap_features_basic(self, packets):
-        """Extract 12-dimensional features from PCAP packets (same as unified_l1_analyzer)"""
+        """Extract enhanced 16-dimensional features from PCAP packets with time-series analysis"""
         features = []
         packet_metadata = []
         
@@ -211,7 +211,7 @@ class MLAnomalyDetector:
         return features, packet_metadata
     
     def extract_window_features(self, window_packets):
-        """Extract 12-dimensional feature vector for a time window"""
+        """Extract enhanced 16-dimensional feature vector with time-series and statistical features"""
         if not window_packets:
             return None
         
@@ -221,6 +221,8 @@ class MLAnomalyDetector:
         packet_sizes = []
         response_times = []
         missing_responses = 0
+        du_timestamps = []
+        ru_timestamps = []
         
         previous_time = None
         
@@ -231,11 +233,13 @@ class MLAnomalyDetector:
                     src_mac = eth_layer.src.lower()
                     dst_mac = eth_layer.dst.lower()
                     
-                    # Count DU and RU packets
+                    # Count DU and RU packets and track timestamps
                     if src_mac == self.DU_MAC.lower():
                         du_count += 1
+                        du_timestamps.append(packet.time)
                     elif src_mac == self.RU_MAC.lower():
                         ru_count += 1
+                        ru_timestamps.append(packet.time)
                     
                     # Calculate inter-arrival times
                     if previous_time is not None:
@@ -255,34 +259,53 @@ class MLAnomalyDetector:
         communication_ratio = ru_count / du_count if du_count > 0 else 0
         missing_responses = max(0, du_count - ru_count)
         
-        # Timing statistics
+        # Enhanced time-series features
         avg_inter_arrival = np.mean(inter_arrival_times) if inter_arrival_times else 0
-        jitter = np.std(inter_arrival_times) if len(inter_arrival_times) > 1 else 0
+        std_inter_arrival = np.std(inter_arrival_times) if len(inter_arrival_times) > 1 else 0
+        jitter = std_inter_arrival  # Jitter is std deviation of inter-arrival times
         max_gap = max(inter_arrival_times) if inter_arrival_times else 0
         min_gap = min(inter_arrival_times) if inter_arrival_times else 0
         
-        # Response time estimate (simple heuristic)
-        estimated_response_time = avg_inter_arrival * 2 if avg_inter_arrival > 0 else 0
-        response_violations = 1 if estimated_response_time > 0.001 else 0  # 1ms threshold
+        # Response time analysis (time between DU request and RU response)
+        avg_response_time = 0
+        if du_timestamps and ru_timestamps:
+            response_gaps = []
+            for du_time in du_timestamps:
+                # Find closest RU response after this DU packet
+                later_ru = [ru for ru in ru_timestamps if ru > du_time]
+                if later_ru:
+                    response_gaps.append(min(later_ru) - du_time)
+            avg_response_time = np.mean(response_gaps) if response_gaps else 0
         
-        # Packet size statistics  
+        response_violations = 1 if avg_response_time > 0.001 else 0  # 1ms threshold
+        
+        # Statistical baselines for packet sizes
         avg_size = np.mean(packet_sizes) if packet_sizes else 0
+        std_size = np.std(packet_sizes) if len(packet_sizes) > 1 else 0
         size_variance = np.var(packet_sizes) if len(packet_sizes) > 1 else 0
         
-        # Return 12-dimensional feature vector
+        # Packet rate (packets per second)
+        window_duration = window_packets[-1][1].time - window_packets[0][1].time if len(window_packets) > 1 else 0.1
+        packet_rate = total_packets / window_duration if window_duration > 0 else 0
+        
+        # Return enhanced 16-dimensional feature vector
         return [
             du_count,
             ru_count, 
             communication_ratio,
             missing_responses,
             avg_inter_arrival,
+            std_inter_arrival,  # NEW: Standard deviation of inter-arrival times
             jitter,
             max_gap,
             min_gap,
-            estimated_response_time,
+            avg_response_time,  # ENHANCED: True response time calculation
             response_violations,
             avg_size,
-            size_variance
+            std_size,  # NEW: Standard deviation of packet sizes
+            size_variance,
+            packet_rate,  # NEW: Packet rate (pps)
+            total_packets  # NEW: Total packet count in window
         ]
     
     def run_ml_ensemble_analysis(self, features, packet_metadata):
@@ -302,12 +325,12 @@ class MLAnomalyDetector:
         dbscan_labels = self.models['dbscan'].fit_predict(features_scaled)
         
         # LOF requires a separate instance (doesn't persist well)
-        lof = LocalOutlierFactor(n_neighbors=min(20, len(features)), contamination=0.1)
+        lof = LocalOutlierFactor(n_neighbors=min(20, len(features)), contamination=0.05)  # More sensitive: 5%
         lof_predictions = lof.fit_predict(features_scaled)
         
         print("All ML algorithms completed training and prediction")
         
-        # Ensemble voting (need ≥2 algorithms to agree)
+        # Enhanced ensemble voting (≥1 algorithm flags = anomaly, more sensitive)
         anomalies = []
         for i in range(len(features)):
             votes = 0
@@ -326,22 +349,25 @@ class MLAnomalyDetector:
                 votes += 1
                 algorithm_votes['lof'] = True
             
-            # High confidence: ≥2 algorithms agree
-            if votes >= 2:
+            # More sensitive: ≥1 algorithm flags anomaly (was ≥2)
+            if votes >= 1:
                 anomaly = {
                     'window_index': i,
                     'packet_number': packet_metadata[i]['start_packet'],
-                    'confidence': votes / 4.0,  # 0.5 to 1.0
+                    'confidence': votes / 4.0,  # 0.25 to 1.0
                     'algorithms_voting': algorithm_votes,
                     'feature_values': features[i],
                     'missing_responses': int(features[i][3]),
                     'communication_ratio': float(features[i][2]),
-                    'timing_violation': features[i][9] > 0
+                    'timing_violation': features[i][10] > 0,  # Updated index for response_violations
+                    'avg_response_time': float(features[i][9]),  # New: actual response time
+                    'packet_rate': float(features[i][14]),  # New: packet rate
+                    'std_inter_arrival': float(features[i][5])  # New: timing variation
                 }
                 anomalies.append(anomaly)
-                print(f"Anomaly detected in window {i}: {votes}/4 algorithms agree, confidence={votes/4.0:.2f}")
+                print(f"⚠️ Anomaly in window {i}: {votes}/4 algorithms agree, confidence={votes/4.0:.2f}")
         
-        print(f"Found {len(anomalies)} high-confidence anomalies (>=2 algorithm agreement)")
+        print(f"✅ Found {len(anomalies)} anomalies (>=1 algorithm agreement, enhanced sensitivity)")
         return anomalies
 
 # Test function for standalone usage

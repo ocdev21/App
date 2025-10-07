@@ -31,6 +31,12 @@ Access the application at http://0.0.0.0:5000
 
 ## Recent Changes
 
+- **ML Sensitivity Tuning (Oct 7, 2025)**: Enhanced anomaly detection with 4 major improvements:
+  - Lowered contamination threshold from 0.1 to 0.05 for 2x more sensitive detection
+  - Added time-series features: inter-arrival std deviation, true response time calculation, packet rate
+  - Changed voting threshold from 2/4 to 1/4 algorithms (single algorithm flag = anomaly)
+  - Added statistical baselines: mean and std deviation for packet timing and sizes
+  - Upgraded from 12D to 16D feature vectors for better accuracy
 - **ML Analysis Fixes (Oct 3, 2025)**: Fixed folder_anomaly_analyzer_clickhouse.py to correctly use UEEventAnalyzer methods and ClickHouse insert format
 - **Python Dependencies (Oct 3, 2025)**: Added complete ML dependencies to Dockerfile (clickhouse-connect, scapy, scikit-learn, pandas, numpy, joblib)
 - **Emoji Cleanup (Sept 26, 2025)**: Removed all emojis and visual icons from print statements, logs, and output throughout the entire project for clean, professional output

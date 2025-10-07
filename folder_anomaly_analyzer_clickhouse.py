@@ -160,18 +160,25 @@ class ClickHouseFolderAnalyzer:
             anomaly_records = []
 
             for i, anomaly in enumerate(anomalies):
+                # Convert numpy types to native Python types to avoid Decimal conversion errors
+                packet_number = anomaly['packet_number']
+                if hasattr(packet_number, 'item'):  # Check if it's a numpy type
+                    packet_number = int(packet_number.item())
+                else:
+                    packet_number = int(packet_number)
+                
                 record = [
                     int(f"{session_id}{i:04d}"),  # Unique ID
-                    anomaly['file'],
-                    anomaly['file_type'],
-                    anomaly['packet_number'],
-                    anomaly['anomaly_type'],
+                    str(anomaly['file']),
+                    str(anomaly['file_type']),
+                    packet_number,
+                    str(anomaly['anomaly_type']),
                     'high' if 'Critical' in str(anomaly['details']) else 'medium',
                     f"*** FRONTHAUL ISSUE BETWEEN DU TO RU *** - {anomaly['anomaly_type']}",
                     json.dumps(anomaly['details']),
-                    anomaly.get('ue_id', ''),
-                    self.DU_MAC,
-                    self.RU_MAC,
+                    str(anomaly.get('ue_id', '')),
+                    str(self.DU_MAC),
+                    str(self.RU_MAC),
                     datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                     'active'
                 ]
@@ -483,6 +490,13 @@ def main():
     print("• ClickHouse database integration")
     print("• Batch processing with summary report")
 
+    # Check for dummy mode FIRST (before anything else)
+    dummy_mode = False
+    if len(sys.argv) >= 3 and sys.argv[2].lower() == 'dummy':
+        dummy_mode = True
+        print("\nRUNNING IN DUMMY MODE - Database writes disabled")
+        print("Results will only be shown in console and report file")
+
     # Get folder path from command line or use default
     if len(sys.argv) < 2:
         folder_path = "/app/input_files"
@@ -548,9 +562,13 @@ def main():
     session_data['duration_seconds'] = int(duration)
     session_data['total_anomalies'] = len(all_anomalies)
 
-    # Store in ClickHouse
-    stored_session_id = analyzer.store_session_in_clickhouse(session_data)
-    analyzer.store_anomalies_in_clickhouse(all_anomalies, session_id)
+    # Store in ClickHouse (unless in dummy mode)
+    stored_session_id = None
+    if not dummy_mode:
+        stored_session_id = analyzer.store_session_in_clickhouse(session_data)
+        analyzer.store_anomalies_in_clickhouse(all_anomalies, session_id)
+    else:
+        print("\nDUMMY MODE: Skipping database writes")
 
     # Generate summary report
     analyzer.generate_summary_report(folder_path, all_anomalies, stored_session_id)
@@ -560,7 +578,7 @@ def main():
     analyzer.save_detailed_report(report_file, folder_path, all_anomalies)
 
     print(f"\nFOLDER ANALYSIS COMPLETE")
-    if analyzer.clickhouse_available:
+    if not dummy_mode and analyzer.clickhouse_available:
         print("All data stored in ClickHouse database")
     print("All network files have been processed and analyzed.")
 

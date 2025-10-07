@@ -47,23 +47,27 @@ class ClickHouseClient:
         self._create_tables()
     
     def _create_tables(self):
-        """Create tables if they don't exist"""
+        """Create tables if they don't exist (ML schema)"""
         
-        # Anomalies table
+        # Anomalies table (ML schema matching folder_anomaly_analyzer_clickhouse.py)
         self.client.command("""
             CREATE TABLE IF NOT EXISTS anomalies (
-                id String,
-                timestamp DateTime,
-                type String,
-                description String,
+                id UInt64,
+                file_path String,
+                file_type String,
+                packet_number UInt32,
+                anomaly_type String,
                 severity String,
-                source_file String,
-                mac_address Nullable(String),
-                ue_id Nullable(String),
-                details Nullable(String),
-                status String DEFAULT 'open'
+                description String,
+                details String,
+                ue_id String,
+                du_mac String,
+                ru_mac String,
+                timestamp DateTime,
+                status String
             ) ENGINE = MergeTree()
-            ORDER BY timestamp
+            ORDER BY (timestamp, severity, anomaly_type)
+            PARTITION BY toYYYYMM(timestamp)
         """)
         
         # Processed files table
@@ -82,16 +86,20 @@ class ClickHouseClient:
             ORDER BY upload_date
         """)
         
-        # Sessions table
+        # Sessions table (ML schema matching folder_anomaly_analyzer_clickhouse.py)
         self.client.command("""
             CREATE TABLE IF NOT EXISTS sessions (
-                id String,
-                session_id String,
+                id UInt64,
+                session_name String,
+                folder_path String,
+                total_files UInt32,
+                pcap_files UInt32,
+                text_files UInt32,
+                total_anomalies UInt32,
                 start_time DateTime,
-                end_time Nullable(DateTime),
-                packets_analyzed UInt32 DEFAULT 0,
-                anomalies_detected UInt32 DEFAULT 0,
-                source_file String
+                end_time DateTime,
+                duration_seconds UInt32,
+                status String
             ) ENGINE = MergeTree()
             ORDER BY start_time
         """)
@@ -123,7 +131,7 @@ class ClickHouseClient:
         params = []
         
         if type_filter:
-            query += " AND type = %s"
+            query += " AND anomaly_type = %s"  # Fixed: use anomaly_type from ML schema
             params.append(type_filter)
         
         if severity_filter:
@@ -175,11 +183,11 @@ class ClickHouseClient:
         """Get anomaly breakdown by type"""
         query = """
             SELECT 
-                type,
+                anomaly_type as type,
                 count() as count,
                 count() * 100.0 / (SELECT count() FROM anomalies) as percentage
             FROM anomalies
-            GROUP BY type
+            GROUP BY anomaly_type
             ORDER BY count DESC
         """
         

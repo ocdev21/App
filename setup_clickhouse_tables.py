@@ -78,48 +78,29 @@ class ClickHouseTableSetup:
         print("\n[SUCCESS] All tables created successfully!")
     
     def create_anomalies_table(self):
-        """Create main anomalies table (enhanced version)"""
+        """Create main anomalies table matching ML code insert columns"""
         table_sql = """
         CREATE TABLE IF NOT EXISTS l1_anomaly_detection.anomalies (
-            id String,
-            timestamp DateTime,
-            anomaly_type String,
-            description String,
-            severity String,
-            source_file String,
+            id UInt64,
+            file_path String,
+            file_type String,
             packet_number UInt32,
-            line_number UInt32,
-            session_id String,
-            confidence_score Float64,
-            model_agreement UInt8,
-            ml_algorithm_details String,
-            isolation_forest_score Float64,
-            one_class_svm_score Float64,
-            dbscan_prediction Int8,
-            random_forest_score Float64,
-            ensemble_vote String,
-            detection_timestamp String,
-            status String,
-            ecpri_message_type String,
-            ecpri_sequence_number UInt32,
-            fronthaul_latency_us Float64,
-            timing_jitter_us Float64,
-            bandwidth_utilization Float64,
-            mac_address Nullable(String),
-            ue_id Nullable(String),
-            details Nullable(String),
-            du_mac Nullable(String),
-            ru_mac Nullable(String),
-            file_path Nullable(String),
-            file_type Nullable(String),
-            created_at DateTime DEFAULT now()
+            anomaly_type String,
+            severity String,
+            description String,
+            details String,
+            ue_id String,
+            du_mac String,
+            ru_mac String,
+            timestamp DateTime,
+            status String
         ) ENGINE = MergeTree()
         ORDER BY (timestamp, severity, anomaly_type)
         PARTITION BY toYYYYMM(timestamp)
         """
         
         self.client.command(table_sql)
-        print("[SUCCESS] Created table: anomalies")
+        print("[SUCCESS] Created table: anomalies (matched to ML insert columns)")
     
     def create_comprehensive_anomalies_table(self):
         """Create comprehensive anomalies table for advanced analysis"""
@@ -155,33 +136,26 @@ class ClickHouseTableSetup:
         print("[SUCCESS] Created table: comprehensive_anomalies")
     
     def create_sessions_table(self):
-        """Create sessions table"""
+        """Create sessions table matching ML code insert columns"""
         table_sql = """
         CREATE TABLE IF NOT EXISTS l1_anomaly_detection.sessions (
-            id String,
-            session_id String,
+            id UInt64,
             session_name String,
+            folder_path String,
+            total_files UInt32,
+            pcap_files UInt32,
+            text_files UInt32,
+            total_anomalies UInt32,
             start_time DateTime,
-            end_time Nullable(DateTime),
-            packets_analyzed UInt32 DEFAULT 0,
-            anomalies_detected UInt32 DEFAULT 0,
-            source_file String,
-            folder_path Nullable(String),
-            total_files UInt32 DEFAULT 0,
-            pcap_files UInt32 DEFAULT 0,
-            text_files UInt32 DEFAULT 0,
-            total_anomalies UInt32 DEFAULT 0,
-            duration_seconds UInt32 DEFAULT 0,
-            status String DEFAULT 'active',
-            files_to_process UInt32 DEFAULT 0,
-            files_processed UInt32 DEFAULT 0,
-            processing_time_seconds Float64 DEFAULT 0.0
+            end_time DateTime,
+            duration_seconds UInt32,
+            status String
         ) ENGINE = MergeTree()
         ORDER BY start_time
         """
         
         self.client.command(table_sql)
-        print("[SUCCESS] Created table: sessions")
+        print("[SUCCESS] Created table: sessions (matched to ML insert columns)")
     
     def create_l1_analysis_sessions_table(self):
         """Create L1 analysis sessions table"""
@@ -398,74 +372,48 @@ class ClickHouseTableSetup:
             print(f"[ERROR] Failed to verify tables: {e}")
     
     def create_sample_data(self):
-        """Create sample data for testing"""
+        """Create sample data for testing (matches ML insert schema)"""
         print("\n[INFO] Creating sample data...")
         
         try:
-            # Sample anomaly
+            # Sample anomaly matching ML schema
             anomaly_data = {
-                'id': 'test_anomaly_001',
-                'timestamp': datetime.now(),
-                'anomaly_type': 'DU-RU Communication',
-                'description': 'Test anomaly for verification',
-                'severity': 'medium',
-                'source_file': 'test.pcap',
+                'id': 1001,
+                'file_path': '/app/input_files/test.pcap',
+                'file_type': 'PCAP',
                 'packet_number': 1,
-                'line_number': 1,
-                'session_id': 'test_session_001',
-                'confidence_score': 0.85,
-                'model_agreement': 3,
-                'ml_algorithm_details': '{"test": true}',
-                'isolation_forest_score': 0.8,
-                'one_class_svm_score': 0.9,
-                'dbscan_prediction': -1,
-                'random_forest_score': 0.7,
-                'ensemble_vote': 'anomaly',
-                'detection_timestamp': datetime.now().isoformat(),
-                'status': 'active',
-                'ecpri_message_type': '',
-                'ecpri_sequence_number': 0,
-                'fronthaul_latency_us': 0.0,
-                'timing_jitter_us': 0.0,
-                'bandwidth_utilization': 0.0,
-                'mac_address': None,
-                'ue_id': None,
-                'details': None,
-                'du_mac': None,
-                'ru_mac': None,
-                'file_path': None,
-                'file_type': None,
-                'created_at': datetime.now()
+                'anomaly_type': 'DU-RU Communication',
+                'severity': 'high',
+                'description': '*** FRONTHAUL ISSUE (Confidence: 75%) *** - DU-RU Communication',
+                'details': '["Confidence: 0.75 (75%)", "Missing Responses: 5 DU packets without RU replies"]',
+                'ue_id': '',
+                'du_mac': '00:11:22:33:44:67',
+                'ru_mac': '6c:ad:ad:00:03:2a',
+                'timestamp': datetime.now(),
+                'status': 'active'
             }
             
-            # Insert sample data
+            # Insert sample anomaly
             self.client.insert('l1_anomaly_detection.anomalies', [anomaly_data])
-            print("[SUCCESS] Created sample anomaly record")
+            print("[SUCCESS] Created sample anomaly record (ML schema)")
             
-            # Sample session
+            # Sample session matching ML schema
             session_data = {
-                'id': 'test_session_001',
-                'session_id': 'test_session_001',
-                'session_name': 'Test Session',
-                'start_time': datetime.now(),
-                'end_time': None,
-                'packets_analyzed': 100,
-                'anomalies_detected': 1,
-                'source_file': 'test.pcap',
-                'folder_path': None,
+                'id': 1001,
+                'session_name': 'Test Analysis Session',
+                'folder_path': '/app/input_files',
                 'total_files': 1,
                 'pcap_files': 1,
                 'text_files': 0,
                 'total_anomalies': 1,
+                'start_time': datetime.now(),
+                'end_time': datetime.now(),
                 'duration_seconds': 30,
-                'status': 'completed',
-                'files_to_process': 1,
-                'files_processed': 1,
-                'processing_time_seconds': 30.0
+                'status': 'completed'
             }
             
             self.client.insert('l1_anomaly_detection.sessions', [session_data])
-            print("[SUCCESS] Created sample session record")
+            print("[SUCCESS] Created sample session record (ML schema)")
             
         except Exception as e:
             print(f"[WARNING] Failed to create sample data: {e}")

@@ -151,15 +151,27 @@ class ClickHouseFolderAnalyzer:
             return None
 
     def store_anomalies_in_clickhouse(self, anomalies, session_id):
-        """Store detected anomalies in ClickHouse"""
+        """Store detected anomalies in ClickHouse (only confidence >= 0.75)"""
         if not self.clickhouse_available or not anomalies:
             return
 
         try:
+            # Filter anomalies by confidence >= 0.75 (75%)
+            high_confidence_anomalies = [
+                a for a in anomalies 
+                if a.get('confidence', 0) >= 0.75
+            ]
+            
+            if not high_confidence_anomalies:
+                print(f"No high-confidence anomalies (>= 75%) to store. {len(anomalies)} total anomalies were below threshold.")
+                return
+            
+            print(f"Storing {len(high_confidence_anomalies)}/{len(anomalies)} anomalies (confidence >= 75%)")
+            
             # Prepare anomaly records for bulk insert using list of lists
             anomaly_records = []
 
-            for i, anomaly in enumerate(anomalies):
+            for i, anomaly in enumerate(high_confidence_anomalies):
                 # Convert numpy types to native Python types to avoid Decimal conversion errors
                 packet_number = anomaly['packet_number']
                 if hasattr(packet_number, 'item'):  # Check if it's a numpy type
@@ -167,14 +179,16 @@ class ClickHouseFolderAnalyzer:
                 else:
                     packet_number = int(packet_number)
                 
+                confidence = anomaly.get('confidence', 0)
+                
                 record = [
                     int(f"{session_id}{i:04d}"),  # Unique ID
                     str(anomaly['file']),
                     str(anomaly['file_type']),
                     packet_number,
                     str(anomaly['anomaly_type']),
-                    'high' if 'Critical' in str(anomaly['details']) else 'medium',
-                    f"*** FRONTHAUL ISSUE BETWEEN DU TO RU *** - {anomaly['anomaly_type']}",
+                    'high' if confidence >= 0.75 else 'medium',  # Based on confidence
+                    f"*** FRONTHAUL ISSUE (Confidence: {int(confidence*100)}%) *** - {anomaly['anomaly_type']}",
                     json.dumps(anomaly['details']),
                     str(anomaly.get('ue_id', '')),
                     str(self.DU_MAC),
@@ -191,7 +205,7 @@ class ClickHouseFolderAnalyzer:
                 'ru_mac', 'timestamp', 'status'
             ])
 
-            print(f"{len(anomalies)} anomalies stored in ClickHouse database")
+            print(f"✅ {len(high_confidence_anomalies)} high-confidence anomalies stored in ClickHouse database")
 
         except Exception as e:
             print(f"WARNING: Failed to store anomalies in ClickHouse: {e}")
@@ -214,12 +228,19 @@ class ClickHouseFolderAnalyzer:
 
                 if 'anomalies' in result:
                     for anomaly in result['anomalies']:
+                        # Get confidence score from ML result
+                        confidence = anomaly.get('confidence', 0)
+                        packet_num = anomaly.get('packet_number', 1)
+                        
                         anomaly_record = {
                             'file': file_path,
                             'file_type': file_type,
-                            'packet_number': anomaly.get('packet_number', 1),
+                            'packet_number': packet_num,
+                            'line_number': packet_num,  # Use packet_number as line_number for PCAP files
                             'anomaly_type': 'DU-RU Communication',
+                            'confidence': confidence,  # Add confidence score
                             'details': [
+                                f"Confidence: {confidence:.2f} ({int(confidence*100)}%)",
                                 f"Missing Responses: {anomaly.get('missing_responses', 0)} DU packets without RU replies",
                                 f"Poor Communication Ratio: {anomaly.get('communication_ratio', 0):.2f} (expected > 0.8)"
                             ]
@@ -260,8 +281,10 @@ class ClickHouseFolderAnalyzer:
                                 'file': file_path,
                                 'file_type': file_type,
                                 'packet_number': 1,
+                                'line_number': 1,  # Add line_number for TEXT files
                                 'anomaly_type': 'UE Event Pattern',
                                 'ue_id': ue_id,
+                                'confidence': 1.0,  # TEXT anomalies are rule-based, high confidence
                                 'details': [
                                     f"Attach attempts: {attach_count}",
                                     f"Failed attaches: {failed_attaches}",
@@ -460,8 +483,17 @@ class ClickHouseFolderAnalyzer:
                     for i, anomaly in enumerate(all_anomalies, 1):
                         f.write(f"\n[{i}] FILE: {os.path.basename(anomaly['file'])}\n")
                         f.write(f"    Type: {anomaly['file_type']}\n")
-                        f.write(f"    Line: {anomaly['line_number']}\n")
+                        
+                        # Use line_number if available, fallback to packet_number
+                        line_ref = anomaly.get('line_number', anomaly.get('packet_number', 'N/A'))
+                        f.write(f"    Line/Packet: {line_ref}\n")
+                        
                         f.write(f"    Anomaly: {anomaly['anomaly_type']}\n")
+                        
+                        # Show confidence if available
+                        if 'confidence' in anomaly:
+                            f.write(f"    Confidence: {anomaly['confidence']:.2f} ({int(anomaly['confidence']*100)}%)\n")
+                        
                         f.write(f"    DU MAC: {self.DU_MAC}\n")
                         f.write(f"    RU MAC: {self.RU_MAC}\n")
 

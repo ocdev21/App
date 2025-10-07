@@ -544,14 +544,14 @@ export class ClickHouseStorage implements IStorage {
         return result.map((row: any) => ({
           id: row.id?.toString() || '',
           timestamp: new Date(row.timestamp),
-          type: row.anomaly_type || 'unknown', // Map ClickHouse anomaly_type to frontend type
+          type: row.anomaly_type || 'unknown',
           description: row.description || '',
           severity: row.severity || 'medium',
-          source_file: row.source_file || '',
+          source_file: row.file_path || '',  // Fixed: use file_path from ML schema
           packet_number: row.packet_number || null,
-          mac_address: null, // ClickHouse doesn't have separate mac_address column
-          ue_id: null, // ClickHouse doesn't have separate ue_id column
-          details: null, // ClickHouse stores in ml_algorithm_details
+          mac_address: row.du_mac || row.ru_mac || null,  // Use DU/RU MAC from ML schema
+          ue_id: row.ue_id || null,  // Use ue_id from ML schema
+          details: row.details || null,  // Use details from ML schema
           status: row.status || 'open',
           recommendation: null,
           // Additional ML fields from ClickHouse
@@ -589,20 +589,20 @@ export class ClickHouseStorage implements IStorage {
         const anomaly = {
           id: row.id?.toString() || '',
           timestamp: new Date(row.timestamp),
-          type: row.type || 'unknown',
+          type: row.anomaly_type || 'unknown',  // Fixed: use anomaly_type from ML schema
           description: row.description || '',
           severity: row.severity || 'medium',
-          source_file: row.source_file || '',
+          source_file: row.file_path || '',  // Fixed: use file_path from ML schema
           packet_number: row.packet_number || null,
-          mac_address: row.mac_address || null,
+          mac_address: row.du_mac || row.ru_mac || null,  // Use DU/RU MAC addresses
           ue_id: row.ue_id || null,
           details: row.details || null,
           status: row.status || 'open',
           recommendation: null,
           // Add LLM-compatible fields
-          anomaly_type: row.type || 'unknown',
+          anomaly_type: row.anomaly_type || 'unknown',
           confidence_score: 0.9,
-          detection_algorithm: 'clickhouse_detection',
+          detection_algorithm: 'ml_ensemble',
           context_data: JSON.stringify({
             cell_id: 'Cell-' + Math.floor(Math.random() * 100),
             sector_id: Math.floor(Math.random() * 3) + 1,

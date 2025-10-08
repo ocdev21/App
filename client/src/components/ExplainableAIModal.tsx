@@ -5,6 +5,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -210,6 +211,9 @@ ${data.top_negative_features.map(f => `  • ${explanationData.feature_descripti
               </Button>
             </div>
           </DialogTitle>
+          <DialogDescription>
+            SHAP-based ML model explanations and feature impact analysis
+          </DialogDescription>
         </DialogHeader>
 
         <div className="max-h-[70vh] overflow-y-auto space-y-4">

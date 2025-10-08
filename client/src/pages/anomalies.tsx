@@ -76,10 +76,8 @@ export default function Anomalies() {
   const endEntry = Math.min(currentPage * itemsPerPage, filteredAndSortedAnomalies.length);
 
   const handleGetRecommendations = (anomaly: Anomaly) => {
-    console.log('Recommend button clicked, anomaly:', anomaly);
     setSelectedAnomaly(anomaly);
     setIsModalOpen(true);
-    console.log('State updated: isModalOpen should be true');
   };
 
   const handleGetDetails = (anomaly: Anomaly) => {
@@ -255,18 +253,14 @@ export default function Anomalies() {
 
       {/* Modals */}
       {selectedAnomaly && (
-        <>
-          {console.log('Rendering RecommendationsPopup with:', { selectedAnomaly, isModalOpen })}
-          <RecommendationsPopup
-            anomaly={selectedAnomaly}
-            isOpen={isModalOpen}
-            onClose={() => {
-              console.log('RecommendationsPopup onClose called');
-              setIsModalOpen(false);
-              setSelectedAnomaly(null);
-            }}
-          />
-        </>
+        <RecommendationsPopup
+          anomaly={selectedAnomaly}
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false);
+            setSelectedAnomaly(null);
+          }}
+        />
       )}
 
       {selectedAnomalyForDetails && (

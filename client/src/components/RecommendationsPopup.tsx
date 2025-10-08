@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
@@ -19,8 +19,6 @@ export function RecommendationsPopup({ isOpen, onClose, anomaly }: Recommendatio
   const [error, setError] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-
-  console.log('RecommendationsPopup render:', { isOpen, hasAnomaly: !!anomaly });
 
   useEffect(() => {
     if (isOpen && anomaly) {
@@ -139,6 +137,9 @@ export function RecommendationsPopup({ isOpen, onClose, anomaly }: Recommendatio
             <Brain className="h-5 w-5 text-blue-600" />
             AI Troubleshooting Recommendations
           </DialogTitle>
+          <DialogDescription>
+            AI-powered analysis and recommendations for network anomaly resolution
+          </DialogDescription>
         </DialogHeader>
         
         {/* Anomaly Details Card */}

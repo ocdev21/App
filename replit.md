@@ -31,6 +31,18 @@ Access the application at http://0.0.0.0:5000
 
 ## Recent Changes
 
+- **AI Service & Dashboard Enhancements (Oct 8, 2025)**: Unified port architecture and enhanced dashboard visualization
+  - **Port Consolidation**: AI inference service now uses port 5000 (unified with webapp)
+  - **Rule-Based Fallback**: Comprehensive fallback recommendations for all anomaly types when AI service unavailable
+    - Fronthaul: Physical connections, signal quality, timing sync, configuration checks
+    - UE Events: Authentication, radio conditions, core network verification
+    - MAC Address: Duplicate detection, VLAN config, security assessment
+    - Protocol: Packet analysis, version compatibility, standards compliance
+  - **Dashboard Improvements**: All endpoints now work without ClickHouse dependency
+    - Metrics, trends, and breakdown endpoints use MemStorage fallback
+    - Fixed Anomaly Trends chart: displays 7-day trend data with enhanced formatting
+    - Redesigned Anomaly Types chart: professional donut chart with color-coded legend
+    - Shows type name, count, and percentage for each anomaly category
 - **UI Simplification & Real Data Integration (Oct 8, 2025)**: Streamlined interface with clean, focused design and live database metrics
   - **Removed Dark Mode**: Eliminated ThemeContext, dark mode toggle, and all dark: variant classes for consistent light theme
   - **Dashboard Cleanup**: Removed time-range filter buttons (1h, 24h, 7d, 30d) for simplified metrics view

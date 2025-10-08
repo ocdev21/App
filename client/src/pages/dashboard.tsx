@@ -5,18 +5,14 @@ import { AlertTriangle, BarChart3, Shield, FileText } from "lucide-react";
 import type { DashboardMetrics, DashboardMetricsWithChanges, AnomalyTrend, AnomalyTypeBreakdown } from "@shared/schema";
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
-type TimeRange = '1h' | '24h' | '7d' | '30d';
-
 export default function Dashboard() {
-  const [timeRange, setTimeRange] = useState<TimeRange>('7d');
-
   const { data: metricsWithChanges, isLoading: metricsLoading } = useQuery<DashboardMetricsWithChanges>({
     queryKey: ["/api/dashboard/metrics-with-changes"],
     refetchInterval: 30000, // Refetch every 30 seconds
   });
 
   const { data: trends } = useQuery<AnomalyTrend[]>({
-    queryKey: ["/api/dashboard/trends", timeRange],
+    queryKey: [`/api/dashboard/trends?days=7`],
     refetchInterval: 60000, // Refetch every minute
   });
 
@@ -50,13 +46,6 @@ export default function Dashboard() {
   };
 
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
-
-  const timeRangeLabels: Record<TimeRange, string> = {
-    '1h': 'Last Hour',
-    '24h': 'Last 24 Hours',
-    '7d': 'Last 7 Days',
-    '30d': 'Last 30 Days'
-  };
 
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
@@ -115,21 +104,34 @@ export default function Dashboard() {
           <div className="h-64">
             {trends && trends.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={trends}>
+                <LineChart data={trends} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="date" stroke="#6b7280" fontSize={12} />
-                  <YAxis stroke="#6b7280" fontSize={12} />
+                  <XAxis 
+                    dataKey="date" 
+                    stroke="#6b7280" 
+                    fontSize={11}
+                    tickFormatter={(value) => {
+                      const date = new Date(value);
+                      return `${date.getMonth() + 1}/${date.getDate()}`;
+                    }}
+                  />
+                  <YAxis stroke="#6b7280" fontSize={12} allowDecimals={false} />
                   <Tooltip
                     contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
                     labelStyle={{ color: '#374151', fontWeight: 600 }}
+                    formatter={(value: any) => [`${value} anomalies`, 'Count']}
+                    labelFormatter={(label) => {
+                      const date = new Date(label);
+                      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                    }}
                   />
                   <Line
                     type="monotone"
                     dataKey="count"
                     stroke="#3b82f6"
-                    strokeWidth={2}
-                    dot={{ fill: '#3b82f6', r: 4 }}
-                    activeDot={{ r: 6 }}
+                    strokeWidth={3}
+                    dot={{ fill: '#3b82f6', r: 5 }}
+                    activeDot={{ r: 7 }}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -146,27 +148,51 @@ export default function Dashboard() {
           <h3 className="text-lg font-semibold text-gray-900 mb-6">Anomaly Types Distribution</h3>
           <div className="h-64">
             {breakdown && breakdown.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={breakdown}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ type, percentage }) => `${type}: ${percentage}%`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="count"
-                  >
-                    {breakdown.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+              <div className="flex items-center justify-between h-full">
+                <ResponsiveContainer width="60%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={breakdown}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={90}
+                      fill="#8884d8"
+                      dataKey="count"
+                      paddingAngle={2}
+                    >
+                      {breakdown.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px' }}
+                      formatter={(value: any, name: string, props: any) => [
+                        `${value} (${props.payload.percentage}%)`,
+                        props.payload.type.charAt(0).toUpperCase() + props.payload.type.slice(1).replace('_', ' ')
+                      ]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="flex flex-col gap-3 w-40%">
+                  {breakdown.map((entry, index) => (
+                    <div key={entry.type} className="flex items-center gap-3">
+                      <div 
+                        className="w-4 h-4 rounded" 
+                        style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                      />
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-gray-900 capitalize">
+                          {entry.type.replace('_', ' ')}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {entry.count} ({entry.percentage}%)
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             ) : (
               <div className="h-full flex items-center justify-center text-gray-400">
                 <p>No anomalies detected yet</p>

@@ -106,7 +106,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           // Call Mistral GGUF inference server for AI recommendations
           const inferenceHost = process.env.TSLAM_REMOTE_HOST || 'localhost';
-          const inferencePort = process.env.TSLAM_REMOTE_PORT || '5000';
+          const inferencePort = process.env.TSLAM_REMOTE_PORT || '8000';
           const inferenceUrl = `http://${inferenceHost}:${inferencePort}/v1/chat/completions`;
           
           console.log(`Connecting to AI inference server: ${inferenceUrl}`);

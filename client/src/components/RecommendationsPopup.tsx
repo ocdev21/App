@@ -46,9 +46,9 @@ export function RecommendationsPopup({ isOpen, onClose, anomaly }: Recommendatio
     setError(null);
 
     // Establish WebSocket connection
-    // Use relative path to leverage Vite proxy in dev, direct connection in prod
+    // Connect to port 6080 for WebSocket endpoint
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    const wsUrl = `${protocol}//${window.location.hostname}:6080/ws`;
     
     console.log('Connecting to WebSocket:', wsUrl);
     wsRef.current = new WebSocket(wsUrl);

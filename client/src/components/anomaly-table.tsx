@@ -8,13 +8,26 @@ interface AnomalyTableProps {
   anomalies: Anomaly[];
   isLoading: boolean;
   showFilters?: boolean;
+  selectedAnomalies?: Set<string>;
+  onSelectAll?: (checked: boolean) => void;
+  onSelectAnomaly?: (id: string, checked: boolean) => void;
 }
 
-export default function AnomalyTable({ anomalies, isLoading, showFilters = true }: AnomalyTableProps) {
+export default function AnomalyTable({ 
+  anomalies, 
+  isLoading, 
+  showFilters = true,
+  selectedAnomalies,
+  onSelectAll,
+  onSelectAnomaly
+}: AnomalyTableProps) {
   const [selectedAnomaly, setSelectedAnomaly] = useState<Anomaly | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedAnomalyForDetails, setSelectedAnomalyForDetails] = useState<Anomaly | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  
+  const hasSelection = selectedAnomalies && onSelectAll && onSelectAnomaly;
+  const allSelected = hasSelection && anomalies.length > 0 && anomalies.every(a => selectedAnomalies.has(a.id));
 
   const getTypeIcon = (type: string) => {
     switch (type) {
@@ -102,84 +115,107 @@ export default function AnomalyTable({ anomalies, isLoading, showFilters = true 
     <>
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+          <thead className="bg-gradient-to-r from-blue-50 to-indigo-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-40">
+              {hasSelection && (
+                <th className="px-4 py-4 text-left w-12">
+                  <input
+                    type="checkbox"
+                    checked={allSelected || false}
+                    onChange={(e) => onSelectAll?.(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                </th>
+              )}
+              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-44">
                 Timestamp
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
+              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-36">
                 Type
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 Description
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-48">
+              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-56">
                 Source
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-28">
                 Severity
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-64">
+              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 Actions
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-white divide-y divide-gray-100">
             {anomalies.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                <td colSpan={hasSelection ? 7 : 6} className="px-6 py-12 text-center text-gray-500">
                   No anomalies found matching your criteria.
                 </td>
               </tr>
             ) : (
               anomalies.map((anomaly, index) => (
-                <tr key={`${anomaly.timestamp}-${index}`} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                <tr key={`${anomaly.timestamp}-${index}`} className="hover:bg-blue-50/30 transition-all duration-150 border-b border-gray-100">
+                  {hasSelection && (
+                    <td className="px-4 py-5">
+                      <input
+                        type="checkbox"
+                        checked={selectedAnomalies?.has(anomaly.id) || false}
+                        onChange={(e) => onSelectAnomaly?.(anomaly.id, e.target.checked)}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                    </td>
+                  )}
+                  <td className="px-6 py-5 whitespace-nowrap text-sm font-medium text-gray-900">
                     {formatTimestamp(anomaly.timestamp)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-5 whitespace-nowrap">
                     <div className={getBadgeColor(anomaly.type)}>
                       {getTypeIcon(anomaly.type)}
-                      {getTypeLabel(anomaly.type)}
+                      <span className="font-medium">{getTypeLabel(anomaly.type)}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">
-                    <div>
+                  <td className="px-6 py-5 text-sm text-gray-800">
+                    <div className="leading-relaxed">
                       {anomaly.description}
                       {anomaly.packet_number && (
-                        <div className="text-blue-600 text-xs mt-1">
+                        <div className="text-blue-600 font-medium text-xs mt-1.5 flex items-center gap-1">
+                          <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-600"></span>
                           Packet #{anomaly.packet_number}
                         </div>
                       )}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                    {anomaly.source_file}
+                  <td className="px-6 py-5 whitespace-nowrap text-sm text-gray-600 font-mono">
+                    <div className="truncate max-w-xs" title={anomaly.source_file}>
+                      {anomaly.source_file}
+                    </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap w-24">
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${
+                  <td className="px-6 py-5 whitespace-nowrap w-28">
+                    <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide ${
                       anomaly.severity === 'critical' 
-                        ? 'bg-red-100 text-red-800' 
+                        ? 'bg-red-500 text-white shadow-red-200 shadow-lg' 
                         : anomaly.severity === 'high'
-                        ? 'bg-orange-100 text-orange-800'
+                        ? 'bg-orange-500 text-white shadow-orange-200 shadow-lg'
                         : anomaly.severity === 'medium'
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : 'bg-green-100 text-green-800'
+                        ? 'bg-yellow-500 text-white shadow-yellow-200 shadow-lg'
+                        : 'bg-green-500 text-white shadow-green-200 shadow-lg'
                     }`}>
                       {anomaly.severity?.charAt(0).toUpperCase() + anomaly.severity?.slice(1) || 'Unknown'}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium w-64">
-                    <div className="flex items-center space-x-3">
+                  <td className="px-6 py-5 whitespace-nowrap text-sm font-medium">
+                    <div className="flex items-center gap-2">
                       <button
                         onClick={() => handleGetRecommendations(anomaly)}
-                        className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg shadow-sm hover:bg-blue-700 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 transform hover:scale-105"
+                        className="inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors whitespace-nowrap"
                       >
                         Get Recommendations
                       </button>
                       <button
                         onClick={() => handleGetDetails(anomaly)}
-                        className="inline-flex items-center px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-lg shadow-sm hover:bg-blue-100 hover:border-blue-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 transform hover:scale-105"
+                        className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
                       >
                         Details
                       </button>

@@ -25,16 +25,14 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <div>
-        <div className="min-h-screen bg-slate-50">
-          <Sidebar setCurrentPage={setCurrentPage} />
-          <div className="main-content-ml">
-            <Header currentPage={currentPage} />
-            <Router />
-          </div>
+      <div className="min-h-screen bg-gray-50">
+        <Sidebar setCurrentPage={setCurrentPage} />
+        <div className="main-content-ml">
+          <Header currentPage={currentPage} />
+          <Router />
         </div>
-        {/* <Toaster /> */}
       </div>
+      {/* <Toaster /> */}
     </QueryClientProvider>
   );
 }

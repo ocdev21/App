@@ -24,7 +24,7 @@ export default function Sidebar({ setCurrentPage }: SidebarProps) {
   return (
     <div className="fixed inset-y-0 left-0 z-50 sidebar-width bg-white shadow-lg border-r border-slate-200">
       {/* Logo */}
-      <div className="flex items-center px-6 py-4 border-b border-slate-200">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
         <div className="flex items-center space-x-2">
           <div className="w-8 h-8 bg-primary-blue rounded-lg flex items-center justify-center">
             <Wifi className="h-4 w-4" style={{ color: 'white' }} />

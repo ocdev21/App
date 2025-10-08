@@ -1,16 +1,22 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import MetricCard from "../components/metric-card";
 import { AlertTriangle, BarChart3, Shield, FileText } from "lucide-react";
 import type { DashboardMetrics, DashboardMetricsWithChanges, AnomalyTrend, AnomalyTypeBreakdown } from "@shared/schema";
+import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+
+type TimeRange = '1h' | '24h' | '7d' | '30d';
 
 export default function Dashboard() {
+  const [timeRange, setTimeRange] = useState<TimeRange>('7d');
+
   const { data: metricsWithChanges, isLoading: metricsLoading } = useQuery<DashboardMetricsWithChanges>({
     queryKey: ["/api/dashboard/metrics-with-changes"],
     refetchInterval: 30000, // Refetch every 30 seconds
   });
 
   const { data: trends } = useQuery<AnomalyTrend[]>({
-    queryKey: ["/api/dashboard/trends"],
+    queryKey: ["/api/dashboard/trends", timeRange],
     refetchInterval: 60000, // Refetch every minute
   });
 
@@ -43,6 +49,15 @@ export default function Dashboard() {
     return `${sign}${value.toFixed(1)}%`;
   };
 
+  const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+
+  const timeRangeLabels: Record<TimeRange, string> = {
+    '1h': 'Last Hour',
+    '24h': 'Last 24 Hours',
+    '7d': 'Last 7 Days',
+    '30d': 'Last 30 Days'
+  };
+
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
       <div className="mb-8">
@@ -54,33 +69,33 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <MetricCard
           title="TOTAL ANOMALIES"
-          value={metricsWithChanges?.totalAnomalies || 5}
-          change="+15.0%"
-          changeType="negative"
+          value={metricsWithChanges?.totalAnomalies || 0}
+          change={formatChangeValue(metricsWithChanges?.totalAnomaliesChange)}
+          changeType={metricsWithChanges?.totalAnomaliesChange && metricsWithChanges.totalAnomaliesChange < 0 ? "positive" : "negative"}
           icon={AlertTriangle}
           iconColor="red"
         />
         <MetricCard
           title="SESSIONS ANALYZED"
-          value={0}
-          change="+8.3%"
-          changeType="positive"
+          value={metricsWithChanges?.sessionsAnalyzed || 0}
+          change={formatChangeValue(metricsWithChanges?.sessionsAnalyzedChange)}
+          changeType={metricsWithChanges?.sessionsAnalyzedChange && metricsWithChanges.sessionsAnalyzedChange >= 0 ? "positive" : "negative"}
           icon={BarChart3}
           iconColor="blue"
         />
         <MetricCard
           title="DETECTION RATE"
-          value="0%"
-          change="-2.1%"
-          changeType="negative"
+          value={`${metricsWithChanges?.detectionRate || 0}%`}
+          change={formatChangeValue(metricsWithChanges?.detectionRateChange)}
+          changeType={metricsWithChanges?.detectionRateChange && metricsWithChanges.detectionRateChange >= 0 ? "positive" : "negative"}
           icon={Shield}
           iconColor="green"
         />
         <MetricCard
           title="FILES PROCESSED"
-          value={0}
-          change="+12.5%"
-          changeType="positive"
+          value={metricsWithChanges?.filesProcessed || 0}
+          change={formatChangeValue(metricsWithChanges?.filesProcessedChange)}
+          changeType={metricsWithChanges?.filesProcessedChange && metricsWithChanges.filesProcessedChange >= 0 ? "positive" : "negative"}
           icon={FileText}
           iconColor="purple"
         />
@@ -92,23 +107,71 @@ export default function Dashboard() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-semibold text-gray-900">Anomaly Trends</h3>
-            <div className="flex items-center space-x-4 text-sm">
-              <span className="text-gray-500">This week</span>
-              <span className="text-gray-900 font-medium">Last 7 days</span>
+            <div className="flex items-center space-x-2 text-sm">
+              <div className="w-3 h-3 bg-blue-500 rounded"></div>
+              <span className="text-gray-600">Anomalies Over Time</span>
             </div>
           </div>
-          <div className="h-64 flex items-center justify-center text-gray-400">
-            <div className="text-center">
-              <div className="w-full h-32 bg-gray-50 rounded-lg mb-4"></div>
-            </div>
+          <div className="h-64">
+            {trends && trends.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={trends}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="date" stroke="#6b7280" fontSize={12} />
+                  <YAxis stroke="#6b7280" fontSize={12} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+                    labelStyle={{ color: '#374151', fontWeight: 600 }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="count"
+                    stroke="#3b82f6"
+                    strokeWidth={2}
+                    dot={{ fill: '#3b82f6', r: 4 }}
+                    activeDot={{ r: 6 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-gray-400">
+                <p>No trend data available</p>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Anomaly Types Breakdown */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-6">Anomaly Types</h3>
-          <div className="h-64 flex items-center justify-center">
-            <p className="text-gray-400">No anomalies detected yet</p>
+          <h3 className="text-lg font-semibold text-gray-900 mb-6">Anomaly Types Distribution</h3>
+          <div className="h-64">
+            {breakdown && breakdown.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={breakdown}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ type, percentage }) => `${type}: ${percentage}%`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="count"
+                  >
+                    {breakdown.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-gray-400">
+                <p>No anomalies detected yet</p>
+              </div>
+            )}
           </div>
         </div>
       </div>

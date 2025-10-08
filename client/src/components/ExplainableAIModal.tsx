@@ -1,12 +1,5 @@
 
 import { useState, useEffect } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -48,6 +41,20 @@ export function ExplainableAIModal({ isOpen, onClose, anomaly }: ExplainableAIMo
       fetchExplanation();
     }
   }, [isOpen, anomaly]);
+
+  // Handle escape key to close modal
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [isOpen, onClose]);
 
   const fetchExplanation = async () => {
     if (!anomaly) return;
@@ -172,15 +179,35 @@ ${data.top_negative_features.map(f => `  • ${explanationData.feature_descripti
   };
 
   if (!anomaly) return null;
+  if (!isOpen) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
-        <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Brain className="h-5 w-5 text-purple-600" />
-              Explainable AI Analysis
+    <>
+      {/* Backdrop */}
+      <div 
+        className="fixed inset-0 bg-black/50 z-50"
+        onClick={onClose}
+      />
+      
+      {/* Modal Content */}
+      <div 
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="explainable-modal-title"
+        aria-describedby="explainable-modal-description"
+        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-6xl max-h-[90vh] bg-white rounded-lg shadow-xl overflow-hidden"
+      >
+        {/* Header */}
+        <div className="border-b p-6 pb-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <div id="explainable-modal-title" className="flex items-center gap-2 text-lg font-semibold">
+                <Brain className="h-5 w-5 text-purple-600" />
+                Explainable AI Analysis
+              </div>
+              <p id="explainable-modal-description" className="text-sm text-gray-600 mt-1">
+                SHAP-based ML model explanations and feature impact analysis
+              </p>
             </div>
             <div className="flex items-center gap-2">
               <Button
@@ -210,13 +237,11 @@ ${data.top_negative_features.map(f => `  • ${explanationData.feature_descripti
                 <X className="h-4 w-4" />
               </Button>
             </div>
-          </DialogTitle>
-          <DialogDescription>
-            SHAP-based ML model explanations and feature impact analysis
-          </DialogDescription>
-        </DialogHeader>
+          </div>
+        </div>
 
-        <div className="max-h-[70vh] overflow-y-auto space-y-4">
+        {/* Content */}
+        <div className="max-h-[calc(90vh-100px)] overflow-y-auto p-6 space-y-4">
           {/* Anomaly Overview */}
           <Card>
             <CardHeader className="pb-3">
@@ -380,7 +405,7 @@ ${data.top_negative_features.map(f => `  • ${explanationData.feature_descripti
             </Card>
           )}
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </>
   );
 }

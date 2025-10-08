@@ -111,23 +111,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           console.log(`Connecting to AI inference server: ${inferenceUrl}`);
 
+          // Prepare LLM request
+          const llmRequest = {
+            model: "mistral-7b-instruct-gguf",
+            messages: [
+              {
+                role: "system",
+                content: "You are an expert L1 network troubleshooting AI assistant. Analyze the anomaly and provide specific technical recommendations for resolution."
+              },
+              {
+                role: "user",
+                content: `Analyze this L1 network anomaly:\n\nType: ${anomaly.type}\nDescription: ${anomaly.description || 'Network anomaly detected'}\nSeverity: ${anomaly.severity || 'unknown'}\n\nProvide detailed troubleshooting steps and root cause analysis.`
+              }
+            ],
+            max_tokens: 500,
+            temperature: 0.3,
+            stream: true
+          };
+
+          // Log the request being sent to LLM
+          console.log('===== LLM REQUEST =====');
+          console.log('URL:', inferenceUrl);
+          console.log('Prompt:', llmRequest.messages[1].content);
+          console.log('Model:', llmRequest.model);
+          console.log('======================');
+
           try {
-            const response = await axios.post(inferenceUrl, {
-              model: "mistral-7b-instruct-gguf",
-              messages: [
-                {
-                  role: "system",
-                  content: "You are an expert L1 network troubleshooting AI assistant. Analyze the anomaly and provide specific technical recommendations for resolution."
-                },
-                {
-                  role: "user",
-                  content: `Analyze this L1 network anomaly:\n\nType: ${anomaly.type}\nDescription: ${anomaly.description || 'Network anomaly detected'}\nSeverity: ${anomaly.severity || 'unknown'}\n\nProvide detailed troubleshooting steps and root cause analysis.`
-                }
-              ],
-              max_tokens: 500,
-              temperature: 0.3,
-              stream: true
-            }, {
+            const response = await axios.post(inferenceUrl, llmRequest, {
               responseType: 'stream',
               timeout: 60000
             });
@@ -151,6 +161,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     const content = parsed.choices?.[0]?.delta?.content;
                     
                     if (content) {
+                      // Log LLM response chunks
+                      console.log('LLM Response Chunk:', content);
+                      
                       ws.send(JSON.stringify({ 
                         type: 'recommendation_chunk', 
                         data: content 

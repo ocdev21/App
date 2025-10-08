@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Brain, AlertCircle } from 'lucide-react';
+import { Loader2, Brain, AlertCircle, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface RecommendationsPopupProps {
@@ -31,6 +30,20 @@ export function RecommendationsPopup({ isOpen, onClose, anomaly }: Recommendatio
       }
     };
   }, [isOpen, anomaly]);
+
+  // Handle escape key to close modal
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [isOpen, onClose]);
 
   useEffect(() => {
     // Auto-scroll to bottom when new content arrives
@@ -129,18 +142,49 @@ export function RecommendationsPopup({ isOpen, onClose, anomaly }: Recommendatio
 
   const contextData = anomaly?.context_data ? JSON.parse(anomaly.context_data) : {};
 
+  if (!isOpen) return null;
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Brain className="h-5 w-5 text-blue-600" />
-            AI Troubleshooting Recommendations
-          </DialogTitle>
-          <DialogDescription>
-            AI-powered analysis and recommendations for network anomaly resolution
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      {/* Backdrop */}
+      <div 
+        className="fixed inset-0 bg-black/50 z-50"
+        onClick={onClose}
+      />
+      
+      {/* Modal Content */}
+      <div 
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-title"
+        aria-describedby="modal-description"
+        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-4xl max-h-[80vh] bg-white rounded-lg shadow-xl overflow-hidden"
+      >
+        {/* Header */}
+        <div className="border-b p-6 pb-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <div id="modal-title" className="flex items-center gap-2 text-lg font-semibold">
+                <Brain className="h-5 w-5 text-blue-600" />
+                AI Troubleshooting Recommendations
+              </div>
+              <p id="modal-description" className="text-sm text-gray-600 mt-1">
+                AI-powered analysis and recommendations for network anomaly resolution
+              </p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              className="h-8 w-8 p-0"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+        
+        {/* Content */}
+        <div className="p-6 overflow-y-auto max-h-[calc(80vh-140px)]">
         
         {/* Anomaly Details Card */}
         <Card className="mb-4">
@@ -248,7 +292,8 @@ export function RecommendationsPopup({ isOpen, onClose, anomaly }: Recommendatio
             </div>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+        </div>
+      </div>
+    </>
   );
 }

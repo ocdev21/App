@@ -20,6 +20,8 @@ export function RecommendationsPopup({ isOpen, onClose, anomaly }: Recommendatio
   const wsRef = useRef<WebSocket | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  console.log('RecommendationsPopup render:', { isOpen, hasAnomaly: !!anomaly });
+
   useEffect(() => {
     if (isOpen && anomaly) {
       fetchRecommendations();

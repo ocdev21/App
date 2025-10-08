@@ -1,4 +1,4 @@
-import { type Anomaly, type InsertAnomaly, type ProcessedFile, type InsertProcessedFile, type Session, type InsertSession, type Metric, type InsertMetric, type DashboardMetrics, type AnomalyTrend, type AnomalyTypeBreakdown } from "@shared/schema";
+import { type Anomaly, type InsertAnomaly, type ProcessedFile, type InsertProcessedFile, type Session, type InsertSession, type Metric, type InsertMetric, type DashboardMetrics, type AnomalyTrend, type AnomalyTypeBreakdown, type SeverityBreakdown, type HourlyHeatmapData, type TopAffectedSource } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { spawn } from "child_process";
 import path from "path";
@@ -27,6 +27,9 @@ export interface IStorage {
   getDashboardMetrics(): Promise<DashboardMetrics>;
   getAnomalyTrends(days: number): Promise<AnomalyTrend[]>;
   getAnomalyTypeBreakdown(): Promise<AnomalyTypeBreakdown[]>;
+  getSeverityBreakdown(): Promise<SeverityBreakdown[]>;
+  getHourlyHeatmapData(days: number): Promise<HourlyHeatmapData[]>;
+  getTopAffectedSources(limit: number): Promise<TopAffectedSource[]>;
   getExplainableAIData(anomalyId: string, contextData: any): Promise<any>;
   getDashboardMetricsWithChanges(): Promise<DashboardMetrics & { 
     totalAnomaliesChange: number;
@@ -314,6 +317,68 @@ export class MemStorage implements IStorage {
       count,
       percentage: Math.round((count / total) * 1000) / 10,
     }));
+  }
+
+  async getSeverityBreakdown(): Promise<SeverityBreakdown[]> {
+    const anomaliesArray = Array.from(this.anomalies.values());
+    const total = anomaliesArray.length;
+
+    if (total === 0) return [];
+
+    const severityCounts = anomaliesArray.reduce((acc, anomaly) => {
+      acc[anomaly.severity] = (acc[anomaly.severity] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return Object.entries(severityCounts)
+      .map(([severity, count]) => ({
+        severity,
+        count,
+        percentage: Math.round((count / total) * 1000) / 10,
+      }))
+      .sort((a, b) => b.count - a.count);
+  }
+
+  async getHourlyHeatmapData(days: number): Promise<HourlyHeatmapData[]> {
+    const heatmapData: HourlyHeatmapData[] = [];
+    const now = new Date();
+    const anomaliesArray = Array.from(this.anomalies.values());
+
+    for (let dayOffset = days - 1; dayOffset >= 0; dayOffset--) {
+      const date = new Date(now);
+      date.setDate(date.getDate() - dayOffset);
+      const dayStr = date.toLocaleDateString('en-US', { weekday: 'short' });
+
+      for (let hour = 0; hour < 24; hour++) {
+        const count = anomaliesArray.filter(a => {
+          const anomalyDate = new Date(a.timestamp);
+          const isSameDay = anomalyDate.toDateString() === date.toDateString();
+          const isSameHour = anomalyDate.getHours() === hour;
+          return isSameDay && isSameHour;
+        }).length;
+
+        heatmapData.push({ hour, day: dayStr, count });
+      }
+    }
+
+    return heatmapData;
+  }
+
+  async getTopAffectedSources(limit: number): Promise<TopAffectedSource[]> {
+    const anomaliesArray = Array.from(this.anomalies.values());
+
+    if (anomaliesArray.length === 0) return [];
+
+    const sourceCounts = anomaliesArray.reduce((acc, anomaly) => {
+      const source = anomaly.source_file;
+      acc[source] = (acc[source] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return Object.entries(sourceCounts)
+      .map(([source, count]) => ({ source, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, limit);
   }
 
   async getDashboardMetricsWithChanges(): Promise<DashboardMetrics & { 
@@ -1040,6 +1105,115 @@ export class ClickHouseStorage implements IStorage {
       ];
     } catch (error) {
       console.error('Anomaly breakdown error:', error);
+      return [];
+    }
+  }
+
+  async getSeverityBreakdown(): Promise<SeverityBreakdown[]> {
+    try {
+      try {
+        const result = await clickhouse.query(`
+          SELECT 
+            severity,
+            count() as count,
+            count() * 100.0 / (SELECT count() FROM l1_anomaly_detection.anomalies) as percentage
+          FROM l1_anomaly_detection.anomalies
+          GROUP BY severity
+          ORDER BY 
+            CASE severity
+              WHEN 'critical' THEN 1
+              WHEN 'high' THEN 2
+              WHEN 'medium' THEN 3
+              WHEN 'low' THEN 4
+              ELSE 5
+            END
+        `);
+
+        if (result.data && result.data.length > 0) {
+          console.log('Retrieved severity breakdown from ClickHouse');
+          return result.data.map((row: any) => ({
+            severity: row.severity,
+            count: row.count,
+            percentage: Math.round(row.percentage * 10) / 10
+          }));
+        }
+      } catch (chError) {
+        console.log('ClickHouse severity query failed, using fallback');
+      }
+
+      // Fallback using MemStorage
+      const memStorage = new MemStorage();
+      return await memStorage.getSeverityBreakdown();
+    } catch (error) {
+      console.error('Severity breakdown error:', error);
+      return [];
+    }
+  }
+
+  async getHourlyHeatmapData(days: number): Promise<HourlyHeatmapData[]> {
+    try {
+      try {
+        const result = await clickhouse.query(`
+          SELECT 
+            toHour(timestamp) as hour,
+            formatDateTime(timestamp, '%a') as day,
+            count() as count
+          FROM l1_anomaly_detection.anomalies
+          WHERE timestamp >= now() - INTERVAL ${days} DAY
+          GROUP BY hour, day, toDate(timestamp)
+          ORDER BY toDate(timestamp), hour
+        `);
+
+        if (result.data && result.data.length > 0) {
+          console.log('Retrieved heatmap data from ClickHouse');
+          return result.data.map((row: any) => ({
+            hour: row.hour,
+            day: row.day,
+            count: row.count
+          }));
+        }
+      } catch (chError) {
+        console.log('ClickHouse heatmap query failed, using fallback');
+      }
+
+      // Fallback using MemStorage
+      const memStorage = new MemStorage();
+      return await memStorage.getHourlyHeatmapData(days);
+    } catch (error) {
+      console.error('Heatmap data error:', error);
+      return [];
+    }
+  }
+
+  async getTopAffectedSources(limit: number): Promise<TopAffectedSource[]> {
+    try {
+      try {
+        const result = await clickhouse.query(`
+          SELECT 
+            file_path as source,
+            count() as count
+          FROM l1_anomaly_detection.anomalies
+          GROUP BY file_path
+          ORDER BY count DESC
+          LIMIT ${limit}
+        `);
+
+        if (result.data && result.data.length > 0) {
+          console.log('Retrieved top sources from ClickHouse');
+          return result.data.map((row: any) => ({
+            source: row.source,
+            count: row.count
+          }));
+        }
+      } catch (chError) {
+        console.log('ClickHouse top sources query failed, using fallback');
+      }
+
+      // Fallback using MemStorage
+      const memStorage = new MemStorage();
+      return await memStorage.getTopAffectedSources(limit);
+    } catch (error) {
+      console.error('Top sources error:', error);
       return [];
     }
   }

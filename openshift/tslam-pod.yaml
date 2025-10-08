@@ -14,9 +14,6 @@ spec:
         - name: webapp
           containerPort: 5000
           protocol: TCP
-        - name: ai-inference
-          containerPort: 8000
-          protocol: TCP
       env:
         - name: NODE_ENV
           value: "production"
@@ -29,7 +26,7 @@ spec:
         - name: TSLAM_REMOTE_HOST
           value: "localhost"
         - name: TSLAM_REMOTE_PORT
-          value: "8000"
+          value: "5000"
       livenessProbe:
         httpGet:
           path: /
@@ -59,12 +56,9 @@ spec:
     - name: webapp
       port: 5000
       targetPort: 5000
+      nodePort: 30500
       protocol: TCP
-    - name: ai-inference
-      port: 8000
-      targetPort: 8000
-      protocol: TCP
-  type: ClusterIP
+  type: NodePort
 ---
 apiVersion: route.openshift.io/v1
 kind: Route

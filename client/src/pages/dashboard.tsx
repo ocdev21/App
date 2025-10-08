@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import MetricCard from "../components/metric-card";
 import { AlertTriangle, BarChart3, Shield, FileText } from "lucide-react";
-import type { DashboardMetrics, DashboardMetricsWithChanges, AnomalyTrend, AnomalyTypeBreakdown } from "@shared/schema";
+import type { DashboardMetrics, DashboardMetricsWithChanges, AnomalyTrend, AnomalyTypeBreakdown, SeverityBreakdown, HourlyHeatmapData, TopAffectedSource } from "@shared/schema";
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 export default function Dashboard() {
@@ -18,6 +18,21 @@ export default function Dashboard() {
 
   const { data: breakdown } = useQuery<AnomalyTypeBreakdown[]>({
     queryKey: ["/api/dashboard/breakdown"],
+    refetchInterval: 60000,
+  });
+
+  const { data: severityData } = useQuery<SeverityBreakdown[]>({
+    queryKey: ["/api/dashboard/severity"],
+    refetchInterval: 60000,
+  });
+
+  const { data: heatmapData } = useQuery<HourlyHeatmapData[]>({
+    queryKey: ["/api/dashboard/heatmap?days=7"],
+    refetchInterval: 60000,
+  });
+
+  const { data: topSources } = useQuery<TopAffectedSource[]>({
+    queryKey: ["/api/dashboard/top-sources?limit=10"],
     refetchInterval: 60000,
   });
 
@@ -46,6 +61,12 @@ export default function Dashboard() {
   };
 
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+  const SEVERITY_COLORS: Record<string, string> = {
+    'critical': '#ef4444',
+    'high': '#f59e0b',
+    'medium': '#3b82f6',
+    'low': '#10b981'
+  };
 
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
@@ -199,6 +220,133 @@ export default function Dashboard() {
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* New Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* Severity Breakdown */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-6">Severity Breakdown</h3>
+          <div className="h-64">
+            {severityData && severityData.length > 0 ? (
+              <div className="flex items-center justify-between h-full">
+                <ResponsiveContainer width="60%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={severityData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={90}
+                      fill="#8884d8"
+                      dataKey="count"
+                      paddingAngle={2}
+                    >
+                      {severityData.map((entry) => (
+                        <Cell key={`cell-${entry.severity}`} fill={SEVERITY_COLORS[entry.severity] || '#6b7280'} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 12px' }}
+                      formatter={(value: any, name: string, props: any) => [
+                        `${value} (${props.payload.percentage}%)`,
+                        props.payload.severity.charAt(0).toUpperCase() + props.payload.severity.slice(1)
+                      ]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="flex flex-col gap-3 w-40%">
+                  {severityData.map((entry) => (
+                    <div key={entry.severity} className="flex items-center gap-3">
+                      <div 
+                        className="w-4 h-4 rounded" 
+                        style={{ backgroundColor: SEVERITY_COLORS[entry.severity] || '#6b7280' }}
+                      />
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-gray-900 capitalize">
+                          {entry.severity}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {entry.count} ({entry.percentage}%)
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="h-full flex items-center justify-center text-gray-400">
+                <p>No severity data available</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Top Affected Sources */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-6">Top Affected Sources</h3>
+          <div className="h-64">
+            {topSources && topSources.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={topSources} layout="vertical" margin={{ top: 5, right: 30, left: 100, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis type="number" stroke="#6b7280" fontSize={11} />
+                  <YAxis 
+                    dataKey="source" 
+                    type="category" 
+                    stroke="#6b7280" 
+                    fontSize={10}
+                    width={90}
+                    tickFormatter={(value) => value.length > 15 ? value.substring(0, 12) + '...' : value}
+                  />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+                    formatter={(value: any) => [`${value} anomalies`, 'Count']}
+                  />
+                  <Bar dataKey="count" fill="#3b82f6" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-gray-400">
+                <p>No source data available</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Hourly Heatmap */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-6">Hourly Anomaly Heatmap (Last 7 Days)</h3>
+        <div className="h-80">
+          {heatmapData && heatmapData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={heatmapData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis 
+                  dataKey="hour" 
+                  stroke="#6b7280" 
+                  fontSize={11}
+                  label={{ value: 'Hour of Day', position: 'insideBottom', offset: -5 }}
+                />
+                <YAxis 
+                  stroke="#6b7280" 
+                  fontSize={11}
+                  label={{ value: 'Anomaly Count', angle: -90, position: 'insideLeft' }}
+                />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+                  formatter={(value: any, name: string, props: any) => [`${value} anomalies`, `${props.payload.day} ${props.payload.hour}:00`]}
+                />
+                <Bar dataKey="count" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-full flex items-center justify-center text-gray-400">
+              <p>No heatmap data available</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

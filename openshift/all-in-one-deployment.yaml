@@ -245,8 +245,8 @@ data:
   CLICKHOUSE_USER: "default"
   CLICKHOUSE_USERNAME: "default"
   CLICKHOUSE_PASSWORD: ""
-  TSLAM_REMOTE_HOST: "10.193.0.4"
-  TSLAM_REMOTE_PORT: "8080"
+  TSLAM_REMOTE_HOST: "localhost"
+  TSLAM_REMOTE_PORT: "5000"
   JUPYTER_SERVICE_URL: "http://jupyter-service.l1-app.svc.cluster.local:8888"
 ---
 # Secrets
@@ -304,9 +304,9 @@ spec:
         - name: CLICKHOUSE_PASSWORD
           value: ""
         - name: TSLAM_REMOTE_HOST
-          value: "10.193.0.4"
+          value: "localhost"
         - name: TSLAM_REMOTE_PORT
-          value: "8080"
+          value: "5000"
         - name: JUPYTER_SERVICE_URL
           value: "http://jupyter-service.l1-app.svc.cluster.local:8888"
         - name: MODEL_PATH
@@ -338,7 +338,8 @@ spec:
   - protocol: TCP
     port: 80
     targetPort: 5000
-  type: ClusterIP
+    nodePort: 30500
+  type: NodePort
 ---
 # L1 Application Route
 apiVersion: route.openshift.io/v1

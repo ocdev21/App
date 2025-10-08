@@ -151,22 +151,22 @@ class ClickHouseFolderAnalyzer:
             return None
 
     def store_anomalies_in_clickhouse(self, anomalies, session_id):
-        """Store detected anomalies in ClickHouse (only confidence >= 0.75)"""
+        """Store detected anomalies in ClickHouse (only confidence >= 0.50)"""
         if not self.clickhouse_available or not anomalies:
             return
 
         try:
-            # Filter anomalies by confidence >= 0.75 (75%)
+            # Filter anomalies by confidence >= 0.50 (50%)
             high_confidence_anomalies = [
                 a for a in anomalies 
-                if a.get('confidence', 0) >= 0.75
+                if a.get('confidence', 0) >= 0.50
             ]
             
             if not high_confidence_anomalies:
-                print(f"No high-confidence anomalies (>= 75%) to store. {len(anomalies)} total anomalies were below threshold.")
+                print(f"No high-confidence anomalies (>= 50%) to store. {len(anomalies)} total anomalies were below threshold.")
                 return
             
-            print(f"Storing {len(high_confidence_anomalies)}/{len(anomalies)} anomalies (confidence >= 75%)")
+            print(f"Storing {len(high_confidence_anomalies)}/{len(anomalies)} anomalies (confidence >= 50%)")
             
             # Prepare anomaly records for bulk insert using list of lists
             anomaly_records = []
@@ -187,7 +187,7 @@ class ClickHouseFolderAnalyzer:
                     str(anomaly['file_type']),
                     packet_number,
                     str(anomaly['anomaly_type']),
-                    'high' if confidence >= 0.75 else 'medium',  # Based on confidence
+                    'high' if confidence >= 0.75 else 'medium' if confidence >= 0.50 else 'low',  # Based on confidence
                     f"*** FRONTHAUL ISSUE (Confidence: {int(confidence*100)}%) *** - {anomaly['anomaly_type']}",
                     json.dumps(anomaly['details']),
                     str(anomaly.get('ue_id', '')),

@@ -256,6 +256,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/dashboard/severity", async (req, res) => {
+    try {
+      const severity = await storage.getSeverityBreakdown();
+      res.json(severity);
+    } catch (error) {
+      console.error("Error fetching severity breakdown:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch severity breakdown" 
+      });
+    }
+  });
+
+  app.get("/api/dashboard/heatmap", async (req, res) => {
+    try {
+      const days = parseInt(req.query.days as string) || 7;
+      const heatmap = await storage.getHourlyHeatmapData(days);
+      res.json(heatmap);
+    } catch (error) {
+      console.error("Error fetching heatmap data:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch heatmap data" 
+      });
+    }
+  });
+
+  app.get("/api/dashboard/top-sources", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 10;
+      const sources = await storage.getTopAffectedSources(limit);
+      res.json(sources);
+    } catch (error) {
+      console.error("Error fetching top sources:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch top sources" 
+      });
+    }
+  });
+
   // Anomalies endpoints
   app.get("/api/anomalies", async (req, res) => {
     try {

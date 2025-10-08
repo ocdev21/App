@@ -115,3 +115,20 @@ export type AnomalyTypeBreakdown = {
   count: number;
   percentage: number;
 };
+
+export type SeverityBreakdown = {
+  severity: string;
+  count: number;
+  percentage: number;
+};
+
+export type HourlyHeatmapData = {
+  hour: number;
+  day: string;
+  count: number;
+};
+
+export type TopAffectedSource = {
+  source: string;
+  count: number;
+};

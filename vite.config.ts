@@ -31,6 +31,11 @@ export default defineConfig({
         target: "http://127.0.0.1:5000", // Backend server port
         changeOrigin: true,
       },
+      "/ws": {
+        target: "http://127.0.0.1:5000", // Backend WebSocket server
+        ws: true, // Enable WebSocket proxying
+        changeOrigin: true,
+      },
     },
     fs: {
       strict: true,

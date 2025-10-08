@@ -305,6 +305,31 @@ class ClickHouseFolderAnalyzer:
 
         self.total_files_processed += 1
         self.total_anomalies_found += len(anomalies)
+        
+        # Store processed file record in ClickHouse
+        if self.clickhouse_available:
+            try:
+                import os
+                file_size = os.path.getsize(file_path) if os.path.exists(file_path) else 0
+                file_record = [[
+                    self.total_files_processed,  # id as counter
+                    file_name,                    # filename
+                    file_type,                    # file_type
+                    file_size,                    # file_size
+                    datetime.now(),              # upload_date
+                    'completed',                  # processing_status
+                    len(anomalies),              # anomalies_found
+                    None,                         # processing_time (null for now)
+                    None                          # error_message (null for now)
+                ]]
+                
+                self.client.insert('processed_files', file_record, column_names=[
+                    'id', 'filename', 'file_type', 'file_size', 'upload_date',
+                    'processing_status', 'anomalies_found', 'processing_time', 'error_message'
+                ])
+                print(f"  ✅ File record stored in processed_files table")
+            except Exception as e:
+                print(f"  WARNING: Failed to store file record: {e}")
 
         return anomalies
 

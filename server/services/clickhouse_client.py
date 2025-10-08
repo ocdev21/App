@@ -127,7 +127,7 @@ class ClickHouseClient:
                      type_filter: Optional[str] = None, 
                      severity_filter: Optional[str] = None) -> List[Dict[str, Any]]:
         """Get anomalies with filtering"""
-        query = "SELECT * FROM anomalies WHERE 1=1"
+        query = "SELECT id, timestamp, anomaly_type, description, severity, file_path, file_type, packet_number, du_mac, ru_mac, ue_id, details, status FROM anomalies WHERE 1=1"
         params = []
         
         if type_filter:

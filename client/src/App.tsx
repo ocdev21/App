@@ -1,8 +1,7 @@
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
-// import { Toaster } from "@/components/ui/toaster";
-// import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "@/components/ui/toaster";
 import Dashboard from "./pages/dashboard";
 import Anomalies from "./pages/anomalies";
 import Sidebar from "./components/sidebar";
@@ -32,7 +31,7 @@ function App() {
           <Router />
         </div>
       </div>
-      {/* <Toaster /> */}
+      <Toaster />
     </QueryClientProvider>
   );
 }

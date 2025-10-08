@@ -46,9 +46,11 @@ export function RecommendationsPopup({ isOpen, onClose, anomaly }: Recommendatio
     setError(null);
 
     // Establish WebSocket connection
+    // Use relative path to leverage Vite proxy in dev, direct connection in prod
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws`;
     
+    console.log('Connecting to WebSocket:', wsUrl);
     wsRef.current = new WebSocket(wsUrl);
 
     wsRef.current.onopen = () => {

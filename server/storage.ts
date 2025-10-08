@@ -587,7 +587,7 @@ export class ClickHouseStorage implements IStorage {
   // Anomalies
   async getAnomalies(limit = 50, offset = 0, type?: string, severity?: string): Promise<Anomaly[]> {
     try {
-      let query = "SELECT * FROM l1_anomaly_detection.anomalies WHERE 1=1";
+      let query = "SELECT id, timestamp, anomaly_type, description, severity, file_path, file_type, packet_number, du_mac, ru_mac, ue_id, details, status FROM l1_anomaly_detection.anomalies WHERE 1=1";
       const params: any[] = [];
 
       if (type) {
@@ -647,7 +647,7 @@ export class ClickHouseStorage implements IStorage {
   async getAnomaly(id: string): Promise<Anomaly | undefined> {
     try {
       console.log('Looking up anomaly in ClickHouse:', id);
-      const result = await this.execClickHouseQuery("SELECT * FROM l1_anomaly_detection.anomalies WHERE id = ? LIMIT 1", [id]);
+      const result = await this.execClickHouseQuery("SELECT id, timestamp, anomaly_type, description, severity, file_path, file_type, packet_number, du_mac, ru_mac, ue_id, details, status FROM l1_anomaly_detection.anomalies WHERE id = ? LIMIT 1", [id]);
 
       if (result && result.length > 0) {
         const row = result[0];

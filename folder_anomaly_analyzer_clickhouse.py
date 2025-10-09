@@ -112,8 +112,8 @@ class ClickHouseFolderAnalyzer:
         text_count = sum(1 for f in found_files if f['type'] == 'TEXT')
 
         print(f"\nFILE SUMMARY:")
-        print(f"• PCAP files: {pcap_count}")
-        print(f"• Text files: {text_count}")
+        print(f"- PCAP files: {pcap_count}")
+        print(f"- Text files: {text_count}")
 
         return found_files
 
@@ -207,7 +207,7 @@ class ClickHouseFolderAnalyzer:
                 'ru_mac', 'timestamp', 'status', 'error_log'
             ])
 
-            print(f"✅ {len(high_confidence_anomalies)} high-confidence anomalies stored in ClickHouse database")
+            print(f"SUCCESS: {len(high_confidence_anomalies)} high-confidence anomalies stored in ClickHouse database")
 
         except Exception as e:
             print(f"WARNING: Failed to store anomalies in ClickHouse: {e}")
@@ -355,7 +355,7 @@ class ClickHouseFolderAnalyzer:
                 import os
                 file_size = os.path.getsize(file_path) if os.path.exists(file_path) else 0
                 file_record = [[
-                    self.total_files_processed,  # id as counter
+                    str(self.total_files_processed),  # id as string
                     file_name,                    # filename
                     file_type,                    # file_type
                     file_size,                    # file_size
@@ -370,7 +370,7 @@ class ClickHouseFolderAnalyzer:
                     'id', 'filename', 'file_type', 'file_size', 'upload_date',
                     'processing_status', 'anomalies_found', 'processing_time', 'error_message'
                 ])
-                print(f"  ✅ File record stored in processed_files table")
+                print(f"  SUCCESS: File record stored in processed_files table")
             except Exception as e:
                 print(f"  WARNING: Failed to store file record: {e}")
 
@@ -407,24 +407,24 @@ class ClickHouseFolderAnalyzer:
 
         # Header Information
         analysis_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        print(f"📅 Analysis Date: {analysis_time}")
+        print(f"Analysis Date: {analysis_time}")
         print(f"Target Folder: {os.path.abspath(folder_path)}")
         print(f"System: Unified L1 Anomaly Detection with ML Ensemble")
         if self.clickhouse_available:
             print(f"Database: ClickHouse (Session ID: {session_id})")
 
         # Processing Statistics
-        print(f"\n" + "🔢 PROCESSING STATISTICS".ljust(50, '='))
+        print(f"\n" + "PROCESSING STATISTICS".ljust(50, '='))
         print(f"Total Files Processed: {self.total_files_processed}")
-        print(f"   ├─ PCAP Files: {self.pcap_files_processed}")
-        print(f"   └─ Text Files: {self.text_files_processed}")
+        print(f"   - PCAP Files: {self.pcap_files_processed}")
+        print(f"   - Text Files: {self.text_files_processed}")
 
         if not all_anomalies:
             print(f"\n" + "ANALYSIS COMPLETE - NO ANOMALIES DETECTED".ljust(50, '='))
             print("RESULT: All network files appear to be functioning normally")
             print("NETWORK STATUS: HEALTHY")
-            print("🔒 FRONTHAUL STATUS: No DU-RU communication issues detected")
-            print("📱 UE BEHAVIOR: No abnormal attachment/detachment patterns")
+            print("FRONTHAUL STATUS: No DU-RU communication issues detected")
+            print("UE BEHAVIOR: No abnormal attachment/detachment patterns")
 
             if self.clickhouse_available:
                 print("CLEAN SESSION: Stored in ClickHouse for historical tracking")
@@ -432,9 +432,9 @@ class ClickHouseFolderAnalyzer:
             return
 
         # Critical Alert
-        print(f"\n" + "🚨 CRITICAL NETWORK ANOMALIES DETECTED".ljust(50, '='))
+        print(f"\n" + "CRITICAL NETWORK ANOMALIES DETECTED".ljust(50, '='))
         print(f"WARNING: TOTAL ANOMALIES FOUND: {self.total_anomalies_found}")
-        print(f"🔴 NETWORK STATUS: REQUIRES ATTENTION")
+        print(f"NETWORK STATUS: REQUIRES ATTENTION")
 
         if self.clickhouse_available:
             print(f"ANOMALIES STORED: ClickHouse database for analysis and reporting")
@@ -445,12 +445,12 @@ class ClickHouseFolderAnalyzer:
 
         print(f"\n" + "ANOMALY STATISTICS".ljust(50, '='))
         print(f"PCAP Communication Anomalies: {len(pcap_anomalies)}")
-        print(f"📱 UE Event Anomalies: {len(text_anomalies)}")
+        print(f"UE Event Anomalies: {len(text_anomalies)}")
 
         if pcap_anomalies:
-            print(f"   ⚡ DU-RU Fronthaul Issues: {len(pcap_anomalies)} detected")
+            print(f"   DU-RU Fronthaul Issues: {len(pcap_anomalies)} detected")
         if text_anomalies:
-            print(f"   📶 UE Mobility Issues: {len(text_anomalies)} detected")
+            print(f"   UE Mobility Issues: {len(text_anomalies)} detected")
 
         # File-by-File Breakdown
         print(f"\n" + "DETAILED ANOMALY BREAKDOWN".ljust(50, '='))
@@ -467,17 +467,17 @@ class ClickHouseFolderAnalyzer:
             # Show critical anomalies
             for j, anomaly in enumerate(anomalies[:2], 1):  # Show first 2 per file
                 print(f"\n    ANOMALY #{j}: PACKET #{anomaly['packet_number']}")
-                print(f"    ┌─ Type: {anomaly['anomaly_type']}")
-                print(f"    ├─ *** FRONTHAUL ISSUE BETWEEN DU TO RU ***")
-                print(f"    ├─ DU MAC: {self.DU_MAC}")
-                print(f"    ├─ RU MAC: {self.RU_MAC}")
+                print(f"    - Type: {anomaly['anomaly_type']}")
+                print(f"    - *** FRONTHAUL ISSUE BETWEEN DU TO RU ***")
+                print(f"    - DU MAC: {self.DU_MAC}")
+                print(f"    - RU MAC: {self.RU_MAC}")
 
                 if 'ue_id' in anomaly:
-                    print(f"    ├─ UE ID: {anomaly['ue_id']}")
+                    print(f"    - UE ID: {anomaly['ue_id']}")
 
-                print(f"    └─ Issues Detected:")
+                print(f"    - Issues Detected:")
                 for detail in anomaly['details']:
-                    print(f"       • {detail}")
+                    print(f"       - {detail}")
 
             if len(anomalies) > 2:
                 print(f"    ... and {len(anomalies) - 2} additional anomalies")
@@ -497,13 +497,13 @@ class ClickHouseFolderAnalyzer:
         if pcap_anomalies:
             actions.extend([
                 "1. INSPECT DU-RU physical connections and cable integrity",
-                "2. ⚡ CHECK fronthaul timing synchronization (target: <100μs)",
+                "2. CHECK fronthaul timing synchronization (target: <100us)",
                 "3. MONITOR packet loss rates and communication ratios"
             ])
 
         if text_anomalies:
             actions.extend([
-                f"{len(actions)+1}. 📱 INVESTIGATE UE attachment failure patterns",
+                f"{len(actions)+1}. INVESTIGATE UE attachment failure patterns",
                 f"{len(actions)+2}. REVIEW context setup procedures and timeouts",
                 f"{len(actions)+3}. ANALYZE mobility management and handover processes"
             ])
@@ -518,7 +518,7 @@ class ClickHouseFolderAnalyzer:
             print(f"   {action}")
 
         # Technical Summary
-        print(f"\n" + "🔬 TECHNICAL SUMMARY".ljust(50, '='))
+        print(f"\n" + "TECHNICAL SUMMARY".ljust(50, '='))
         print(f"ML Algorithms: Isolation Forest, DBSCAN, One-Class SVM, LOF")
         print(f"Detection Method: Ensemble voting (>=2 algorithms for high confidence)")
         print(f"Analysis Scope: DU-RU communication + UE mobility patterns")
@@ -570,7 +570,7 @@ class ClickHouseFolderAnalyzer:
 
                         f.write(f"    Issues:\n")
                         for detail in anomaly['details']:
-                            f.write(f"      • {detail}\n")
+                            f.write(f"      - {detail}\n")
                 else:
                     f.write("NO ANOMALIES DETECTED\n")
                     f.write("All network files appear to be functioning normally.\n")
@@ -584,11 +584,11 @@ def main():
     print("FOLDER-BASED L1 ANOMALY DETECTION SYSTEM WITH CLICKHOUSE")
     print("=" * 65)
     print("Automatically processes all files in folder:")
-    print("• PCAP files (.pcap, .cap)")
-    print("• HDF5 text files (.txt, .log)")
-    print("• Auto-detects file types")
-    print("• ClickHouse database integration")
-    print("• Batch processing with summary report")
+    print("- PCAP files (.pcap, .cap)")
+    print("- HDF5 text files (.txt, .log)")
+    print("- Auto-detects file types")
+    print("- ClickHouse database integration")
+    print("- Batch processing with summary report")
 
     # Check for dummy mode FIRST (before anything else)
     dummy_mode = False

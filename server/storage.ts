@@ -1063,7 +1063,29 @@ export class ClickHouseStorage implements IStorage {
 
   async getAnomalyTrends(days: number): Promise<AnomalyTrend[]> {
     try {
-      // Return sample trend data
+      try {
+        const result = await clickhouse.query(`
+          SELECT 
+            toDate(timestamp) as date,
+            count() as count
+          FROM l1_anomaly_detection.anomalies
+          WHERE timestamp >= now() - INTERVAL ${days} DAY
+          GROUP BY toDate(timestamp)
+          ORDER BY date ASC
+        `);
+
+        if (result && result.length > 0) {
+          console.log('Retrieved anomaly trends from ClickHouse');
+          return result.map((row: any) => ({
+            date: row.date,
+            count: row.count
+          }));
+        }
+      } catch (chError) {
+        console.log('ClickHouse trends query failed, using sample data');
+      }
+
+      // Sample trend data fallback
       const trends: AnomalyTrend[] = [];
       const now = new Date();
 
@@ -1099,9 +1121,9 @@ export class ClickHouseStorage implements IStorage {
           ORDER BY count() DESC
         `);
 
-        if (result.data && result.data.length > 0) {
+        if (result && result.length > 0) {
           console.log('Retrieved anomaly breakdown from ClickHouse');
-          return result.data.map((row: any) => ({
+          return result.map((row: any) => ({
             type: row.type,
             count: row.count,
             percentage: Math.round(row.percentage * 10) / 10
@@ -1144,9 +1166,9 @@ export class ClickHouseStorage implements IStorage {
             END
         `);
 
-        if (result.data && result.data.length > 0) {
+        if (result && result.length > 0) {
           console.log('Retrieved severity breakdown from ClickHouse');
-          return result.data.map((row: any) => ({
+          return result.map((row: any) => ({
             severity: row.severity,
             count: row.count,
             percentage: Math.round(row.percentage * 10) / 10
@@ -1179,9 +1201,9 @@ export class ClickHouseStorage implements IStorage {
           ORDER BY toDate(timestamp), hour
         `);
 
-        if (result.data && result.data.length > 0) {
+        if (result && result.length > 0) {
           console.log('Retrieved heatmap data from ClickHouse');
-          return result.data.map((row: any) => ({
+          return result.map((row: any) => ({
             hour: row.hour,
             day: row.day,
             count: row.count
@@ -1213,9 +1235,9 @@ export class ClickHouseStorage implements IStorage {
           LIMIT ${limit}
         `);
 
-        if (result.data && result.data.length > 0) {
+        if (result && result.length > 0) {
           console.log('Retrieved top sources from ClickHouse');
-          return result.data.map((row: any) => ({
+          return result.map((row: any) => ({
             source: row.source,
             count: row.count
           }));

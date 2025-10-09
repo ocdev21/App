@@ -152,10 +152,12 @@ export default function RecommendationsWindow() {
               </div>
             </div>
           ) : recommendations ? (
-            <div className="prose prose-sm max-w-none text-gray-800">
-              <pre className="whitespace-pre-wrap font-sans">{recommendations}</pre>
+            <div className="relative">
+              <div className="w-full min-h-[200px] max-h-[800px] p-4 border border-gray-200 rounded-lg font-sans text-sm text-gray-800 whitespace-pre-wrap overflow-y-auto bg-white">
+                {recommendations}
+              </div>
               {isStreaming && (
-                <span className="inline-block w-2 h-4 bg-blue-600 animate-pulse ml-1" />
+                <span className="absolute bottom-4 right-4 inline-block w-2 h-4 bg-blue-600 animate-pulse" />
               )}
             </div>
           ) : (

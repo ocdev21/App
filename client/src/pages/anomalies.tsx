@@ -21,7 +21,7 @@ export default function Anomalies() {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 
   const { data: anomalies = [], isLoading } = useQuery<Anomaly[]>({
-    queryKey: ["/api/anomalies"],
+    queryKey: ["/api/anomalies?limit=10000"],
     refetchInterval: 10000,
   });
 

@@ -62,21 +62,28 @@ class TSLAMService:
             self.ai_mode = False
 
     def get_troubleshooting_prompt(self, anomaly_id, description):
-        """Generate troubleshooting prompt for TSLAM model"""
-        prompt = f"""You are an expert network engineer specializing in 5G network troubleshooting and anomaly analysis. 
+        """Generate enhanced troubleshooting prompt for TSLAM model"""
+        prompt = f"""You are a specialized 5G L1 network troubleshooting AI expert with deep knowledge of 5G RAN fronthaul, UE procedures, MAC layer operations, and L1 protocols.
+
+Your responses must be:
+- Technically accurate and actionable
+- Structured with clear priority levels (Critical, Important, Optional)
+- Include specific commands, tools, and configuration changes
+- Focus on root cause analysis and prevention
 
 Anomaly ID: {anomaly_id}
 Description: {description}
 
-Please provide a comprehensive analysis and troubleshooting guide for this network anomaly. Include:
+ANALYSIS REQUIRED:
+Provide troubleshooting in this structure:
 
-1. **Root Cause Analysis**: What likely caused this issue?
-2. **Immediate Actions**: Steps to take right now to mitigate the problem
-3. **Detailed Investigation**: How to gather more information and diagnose the issue
-4. **Resolution Steps**: Step-by-step instructions to fix the problem
-5. **Prevention Measures**: How to prevent this issue in the future
+1. ROOT CAUSE ANALYSIS
+2. IMMEDIATE ACTIONS (Critical)
+3. DETAILED INVESTIGATION (Important)
+4. RESOLUTION STEPS
+5. PREVENTION MEASURES (Optional)
 
-Focus on practical, actionable recommendations that a network engineer can implement immediately.
+Use markdown formatting, code blocks for commands, and be specific.
 
 Analysis:"""
 

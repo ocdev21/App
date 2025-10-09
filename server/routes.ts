@@ -435,21 +435,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`SSE: Connecting to AI inference server: ${inferenceUrl}`);
 
-      // Prepare LLM request
+      // Prepare enhanced LLM request with structured prompt
       const llmRequest = {
         model: "mistral-7b-instruct-gguf",
         messages: [
           {
             role: "system",
-            content: "You are an expert L1 network troubleshooting AI assistant. Analyze the anomaly and provide specific technical recommendations for resolution."
+            content: `You are a specialized 5G L1 network troubleshooting AI expert with deep knowledge of 5G RAN fronthaul, UE procedures, MAC layer operations, and L1 protocols.
+
+Your responses must be:
+- Technically accurate and actionable
+- Structured with clear priority levels (Critical, Important, Optional)
+- Include specific commands, tools, and configuration changes
+- Focus on root cause analysis and prevention`
           },
           {
             role: "user",
-            content: `Analyze this L1 network anomaly:\n\nType: ${anomaly.type}\nDescription: ${anomaly.description || 'Network anomaly detected'}\nSeverity: ${anomaly.severity || 'unknown'}\n\n${anomaly.error_log ? `Packet/Event Details:\n${anomaly.error_log}\n\n` : ''}Provide detailed troubleshooting steps and root cause analysis.`
+            content: `ANOMALY REPORT:
+━━━━━━━━━━━━━━━━
+ID: ${anomaly.id}
+Type: ${anomaly.type}
+Severity: ${anomaly.severity}
+Timestamp: ${new Date(anomaly.timestamp).toLocaleString()}
+Source: ${anomaly.source_file}
+
+DESCRIPTION:
+${anomaly.description || 'Network anomaly detected'}
+
+${anomaly.error_log ? `TECHNICAL DETAILS:
+${anomaly.error_log}
+
+` : ''}${anomaly.mac_address || anomaly.ue_id ? `NETWORK ENTITIES:
+- MAC Address: ${anomaly.mac_address || 'N/A'}
+- UE ID: ${anomaly.ue_id || 'N/A'}
+
+` : ''}${anomaly.packet_number ? `PACKET INFO:
+- Packet Number: ${anomaly.packet_number}
+
+` : ''}ANALYSIS REQUIRED:
+Provide troubleshooting in this structure:
+
+1. ROOT CAUSE ANALYSIS
+2. IMMEDIATE ACTIONS (Critical)
+3. DETAILED INVESTIGATION (Important)
+4. RESOLUTION STEPS
+5. PREVENTION MEASURES (Optional)
+
+Use markdown formatting, code blocks for commands, and be specific.`
           }
         ],
-        max_tokens: 500,
-        temperature: 0.3,
+        max_tokens: 800,
+        temperature: 0.2,
+        top_p: 0.9,
+        presence_penalty: 0.1,
         stream: true
       };
 

@@ -5,6 +5,11 @@ export default {
     "./index.html",
     "./client/**/*.{js,ts,jsx,tsx}",
   ],
+  safelist: [
+    'whitespace-nowrap',
+    'overflow-hidden',
+    'text-ellipsis',
+  ],
   theme: {
     extend: {},
   },

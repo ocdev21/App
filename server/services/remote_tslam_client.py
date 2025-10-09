@@ -17,19 +17,26 @@ class RemoteTSLAMClient:
     async def stream_analysis(self, prompt, websocket):
         """Stream analysis from vLLM TSLAM server using OpenAI API format"""
         try:
-            # Format prompt for network troubleshooting
-            system_prompt = "You are TSLAM-4B, an expert L1 network troubleshooting AI. Analyze the network anomaly and provide specific technical recommendations."
+            # Enhanced system prompt for network troubleshooting
+            system_prompt = """You are a specialized 5G L1 network troubleshooting AI expert with deep knowledge of 5G RAN fronthaul, UE procedures, MAC layer operations, and L1 protocols.
+
+Your responses must be:
+- Technically accurate and actionable
+- Structured with clear priority levels (Critical, Important, Optional)
+- Include specific commands, tools, and configuration changes
+- Focus on root cause analysis and prevention"""
             
             payload = {
                 "model": "tslam-4b",
                 "messages": [
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Analyze this L1 network anomaly: {prompt}"}
+                    {"role": "user", "content": prompt}
                 ],
                 "stream": True,
-                "max_tokens": 500,
+                "max_tokens": 800,
                 "temperature": 0.2,
-                "top_p": 0.9
+                "top_p": 0.9,
+                "presence_penalty": 0.1
             }
             
             # Send streaming request to vLLM

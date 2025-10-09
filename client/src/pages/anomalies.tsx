@@ -86,7 +86,7 @@ export default function Anomalies() {
     window.open(
       `/recommendations-window?anomalyId=${anomaly.id}`,
       '_blank',
-      `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+      `width=${width},height=${height},left=${left},top=${top},toolbar=no,location=no,menubar=no,status=no,resizable=yes,scrollbars=yes`
     );
   };
 
@@ -101,7 +101,7 @@ export default function Anomalies() {
     window.open(
       `/details-window?anomalyId=${anomaly.id}`,
       '_blank',
-      `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+      `width=${width},height=${height},left=${left},top=${top},toolbar=no,location=no,menubar=no,status=no,resizable=yes,scrollbars=yes`
     );
   };
 
@@ -149,88 +149,111 @@ export default function Anomalies() {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
+      {/* Table with bordered rows */}
+      <div className="bg-white rounded-lg shadow overflow-hidden border border-gray-300">
+        <table className="min-w-full">
+          <thead>
+            <tr style={{ backgroundColor: '#e5e7eb', borderBottom: '2px solid #9ca3af' }}>
               <th
                 onClick={() => handleSort('timestamp')}
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider cursor-pointer"
+                style={{ borderRight: '1px solid #d1d5db' }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#d1d5db'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
               >
                 Timestamp
               </th>
               <th
                 onClick={() => handleSort('type')}
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider cursor-pointer"
+                style={{ borderRight: '1px solid #d1d5db' }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#d1d5db'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
               >
                 Type
               </th>
               <th
                 onClick={() => handleSort('description')}
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider cursor-pointer"
+                style={{ borderRight: '1px solid #d1d5db' }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#d1d5db'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
               >
                 Description
               </th>
               <th
                 onClick={() => handleSort('severity')}
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider cursor-pointer"
+                style={{ borderRight: '1px solid #d1d5db' }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#d1d5db'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
               >
                 Severity
               </th>
               <th
                 onClick={() => handleSort('source_file')}
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider cursor-pointer"
+                style={{ borderRight: '1px solid #d1d5db' }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#d1d5db'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
               >
                 Source
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                 Actions
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-white">
             {isLoading ? (
-              <tr>
+              <tr style={{ borderBottom: '1px solid #cbd5e1' }}>
                 <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
                   Loading...
                 </td>
               </tr>
             ) : paginatedAnomalies.length === 0 ? (
-              <tr>
+              <tr style={{ borderBottom: '1px solid #cbd5e1' }}>
                 <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
                   No anomalies found
                 </td>
               </tr>
             ) : (
-              paginatedAnomalies.map((anomaly, index) => (
-                <tr key={anomaly.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+              paginatedAnomalies.map((anomaly) => (
+                <tr 
+                  key={anomaly.id} 
+                  className="transition-colors duration-150"
+                  style={{ borderBottom: '1px solid #cbd5e1' }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#fef3c7'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
+                >
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900" style={{ borderRight: '1px solid #e5e7eb' }}>
                     {new Date(anomaly.timestamp).toLocaleString()}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900" style={{ borderRight: '1px solid #e5e7eb' }}>
                     {anomaly.type}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">
+                  <td className="px-6 py-4 text-sm text-gray-900" style={{ borderRight: '1px solid #e5e7eb' }}>
                     {anomaly.description}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900" style={{ borderRight: '1px solid #e5e7eb' }}>
                     {anomaly.severity}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
+                  <td className="px-6 py-4 text-sm text-gray-500" style={{ borderRight: '1px solid #e5e7eb' }}>
                     {anomaly.source_file}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => handleGetRecommendations(anomaly)}
-                        className="inline-flex items-center justify-center px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors cursor-pointer"
+                        className="inline-flex items-center justify-center px-4 py-2 text-sm text-white bg-blue-500 border border-gray-300 rounded-full hover:bg-blue-600 transition-colors cursor-pointer"
+                        style={{ fontFamily: 'Arial, sans-serif' }}
                       >
                         Recommend
                       </button>
                       <button
                         onClick={() => handleGetDetails(anomaly)}
-                        className="inline-flex items-center justify-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors cursor-pointer"
+                        className="inline-flex items-center justify-center px-4 py-2 text-sm text-white bg-blue-500 border border-gray-300 rounded-full hover:bg-blue-600 transition-colors cursor-pointer"
+                        style={{ fontFamily: 'Arial, sans-serif' }}
                       >
                         Details
                       </button>

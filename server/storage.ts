@@ -927,14 +927,19 @@ export class ClickHouseStorage implements IStorage {
         const fileResult = await clickhouse.query("SELECT count() FROM l1_anomaly_detection.processed_files WHERE processing_status = 'completed'");
         const totalFileResult = await clickhouse.query("SELECT count() FROM l1_anomaly_detection.processed_files");
 
-        const totalAnomalies = anomalyResult.data?.[0]?.['count()'] || 0;
-        const sessionsAnalyzed = sessionResult.data?.[0]?.['count()'] || 0;
-        const filesProcessed = fileResult.data?.[0]?.['count()'] || 0;
-        const totalFiles = totalFileResult.data?.[0]?.['count()'] || 0;
+        const totalAnomalies = anomalyResult?.[0]?.['count()'] || 0;
+        const sessionsAnalyzed = sessionResult?.[0]?.['count()'] || 0;
+        const filesProcessed = fileResult?.[0]?.['count()'] || 0;
+        const totalFiles = totalFileResult?.[0]?.['count()'] || 0;
 
         const detectionRate = totalFiles > 0 ? (filesProcessed / totalFiles) * 100 : 0;
 
-        console.log('Retrieved dashboard metrics from ClickHouse');
+        console.log('Retrieved dashboard metrics from ClickHouse:', {
+          totalAnomalies,
+          sessionsAnalyzed,
+          filesProcessed,
+          detectionRate
+        });
         return {
           totalAnomalies,
           sessionsAnalyzed,
@@ -993,10 +998,10 @@ export class ClickHouseStorage implements IStorage {
           WHERE upload_date <= now() - INTERVAL 7 DAY
         `);
 
-        const weekAgoAnomalies = weekAgoAnomaliesResult.data?.[0]?.['count()'] || 0;
-        const weekAgoSessions = weekAgoSessionsResult.data?.[0]?.['count()'] || 0;
-        const weekAgoFilesProcessed = weekAgoFilesResult.data?.[0]?.['count()'] || 0;
-        const weekAgoTotalFiles = weekAgoTotalFilesResult.data?.[0]?.['count()'] || 0;
+        const weekAgoAnomalies = weekAgoAnomaliesResult?.[0]?.['count()'] || 0;
+        const weekAgoSessions = weekAgoSessionsResult?.[0]?.['count()'] || 0;
+        const weekAgoFilesProcessed = weekAgoFilesResult?.[0]?.['count()'] || 0;
+        const weekAgoTotalFiles = weekAgoTotalFilesResult?.[0]?.['count()'] || 0;
         
         const weekAgoDetectionRate = weekAgoTotalFiles > 0 ? (weekAgoFilesProcessed / weekAgoTotalFiles) * 100 : 0;
 

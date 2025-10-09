@@ -17,6 +17,7 @@ import json
 from unified_l1_analyzer import UnifiedL1Analyzer
 from ml_anomaly_detection import MLAnomalyDetector
 from server.services.ue_analyzer import UEEventAnalyzer
+from server.services.ml_ue_analyzer import MLUEEventAnalyzer
 
 class ClickHouseFolderAnalyzer:
     def __init__(self, clickhouse_host='localhost', clickhouse_port=9000, skip_database=False):
@@ -194,7 +195,8 @@ class ClickHouseFolderAnalyzer:
                     str(self.DU_MAC),
                     str(self.RU_MAC),
                     datetime.now(),  # Fixed: Use datetime object directly, not string
-                    'active'
+                    'active',
+                    str(anomaly.get('error_log', ''))  # NEW: Packet/event data for LLM analysis
                 ]
                 anomaly_records.append(record)
 
@@ -202,7 +204,7 @@ class ClickHouseFolderAnalyzer:
             self.client.insert('anomalies', anomaly_records, column_names=[
                 'id', 'file_path', 'file_type', 'packet_number', 'anomaly_type',
                 'severity', 'description', 'details', 'ue_id', 'du_mac', 
-                'ru_mac', 'timestamp', 'status'
+                'ru_mac', 'timestamp', 'status', 'error_log'
             ])
 
             print(f"✅ {len(high_confidence_anomalies)} high-confidence anomalies stored in ClickHouse database")
@@ -239,6 +241,7 @@ class ClickHouseFolderAnalyzer:
                             'line_number': packet_num,  # Use packet_number as line_number for PCAP files
                             'anomaly_type': 'DU-RU Communication',
                             'confidence': confidence,  # Add confidence score
+                            'error_log': anomaly.get('error_log', ''),  # Packet data for LLM
                             'details': [
                                 f"Confidence: {confidence:.2f} ({int(confidence*100)}%)",
                                 f"Missing Responses: {anomaly.get('missing_responses', 0)} DU packets without RU replies",
@@ -250,8 +253,9 @@ class ClickHouseFolderAnalyzer:
                 self.pcap_files_processed += 1
 
             elif file_type == 'TEXT':
-                # Use UE event analyzer for text files
+                # Use both rule-based and ML-based UE event analyzers
                 analyzer = UEEventAnalyzer()
+                ml_analyzer = MLUEEventAnalyzer()
                 
                 # Read file content
                 with open(file_path, 'r') as f:
@@ -261,7 +265,7 @@ class ClickHouseFolderAnalyzer:
                 events = analyzer.parse_ue_events(log_content)
                 
                 if events:
-                    # Simple pattern analysis without database writes
+                    # RULE-BASED DETECTION: Simple pattern analysis
                     ue_sessions = {}
                     for event in events:
                         ue_id = event['ue_id']
@@ -269,31 +273,70 @@ class ClickHouseFolderAnalyzer:
                             ue_sessions[ue_id] = []
                         ue_sessions[ue_id].append(event)
                     
-                    # Check for anomalous patterns
+                    # Check for anomalous patterns - more sensitive detection
                     for ue_id, ue_events in ue_sessions.items():
                         attach_count = len([e for e in ue_events if e['event_type'] == 'attach'])
                         failed_attaches = len([e for e in ue_events if e.get('event_subtype') == 'failed_attach'])
+                        attach_timeouts = len([e for e in ue_events if e.get('event_subtype') == 'attach_timeout'])
                         abnormal_detaches = len([e for e in ue_events if e.get('event_subtype') == 'abnormal_detach'])
+                        forced_detaches = len([e for e in ue_events if e.get('event_subtype') == 'forced_detach'])
                         
-                        # Flag excessive activity or failures
-                        if attach_count > 10 or failed_attaches > 3 or abnormal_detaches > 0:
+                        # Flag ANY attach/detach failures (lowered threshold for better detection)
+                        if failed_attaches > 0 or attach_timeouts > 0 or abnormal_detaches > 0 or forced_detaches > 0 or attach_count > 10:
+                            # Build descriptive details
+                            failure_types = []
+                            if failed_attaches > 0:
+                                failure_types.append(f"attach rejected: {failed_attaches}")
+                            if attach_timeouts > 0:
+                                failure_types.append(f"attach timeout: {attach_timeouts}")
+                            if abnormal_detaches > 0:
+                                failure_types.append(f"abnormal detach: {abnormal_detaches}")
+                            if forced_detaches > 0:
+                                failure_types.append(f"forced detach: {forced_detaches}")
+                            if attach_count > 10:
+                                failure_types.append(f"excessive attach attempts: {attach_count}")
+                            
+                            description = f"UE {ue_id} {'attach rejected, cause: authentication failure' if failed_attaches > 0 else ', '.join(failure_types)}"
+                            
+                            # Create error_log with event summary
+                            event_summary = f"UE {ue_id} Events: " + ", ".join([f"{e['event_type']}({e.get('event_subtype', 'normal')})" for e in ue_events[:5]])
+                            if len(ue_events) > 5:
+                                event_summary += f" ... and {len(ue_events)-5} more events"
+                            
                             anomaly_record = {
                                 'file': file_path,
                                 'file_type': file_type,
                                 'packet_number': 1,
-                                'line_number': 1,  # Add line_number for TEXT files
-                                'anomaly_type': 'UE Event Pattern',
+                                'line_number': ue_events[0]['line_number'] if ue_events else 1,
+                                'anomaly_type': description,
                                 'ue_id': ue_id,
                                 'confidence': 1.0,  # TEXT anomalies are rule-based, high confidence
+                                'error_log': event_summary,  # Event log content for LLM
                                 'details': [
+                                    f"Rule-Based Detection",
                                     f"Attach attempts: {attach_count}",
                                     f"Failed attaches: {failed_attaches}",
-                                    f"Abnormal detaches: {abnormal_detaches}"
+                                    f"Attach timeouts: {attach_timeouts}",
+                                    f"Abnormal detaches: {abnormal_detaches}",
+                                    f"Forced detaches: {forced_detaches}"
                                 ]
                             }
                             anomalies.append(anomaly_record)
                     
-                    print(f"  Parsed {len(events)} UE events, found {len(anomalies)} anomalies")
+                    rule_based_count = len(anomalies)
+                    
+                    # ML-BASED DETECTION: Advanced pattern analysis with ensemble
+                    print(f"  Rule-based: Found {rule_based_count} anomalies")
+                    ml_anomalies = ml_analyzer.detect_anomalies(events, file_path)
+                    
+                    # Add ML-detected anomalies
+                    for ml_anomaly in ml_anomalies:
+                        anomalies.append(ml_anomaly)
+                    
+                    print(f"  Parsed {len(events)} UE events, found {len(anomalies)} total anomalies ({rule_based_count} rule-based + {len(ml_anomalies)} ML-based)")
+                    if len(anomalies) > 0:
+                        print(f"  Detected: {sum(1 for a in anomalies if 'attach' in str(a.get('anomaly_type', '')).lower())} attach failures, "
+                              f"{sum(1 for a in anomalies if 'detach' in str(a.get('anomaly_type', '')).lower())} detach failures")
                 else:
                     print(f"  No UE events found in file")
                 

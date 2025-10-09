@@ -25,14 +25,25 @@ export default function DetailsWindow() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-3xl mx-auto">
-        {/* Header */}
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Anomaly Details & AI Analysis</h1>
+    <div className="min-h-screen bg-white">
+      {/* Blue Header Bar */}
+      <div className="bg-blue-500 px-6 py-4 flex items-center justify-between">
+        <h1 className="text-xl font-semibold text-white">Anomaly Details & AI Analysis</h1>
+        <button
+          onClick={() => window.close()}
+          className="text-white hover:text-gray-200 transition-colors text-2xl font-light leading-none"
+          aria-label="Close"
+        >
+          ×
+        </button>
+      </div>
+
+      <div className="max-w-3xl mx-auto p-6">
+        {/* Anomaly Info */}
+        <div className="bg-white rounded-lg shadow-lg p-6 mb-6 border border-gray-200">
           
           {anomaly && (
-            <div className="grid grid-cols-2 gap-4 text-sm border-t pt-4">
+            <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="font-medium text-gray-700">Type:</span>
                 <p className="text-gray-900 capitalize">{anomaly.type?.replace(/_/g, ' ')}</p>
@@ -156,15 +167,6 @@ export default function DetailsWindow() {
             </div>
           </div>
         ) : null}
-
-        <div className="mt-6 text-center">
-          <button
-            onClick={() => window.close()}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-          >
-            Close Window
-          </button>
-        </div>
       </div>
     </div>
   );

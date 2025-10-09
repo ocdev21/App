@@ -11,15 +11,41 @@ from server.services.clickhouse_client import clickhouse_client
 class UEEventAnalyzer:
     def __init__(self):
         self.anomalies_detected = []
+        # More flexible patterns to match various log formats
         self.attach_patterns = {
-            'normal_attach': r'UE\s+(\d+)\s+ATTACH_REQUEST.*ATTACH_ACCEPT',
-            'failed_attach': r'UE\s+(\d+)\s+ATTACH_REQUEST.*ATTACH_REJECT',
-            'attach_timeout': r'UE\s+(\d+)\s+ATTACH_REQUEST.*TIMEOUT',
+            'normal_attach': [
+                r'UE\s*[:#]?\s*(\d+).*ATTACH.*(?:SUCCESS|ACCEPT|COMPLETE)',
+                r'UE\s+(\d+)\s+ATTACH_REQUEST.*ATTACH_ACCEPT',
+                r'UE.*(\d+).*attached\s+successfully',
+            ],
+            'failed_attach': [
+                r'UE\s*[:#]?\s*(\d+).*ATTACH.*(?:REJECT|FAIL|DENIED|ERROR)',
+                r'UE\s+(\d+)\s+ATTACH_REQUEST.*ATTACH_REJECT',
+                r'UE.*(\d+).*attach.*(?:reject|fail)',
+                r'UE\s*[:#]?\s*(\d+).*authentication\s+failure',
+            ],
+            'attach_timeout': [
+                r'UE\s*[:#]?\s*(\d+).*ATTACH.*TIMEOUT',
+                r'UE\s+(\d+)\s+ATTACH_REQUEST.*TIMEOUT',
+                r'UE.*(\d+).*attach.*timeout',
+            ],
         }
         self.detach_patterns = {
-            'normal_detach': r'UE\s+(\d+)\s+DETACH_REQUEST.*DETACH_ACCEPT',
-            'abnormal_detach': r'UE\s+(\d+)\s+DETACH_INDICATION',
-            'forced_detach': r'UE\s+(\d+)\s+DETACH_REQUEST.*NETWORK_INITIATED',
+            'normal_detach': [
+                r'UE\s*[:#]?\s*(\d+).*DETACH.*(?:ACCEPT|COMPLETE)',
+                r'UE\s+(\d+)\s+DETACH_REQUEST.*DETACH_ACCEPT',
+                r'UE.*(\d+).*detached\s+successfully',
+            ],
+            'abnormal_detach': [
+                r'UE\s*[:#]?\s*(\d+).*DETACH.*(?:INDICATION|ABNORMAL|FORCED)',
+                r'UE\s+(\d+)\s+DETACH_INDICATION',
+                r'UE.*(\d+).*(?:abnormal|unexpected).*detach',
+            ],
+            'forced_detach': [
+                r'UE\s*[:#]?\s*(\d+).*DETACH.*NETWORK_INITIATED',
+                r'UE\s+(\d+)\s+DETACH_REQUEST.*NETWORK_INITIATED',
+                r'UE.*(\d+).*network.*detach',
+            ],
         }
     
     def parse_ue_events(self, log_content):
@@ -32,37 +58,67 @@ class UEEventAnalyzer:
             if not line:
                 continue
             
-            # Extract timestamp if present
-            timestamp_match = re.search(r'(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})', line)
-            timestamp = datetime.strptime(timestamp_match.group(1), '%Y-%m-%d %H:%M:%S') if timestamp_match else datetime.now()
+            # Extract timestamp if present (multiple formats)
+            timestamp = datetime.now()
+            timestamp_patterns = [
+                r'(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})',
+                r'(\d{2}/\d{2}/\d{4}\s+\d{2}:\d{2}:\d{2})',
+                r'(\d{4}\.\d{2}\.\d{2}\s+\d{2}:\d{2}:\d{2})',
+            ]
+            for ts_pattern in timestamp_patterns:
+                timestamp_match = re.search(ts_pattern, line)
+                if timestamp_match:
+                    try:
+                        ts_str = timestamp_match.group(1)
+                        if '-' in ts_str:
+                            timestamp = datetime.strptime(ts_str, '%Y-%m-%d %H:%M:%S')
+                        elif '/' in ts_str:
+                            timestamp = datetime.strptime(ts_str, '%m/%d/%Y %H:%M:%S')
+                        elif '.' in ts_str:
+                            timestamp = datetime.strptime(ts_str, '%Y.%m.%d %H:%M:%S')
+                        break
+                    except:
+                        pass
             
-            # Check for attach events
-            for event_type, pattern in self.attach_patterns.items():
-                match = re.search(pattern, line, re.IGNORECASE)
-                if match:
-                    ue_id = match.group(1)
-                    events.append({
-                        'timestamp': timestamp,
-                        'ue_id': ue_id,
-                        'event_type': 'attach',
-                        'event_subtype': event_type,
-                        'line_number': line_num + 1,
-                        'raw_line': line
-                    })
+            # Check for attach events (now with multiple patterns per type)
+            for event_type, patterns in self.attach_patterns.items():
+                for pattern in patterns:
+                    match = re.search(pattern, line, re.IGNORECASE)
+                    if match:
+                        ue_id = match.group(1)
+                        events.append({
+                            'timestamp': timestamp,
+                            'ue_id': ue_id,
+                            'event_type': 'attach',
+                            'event_subtype': event_type,
+                            'line_number': line_num + 1,
+                            'raw_line': line
+                        })
+                        break  # Stop after first match for this event type
             
-            # Check for detach events
-            for event_type, pattern in self.detach_patterns.items():
-                match = re.search(pattern, line, re.IGNORECASE)
-                if match:
-                    ue_id = match.group(1)
-                    events.append({
-                        'timestamp': timestamp,
-                        'ue_id': ue_id,
-                        'event_type': 'detach',
-                        'event_subtype': event_type,
-                        'line_number': line_num + 1,
-                        'raw_line': line
-                    })
+            # Check for detach events (now with multiple patterns per type)
+            for event_type, patterns in self.detach_patterns.items():
+                for pattern in patterns:
+                    match = re.search(pattern, line, re.IGNORECASE)
+                    if match:
+                        ue_id = match.group(1)
+                        events.append({
+                            'timestamp': timestamp,
+                            'ue_id': ue_id,
+                            'event_type': 'detach',
+                            'event_subtype': event_type,
+                            'line_number': line_num + 1,
+                            'raw_line': line
+                        })
+                        break  # Stop after first match for this event type
+        
+        print(f"DEBUG: Parsed {len(events)} UE events from {len(lines)} lines")
+        if events:
+            attach_count = len([e for e in events if e['event_type'] == 'attach'])
+            detach_count = len([e for e in events if e['event_type'] == 'detach'])
+            failed_attach = len([e for e in events if e.get('event_subtype') == 'failed_attach'])
+            print(f"  - Attach events: {attach_count} (failed: {failed_attach})")
+            print(f"  - Detach events: {detach_count}")
         
         return events
     
@@ -135,23 +191,30 @@ class UEEventAnalyzer:
                 clickhouse_client.insert_anomaly(anomaly)
                 anomaly_count += 1
             
-            # Check for attach failures
+            # Check for attach failures (detect even single failures)
             failed_attaches = [e for e in ue_events if e['event_subtype'] == 'failed_attach']
-            if len(failed_attaches) > 3:  # More than 3 failed attempts
+            attach_timeouts = [e for e in ue_events if e['event_subtype'] == 'attach_timeout']
+            
+            if failed_attaches or attach_timeouts:  # Any attach failure is significant
+                total_failures = len(failed_attaches) + len(attach_timeouts)
+                failure_type = "attach failures" if failed_attaches else "attach timeouts"
+                
                 anomaly_id = str(uuid.uuid4())
                 anomaly = {
                     'id': anomaly_id,
-                    'timestamp': failed_attaches[0]['timestamp'],
+                    'timestamp': (failed_attaches[0] if failed_attaches else attach_timeouts[0])['timestamp'],
                     'type': 'ue_event',
-                    'description': f"Multiple attach failures for UE {ue_id}",
-                    'severity': 'high',
+                    'description': f"UE {ue_id} {failure_type}, cause: {'authentication failure' if failed_attaches else 'timeout'}",
+                    'severity': 'high' if total_failures > 3 else 'medium',
                     'source_file': source_file,
                     'mac_address': None,
                     'ue_id': ue_id,
                     'details': json.dumps({
                         'failed_attach_count': len(failed_attaches),
-                        'failure_rate': len(failed_attaches) / attach_count if attach_count > 0 else 1.0,
-                        'first_failure': failed_attaches[0]['timestamp'].isoformat()
+                        'timeout_count': len(attach_timeouts),
+                        'total_failures': total_failures,
+                        'failure_rate': total_failures / attach_count if attach_count > 0 else 1.0,
+                        'first_failure': (failed_attaches[0] if failed_attaches else attach_timeouts[0])['timestamp'].isoformat()
                     }),
                     'status': 'open'
                 }

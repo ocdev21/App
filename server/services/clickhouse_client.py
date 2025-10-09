@@ -64,7 +64,8 @@ class ClickHouseClient:
                 du_mac String,
                 ru_mac String,
                 timestamp DateTime,
-                status String
+                status String,
+                error_log String DEFAULT ''
             ) ENGINE = MergeTree()
             ORDER BY (timestamp, severity, anomaly_type)
             PARTITION BY toYYYYMM(timestamp)
@@ -120,14 +121,36 @@ class ClickHouseClient:
         """Insert anomaly into ClickHouse"""
         anomaly_id = anomaly_data.get('id', '')
         
-        self.client.insert('anomalies', [anomaly_data])
+        # Convert dict to sequence format for ClickHouse insert
+        record = [[
+            anomaly_data.get('id'),
+            anomaly_data.get('file_path', ''),
+            anomaly_data.get('file_type', ''),
+            anomaly_data.get('packet_number', 1),
+            anomaly_data.get('anomaly_type', ''),
+            anomaly_data.get('severity', ''),
+            anomaly_data.get('description', ''),
+            anomaly_data.get('details', ''),
+            anomaly_data.get('ue_id', ''),
+            anomaly_data.get('du_mac', ''),
+            anomaly_data.get('ru_mac', ''),
+            anomaly_data.get('timestamp'),
+            anomaly_data.get('status', 'open'),
+            anomaly_data.get('error_log', '')
+        ]]
+        
+        self.client.insert('anomalies', record, column_names=[
+            'id', 'file_path', 'file_type', 'packet_number', 'anomaly_type',
+            'severity', 'description', 'details', 'ue_id', 'du_mac',
+            'ru_mac', 'timestamp', 'status', 'error_log'
+        ])
         return anomaly_id
     
     def get_anomalies(self, limit: int = 50, offset: int = 0, 
                      type_filter: Optional[str] = None, 
                      severity_filter: Optional[str] = None) -> List[Dict[str, Any]]:
         """Get anomalies with filtering"""
-        query = "SELECT id, timestamp, anomaly_type, description, severity, file_path, file_type, packet_number, du_mac, ru_mac, ue_id, details, status FROM anomalies WHERE 1=1"
+        query = "SELECT id, timestamp, anomaly_type, description, severity, file_path, file_type, packet_number, du_mac, ru_mac, ue_id, details, status, error_log FROM anomalies WHERE 1=1"
         params = []
         
         if type_filter:

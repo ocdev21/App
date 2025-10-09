@@ -121,7 +121,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               },
               {
                 role: "user",
-                content: `Analyze this L1 network anomaly:\n\nType: ${anomaly.type}\nDescription: ${anomaly.description || 'Network anomaly detected'}\nSeverity: ${anomaly.severity || 'unknown'}\n\nProvide detailed troubleshooting steps and root cause analysis.`
+                content: `Analyze this L1 network anomaly:\n\nType: ${anomaly.type}\nDescription: ${anomaly.description || 'Network anomaly detected'}\nSeverity: ${anomaly.severity || 'unknown'}\n\n${anomaly.error_log ? `Packet/Event Details:\n${anomaly.error_log}\n\n` : ''}Provide detailed troubleshooting steps and root cause analysis.`
               }
             ],
             max_tokens: 500,
@@ -445,7 +445,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           },
           {
             role: "user",
-            content: `Analyze this L1 network anomaly:\n\nType: ${anomaly.type}\nDescription: ${anomaly.description || 'Network anomaly detected'}\nSeverity: ${anomaly.severity || 'unknown'}\n\nProvide detailed troubleshooting steps and root cause analysis.`
+            content: `Analyze this L1 network anomaly:\n\nType: ${anomaly.type}\nDescription: ${anomaly.description || 'Network anomaly detected'}\nSeverity: ${anomaly.severity || 'unknown'}\n\n${anomaly.error_log ? `Packet/Event Details:\n${anomaly.error_log}\n\n` : ''}Provide detailed troubleshooting steps and root cause analysis.`
           }
         ],
         max_tokens: 500,

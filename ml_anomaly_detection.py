@@ -351,6 +351,9 @@ class MLAnomalyDetector:
             
             # More sensitive: ≥1 algorithm flags anomaly (was ≥2)
             if votes >= 1:
+                # Capture packet details for error_log
+                error_log = f"Packet #{packet_metadata[i]['start_packet']}: DU packets={int(features[i][0])}, RU packets={int(features[i][1])}, Communication ratio={float(features[i][2]):.3f}, Missing responses={int(features[i][3])}, Avg response time={float(features[i][9])*1000:.2f}ms, Jitter={float(features[i][6])*1000:.2f}ms"
+                
                 anomaly = {
                     'window_index': i,
                     'packet_number': packet_metadata[i]['start_packet'],
@@ -362,7 +365,8 @@ class MLAnomalyDetector:
                     'timing_violation': features[i][10] > 0,  # Updated index for response_violations
                     'avg_response_time': float(features[i][9]),  # New: actual response time
                     'packet_rate': float(features[i][14]),  # New: packet rate
-                    'std_inter_arrival': float(features[i][5])  # New: timing variation
+                    'std_inter_arrival': float(features[i][5]),  # New: timing variation
+                    'error_log': error_log  # NEW: Packet details for LLM analysis
                 }
                 anomalies.append(anomaly)
                 print(f"⚠️ Anomaly in window {i}: {votes}/4 algorithms agree, confidence={votes/4.0:.2f}")

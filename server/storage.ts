@@ -133,6 +133,7 @@ export class MemStorage implements IStorage {
         ue_id: anomalyData.ue_id || null,
         packet_number: anomalyData.packet_number ?? null,
         recommendation: null,
+        error_log: null,
       };
       this.anomalies.set(id, { ...anomaly, recommendation: null });
     });
@@ -174,6 +175,7 @@ export class MemStorage implements IStorage {
       ue_id: insertAnomaly.ue_id || null,
       packet_number: insertAnomaly.packet_number ?? null,
       recommendation: null,
+      error_log: null,
     };
     this.anomalies.set(id, anomaly);
     return anomaly;
@@ -523,7 +525,8 @@ export class ClickHouseStorage implements IStorage {
         ue_id: null,
         details: { missing_responses: 5, communication_ratio: 0.65, latency_violations: 3 },
         status: 'active',
-        recommendation: null
+        recommendation: null,
+        error_log: null
       },
       {
         id: '1002',
@@ -537,7 +540,8 @@ export class ClickHouseStorage implements IStorage {
         ue_id: null,
         details: { latency_measured: 150, threshold: 100, jitter: 25, packet_loss: 0.5 },
         status: 'active',
-        recommendation: null
+        recommendation: null,
+        error_log: null
       },
       {
         id: '2001',
@@ -551,7 +555,8 @@ export class ClickHouseStorage implements IStorage {
         ue_id: '460110123456789',
         details: { failed_attaches: 8, success_rate: 0.12, context_failures: 5, timeout_events: 3 },
         status: 'active',
-        recommendation: null
+        recommendation: null,
+        error_log: null
       },
       {
         id: '2002',
@@ -565,7 +570,8 @@ export class ClickHouseStorage implements IStorage {
         ue_id: '460110987654321',
         details: { handover_attempts: 4, successful_handovers: 1, signal_drops: 3 },
         status: 'active',
-        recommendation: null
+        recommendation: null,
+        error_log: null
       },
       {
         id: '3001',
@@ -579,7 +585,8 @@ export class ClickHouseStorage implements IStorage {
         ue_id: null,
         details: { malformed_frames: 7, crc_errors: 2, sequence_violations: 5 },
         status: 'active',
-        recommendation: null
+        recommendation: null,
+        error_log: null
       }
     ];
   }
@@ -619,6 +626,7 @@ export class ClickHouseStorage implements IStorage {
           details: row.details || null,  // Use details from ML schema
           status: row.status || 'open',
           recommendation: null,
+          error_log: row.error_log || null,  // Packet/event data for LLM
           // Additional ML fields from ClickHouse
           anomaly_type: row.anomaly_type || null,
           confidence_score: row.confidence_score || null,
@@ -664,6 +672,7 @@ export class ClickHouseStorage implements IStorage {
           details: row.details || null,
           status: row.status || 'open',
           recommendation: null,
+          error_log: row.error_log || null,  // Packet/event data for LLM
           // Add LLM-compatible fields
           anomaly_type: row.anomaly_type || 'unknown',
           confidence_score: 0.9,
@@ -748,6 +757,7 @@ export class ClickHouseStorage implements IStorage {
       ue_id: insertAnomaly.ue_id || null,
       packet_number: insertAnomaly.packet_number ?? null,
       recommendation: null,
+      error_log: null,
     };
 
     const query = `

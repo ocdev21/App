@@ -1,5 +1,4 @@
 # Integrated Dockerfile - L1 Frontend/Backend + GGUF AI Inference Server
-# Optimized build with early user creation and better layer caching
 # Runs both services in a single container:
 # - Port 5000: L1 Web Application (React frontend + Express backend)
 # - Port 8000: AI Inference Server (Mistral GGUF with ctransformers)
@@ -7,9 +6,6 @@
 FROM node:20-bullseye
 
 WORKDIR /app
-
-# Create non-root user EARLY (before copying files to avoid slow chown -R)
-RUN useradd -m -u 1001 -s /bin/bash appuser
 
 # Install system dependencies including Python for AI inference
 RUN apt-get update && apt-get install -y \
@@ -34,47 +30,31 @@ RUN apt-get update && apt-get install -y \
 RUN ln -sf /usr/bin/python3 /usr/bin/python \
     && python -m pip install --upgrade pip setuptools wheel
 
-# Install Python AI dependencies - use pre-built wheels when available
-# Order: Fast installs first, compiled packages last for better caching
-RUN pip install --no-cache-dir --only-binary :all: \
-    flask \
-    requests \
-    psutil \
-    clickhouse-connect \
-    numpy \
-    pandas \
-    joblib \
-    || pip install --no-cache-dir \
-    flask \
-    requests \
-    psutil \
-    clickhouse-connect \
-    numpy \
-    pandas \
-    joblib
-
-# Install packages that may need compilation (separate layer for caching)
+# Install Python AI dependencies for inference server + ML analysis
 RUN pip install --no-cache-dir \
     ctransformers \
+    flask \
+    requests \
+    psutil \
+    clickhouse-connect \
     scapy \
-    scikit-learn
+    scikit-learn \
+    pandas \
+    numpy \
+    joblib
 
-# Create directories and set ownership
-RUN mkdir -p /models /app/.cache /app/input_files \
-    && chown -R appuser:appuser /models /app
-
-# Copy GGUF model with correct ownership (separate layer for better caching)
-COPY --chown=appuser:appuser mistral-7b-instruct-v0.2.Q4_K_M.gguf /models/mistral.gguf
+# Copy GGUF model first (separate layer for better caching)
+COPY mistral-7b-instruct-v0.2.Q4_K_M.gguf /models/mistral.gguf
 RUN chmod -R 755 /models
 
-# Copy package files for dependency installation (cache layer until deps change)
-COPY --chown=appuser:appuser package*.json ./
+# Copy package files for dependency installation
+COPY package*.json ./
 
 # Install ALL Node.js dependencies (dev and prod)
 RUN npm install
 
-# Copy all application code with correct ownership
-COPY --chown=appuser:appuser . .
+# Copy all application code
+COPY . .
 
 # Fix vite config for Docker environment
 RUN sed -i 's/allowedHosts: "all"/allowedHosts: true/g' vite.config.ts || true
@@ -83,11 +63,11 @@ RUN sed -i 's/allowedHosts: "all"/allowedHosts: true/g' vite.config.ts || true
 RUN npm run build
 
 # Copy GGUF inference server
-COPY --chown=appuser:appuser gguf-inference-server.py /app/gguf-server.py
+COPY gguf-inference-server.py /app/gguf-server.py
 RUN chmod +x /app/gguf-server.py
 
 # Copy startup script
-COPY --chown=appuser:appuser start-services.sh /app/start-services.sh
+COPY start-services.sh /app/start-services.sh
 RUN chmod +x /app/start-services.sh
 
 # Set environment variables
@@ -97,7 +77,14 @@ ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
-# Switch to non-root user
+# Create cache and input directories
+RUN mkdir -p /app/.cache /app/input_files
+
+# Create non-root user
+RUN useradd -m -u 1001 -s /bin/bash appuser \
+    && chown -R appuser:appuser /app \
+    && chown -R appuser:appuser /models
+
 USER appuser
 
 # Expose both ports

@@ -123,10 +123,9 @@ export default function AnomalyTable({
       setStreamError(null);
       setIsStreaming(true);
       
-      // Connect to WebSocket (port configurable via VITE_WS_PORT, defaults to 6080)
+      // Connect to WebSocket on port 6080
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsPort = import.meta.env.VITE_WS_PORT || '6080';
-      const wsUrl = `${protocol}//${window.location.hostname}:${wsPort}/ws`;
+      const wsUrl = `${protocol}//${window.location.hostname}:6080/ws`;
       
       console.log('Connecting to WebSocket:', wsUrl);
       const ws = new WebSocket(wsUrl);

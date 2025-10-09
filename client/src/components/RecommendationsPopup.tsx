@@ -58,10 +58,10 @@ export function RecommendationsPopup({ isOpen, onClose, anomaly }: Recommendatio
     setRecommendations('');
     setError(null);
 
-    // Establish WebSocket connection (port configurable via VITE_WS_PORT, defaults to 6080)
+    // Establish WebSocket connection
+    // Connect to port 6080 for WebSocket endpoint
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsPort = import.meta.env.VITE_WS_PORT || '6080';
-    const wsUrl = `${protocol}//${window.location.hostname}:${wsPort}/ws`;
+    const wsUrl = `${protocol}//${window.location.hostname}:6080/ws`;
     
     console.log('Connecting to WebSocket:', wsUrl);
     wsRef.current = new WebSocket(wsUrl);

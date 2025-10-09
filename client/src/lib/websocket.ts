@@ -79,9 +79,7 @@ export class WebSocketClient {
   }
 }
 
-// Global WebSocket instance - connects to port 6080
-// Use WS_PORT from env if available, otherwise default to 6080
+// Global WebSocket instance
 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-const wsPort = import.meta.env.VITE_WS_PORT || '6080';
-const wsUrl = `${protocol}//${window.location.hostname}:${wsPort}/ws`;
+const wsUrl = `${protocol}//${window.location.host}/ws`;
 export const wsClient = new WebSocketClient(wsUrl);

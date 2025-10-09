@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect } from "react";
-import { AlertTriangle, Smartphone, Network, Shield, ChevronDown, ChevronUp, Brain, Loader2 } from "lucide-react";
+import { useState } from "react";
+import { AlertTriangle, Smartphone, Network, Shield, Brain } from "lucide-react";
 import { ExplainableAIModal } from "./ExplainableAIModal";
+import { RecommendationsPopup } from "./RecommendationsPopup";
 import type { Anomaly } from "@shared/schema";
 
 interface AnomalyTableProps {
@@ -20,26 +21,13 @@ export default function AnomalyTable({
   onSelectAll,
   onSelectAnomaly
 }: AnomalyTableProps) {
-  const [expandedAnomalyId, setExpandedAnomalyId] = useState<string | null>(null);
-  const [recommendations, setRecommendations] = useState<string>('');
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [streamError, setStreamError] = useState<string | null>(null);
+  const [selectedAnomalyForRecommendations, setSelectedAnomalyForRecommendations] = useState<Anomaly | null>(null);
+  const [isRecommendationsModalOpen, setIsRecommendationsModalOpen] = useState(false);
   const [selectedAnomalyForDetails, setSelectedAnomalyForDetails] = useState<Anomaly | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-  const wsRef = useRef<WebSocket | null>(null);
-  const activeAnomalyIdRef = useRef<string | null>(null);
   
   const hasSelection = selectedAnomalies && onSelectAll && onSelectAnomaly;
   const allSelected = hasSelection && anomalies.length > 0 && anomalies.every(a => selectedAnomalies.has(a.id));
-
-  // Cleanup WebSocket on unmount
-  useEffect(() => {
-    return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
-    };
-  }, []);
 
   const getTypeIcon = (type: string) => {
     switch (type) {
@@ -99,94 +87,9 @@ export default function AnomalyTable({
     });
   };
 
-  const toggleRecommendations = (anomaly: Anomaly) => {
-    if (expandedAnomalyId === anomaly.id) {
-      // Collapse
-      setExpandedAnomalyId(null);
-      activeAnomalyIdRef.current = null;
-      setRecommendations('');
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
-    } else {
-      // Close any existing WebSocket before opening a new one
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
-
-      // Expand and fetch recommendations
-      setExpandedAnomalyId(anomaly.id);
-      activeAnomalyIdRef.current = anomaly.id;
-      setRecommendations('');
-      setStreamError(null);
-      setIsStreaming(true);
-      
-      // Connect to WebSocket on port 6080
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.hostname}:6080/ws`;
-      
-      console.log('Connecting to WebSocket:', wsUrl);
-      const ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
-
-      ws.onopen = () => {
-        console.log('WebSocket connected for recommendations');
-        ws.send(JSON.stringify({
-          type: 'get_recommendations',
-          anomalyId: anomaly.id
-        }));
-      };
-
-      ws.onmessage = (event) => {
-        // Only process messages if this WebSocket is still the active one
-        if (ws !== wsRef.current) return;
-        // Only process messages if this anomaly is still expanded
-        if (activeAnomalyIdRef.current !== anomaly.id) return;
-        
-        try {
-          const message = JSON.parse(event.data);
-          
-          switch (message.type) {
-            case 'recommendation_chunk':
-              setRecommendations(prev => prev + message.data);
-              break;
-              
-            case 'recommendation_complete':
-              setIsStreaming(false);
-              console.log('Recommendations complete');
-              break;
-              
-            case 'error':
-              setStreamError(message.data);
-              setIsStreaming(false);
-              break;
-          }
-        } catch (err) {
-          console.error('WebSocket message parse error:', err);
-          setStreamError('Failed to parse recommendation response');
-          setIsStreaming(false);
-        }
-      };
-
-      ws.onerror = (error) => {
-        // Only update state if this is still the active WebSocket
-        if (ws !== wsRef.current) return;
-        
-        console.error('WebSocket error:', error);
-        setStreamError('Connection error. Please try again.');
-        setIsStreaming(false);
-      };
-
-      ws.onclose = () => {
-        // Only update state if this is still the active WebSocket
-        if (ws !== wsRef.current) return;
-        
-        console.log('WebSocket closed');
-        setIsStreaming(false);
-      };
-    }
+  const handleGetRecommendations = (anomaly: Anomaly) => {
+    setSelectedAnomalyForRecommendations(anomaly);
+    setIsRecommendationsModalOpen(true);
   };
 
   const handleGetDetails = (anomaly: Anomaly) => {
@@ -253,9 +156,7 @@ export default function AnomalyTable({
               </tr>
             ) : (
               anomalies.map((anomaly, index) => (
-                <>
-                  {/* Main Row */}
-                  <tr key={`${anomaly.timestamp}-${index}`} className={`hover:bg-blue-50/30 transition-all duration-150 ${expandedAnomalyId === anomaly.id ? 'bg-blue-50' : ''}`}>
+                <tr key={`${anomaly.timestamp}-${index}`} className="hover:bg-blue-50/30 transition-all duration-150">
                     {hasSelection && (
                       <td className="px-4 py-5">
                         <input
@@ -307,20 +208,11 @@ export default function AnomalyTable({
                     <td className="px-6 py-5 whitespace-nowrap text-sm font-medium">
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => toggleRecommendations(anomaly)}
+                          onClick={() => handleGetRecommendations(anomaly)}
                           className="inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors whitespace-nowrap"
                         >
-                          {expandedAnomalyId === anomaly.id ? (
-                            <>
-                              <ChevronUp className="w-4 h-4 mr-1" />
-                              Hide
-                            </>
-                          ) : (
-                            <>
-                              <Brain className="w-4 h-4 mr-1" />
-                              Recommend
-                            </>
-                          )}
+                          <Brain className="w-4 h-4 mr-1" />
+                          Recommend
                         </button>
                         <button
                           onClick={() => handleGetDetails(anomaly)}
@@ -331,48 +223,23 @@ export default function AnomalyTable({
                       </div>
                     </td>
                   </tr>
-
-                  {/* Expandable Recommendations Row */}
-                  {expandedAnomalyId === anomaly.id && (
-                    <tr key={`${anomaly.timestamp}-${index}-expanded`} className="bg-blue-50/50">
-                      <td colSpan={hasSelection ? 7 : 6} className="px-6 py-6">
-                        <div className="bg-white rounded-lg border border-blue-200 p-6 shadow-sm">
-                          <div className="flex items-center gap-2 mb-4">
-                            <Brain className="w-5 h-5 text-blue-600" />
-                            <h3 className="font-semibold text-gray-900">AI Troubleshooting Recommendations</h3>
-                            {isStreaming && (
-                              <Loader2 className="w-4 h-4 animate-spin text-blue-600 ml-2" />
-                            )}
-                          </div>
-                          
-                          {streamError ? (
-                            <div className="bg-red-50 border border-red-200 rounded-md p-4 text-red-700">
-                              <p className="font-medium">Error:</p>
-                              <p className="text-sm mt-1">{streamError}</p>
-                            </div>
-                          ) : recommendations ? (
-                            <div className="prose prose-sm max-w-none text-gray-800 whitespace-pre-wrap">
-                              {recommendations}
-                            </div>
-                          ) : (
-                            <div className="flex items-center justify-center py-8">
-                              <div className="text-center">
-                                <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-blue-600" />
-                                <p className="text-gray-600">Connecting to AI...</p>
-                                <p className="text-sm text-gray-500 mt-1">Generating recommendations</p>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </>
               ))
             )}
           </tbody>
         </table>
       </div>
+
+      {/* Recommendations Modal */}
+      {selectedAnomalyForRecommendations && (
+        <RecommendationsPopup
+          anomaly={selectedAnomalyForRecommendations}
+          isOpen={isRecommendationsModalOpen}
+          onClose={() => {
+            setIsRecommendationsModalOpen(false);
+            setSelectedAnomalyForRecommendations(null);
+          }}
+        />
+      )}
 
       {/* Details Modal */}
       {selectedAnomalyForDetails && (

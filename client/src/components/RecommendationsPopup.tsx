@@ -16,7 +16,7 @@ export function RecommendationsPopup({ isOpen, onClose, anomaly }: Recommendatio
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -25,8 +25,8 @@ export function RecommendationsPopup({ isOpen, onClose, anomaly }: Recommendatio
     }
     
     return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
       }
     };
   }, [isOpen, anomaly]);
@@ -58,62 +58,60 @@ export function RecommendationsPopup({ isOpen, onClose, anomaly }: Recommendatio
     setRecommendations('');
     setError(null);
 
-    // Establish WebSocket connection
-    // Connect to port 6080 for WebSocket endpoint
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.hostname}:6080/ws`;
-    
-    console.log('Connecting to WebSocket:', wsUrl);
-    wsRef.current = new WebSocket(wsUrl);
+    // Close any existing EventSource
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+    }
 
-    wsRef.current.onopen = () => {
-      console.log('WebSocket connected for recommendations');
-      // Send request for recommendations
-      wsRef.current?.send(JSON.stringify({
-        type: 'get_recommendations',
-        anomalyId: anomaly.id
-      }));
+    // Establish SSE connection
+    const sseUrl = `/api/recommendations/stream/${anomaly.id}`;
+    console.log('Connecting to SSE:', sseUrl);
+    
+    const eventSource = new EventSource(sseUrl);
+    eventSourceRef.current = eventSource;
+
+    eventSource.onopen = () => {
+      console.log('SSE connection opened for recommendations');
+      setIsLoading(false);
     };
 
-    wsRef.current.onmessage = (event) => {
+    eventSource.onmessage = (event) => {
       try {
-        const message = JSON.parse(event.data);
+        const data = JSON.parse(event.data);
         
-        switch (message.type) {
-          case 'recommendation_chunk':
-            setRecommendations(prev => prev + message.data);
-            setIsLoading(false);
-            break;
-            
-          case 'recommendation_complete':
-            setIsStreaming(false);
-            console.log('Recommendations complete');
-            break;
-            
-          case 'error':
-            setError(message.data);
-            setIsLoading(false);
-            setIsStreaming(false);
-            break;
+        if (data.content) {
+          // Append streaming content
+          setRecommendations(prev => prev + data.content);
         }
       } catch (err) {
-        console.error('WebSocket message parse error:', err);
-        setError('Failed to parse recommendation response');
-        setIsLoading(false);
-        setIsStreaming(false);
+        console.error('SSE message parse error:', err);
       }
     };
 
-    wsRef.current.onerror = (error) => {
-      console.error('WebSocket error:', error);
+    eventSource.addEventListener('complete', (event) => {
+      console.log('SSE: Recommendations complete');
+      setIsStreaming(false);
+      eventSource.close();
+    });
+
+    eventSource.addEventListener('error', (event: any) => {
+      try {
+        const data = JSON.parse(event.data);
+        setError(data.message || 'Connection error. Please try again.');
+      } catch {
+        setError('Connection error. Please try again.');
+      }
+      setIsLoading(false);
+      setIsStreaming(false);
+      eventSource.close();
+    });
+
+    eventSource.onerror = (error) => {
+      console.error('SSE connection error:', error);
       setError('Connection error. Please try again.');
       setIsLoading(false);
       setIsStreaming(false);
-    };
-
-    wsRef.current.onclose = () => {
-      console.log('WebSocket closed');
-      setIsStreaming(false);
+      eventSource.close();
     };
   };
 
@@ -122,10 +120,10 @@ export function RecommendationsPopup({ isOpen, onClose, anomaly }: Recommendatio
     const lines = text.split('\n');
     return lines.map((line, index) => {
       if (line.startsWith('###')) {
-        return <h3 key={index} className="text-lg font-semibold mt-4 mb-2 text-blue-600 dark:text-blue-400">{line.replace('###', '').trim()}</h3>;
+        return <h3 key={index} className="text-lg font-semibold mt-4 mb-2 text-blue-600">{line.replace('###', '').trim()}</h3>;
       }
       if (line.startsWith('##')) {
-        return <h2 key={index} className="text-xl font-bold mt-4 mb-3 text-blue-700 dark:text-blue-300">{line.replace('##', '').trim()}</h2>;
+        return <h2 key={index} className="text-xl font-bold mt-4 mb-3 text-blue-700">{line.replace('##', '').trim()}</h2>;
       }
       if (line.startsWith('**') && line.endsWith('**')) {
         return <p key={index} className="font-semibold mt-2 mb-1">{line.replace(/\*\*/g, '')}</p>;
@@ -148,7 +146,7 @@ export function RecommendationsPopup({ isOpen, onClose, anomaly }: Recommendatio
     <>
       {/* Backdrop */}
       <div 
-        className="fixed inset-0 bg-black/50 z-50"
+        className="fixed inset-0 bg-black/50 z-[9998]"
         onClick={onClose}
       />
       
@@ -158,7 +156,7 @@ export function RecommendationsPopup({ isOpen, onClose, anomaly }: Recommendatio
         aria-modal="true"
         aria-labelledby="modal-title"
         aria-describedby="modal-description"
-        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[60] w-full max-w-4xl max-h-[80vh] bg-white rounded-lg shadow-xl overflow-hidden"
+        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[9999] w-full max-w-4xl max-h-[80vh] bg-white rounded-lg shadow-xl overflow-hidden"
       >
         {/* Header */}
         <div className="border-b p-6 pb-4">
@@ -247,17 +245,17 @@ export function RecommendationsPopup({ isOpen, onClose, anomaly }: Recommendatio
             )}
 
             {error && (
-              <div className="flex items-center gap-2 p-4 border border-red-200 rounded-lg bg-red-50 dark:bg-red-900/20">
+              <div className="flex items-center gap-2 p-4 border border-red-200 rounded-lg bg-red-50">
                 <AlertCircle className="h-5 w-5 text-red-600" />
                 <div>
-                  <p className="font-medium text-red-800 dark:text-red-200">Error generating recommendations</p>
-                  <p className="text-sm text-red-600 dark:text-red-300 mt-1">{error}</p>
+                  <p className="font-medium text-red-800">Error generating recommendations</p>
+                  <p className="text-sm text-red-600 mt-1">{error}</p>
                 </div>
               </div>
             )}
 
             {recommendations && (
-              <div className="prose prose-sm max-w-none dark:prose-invert">
+              <div className="prose prose-sm max-w-none">
                 {formatRecommendationText(recommendations)}
                 {isStreaming && (
                   <span className="inline-block w-2 h-4 bg-blue-600 animate-pulse ml-1" />

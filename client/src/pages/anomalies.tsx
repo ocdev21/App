@@ -76,13 +76,33 @@ export default function Anomalies() {
   const endEntry = Math.min(currentPage * itemsPerPage, filteredAndSortedAnomalies.length);
 
   const handleGetRecommendations = (anomaly: Anomaly) => {
-    setSelectedAnomaly(anomaly);
-    setIsModalOpen(true);
+    console.log('Opening recommendations window for anomaly:', anomaly.id);
+    // Open recommendations in a new window
+    const width = 900;
+    const height = 700;
+    const left = (window.screen.width - width) / 2;
+    const top = (window.screen.height - height) / 2;
+    
+    window.open(
+      `/recommendations-window?anomalyId=${anomaly.id}`,
+      '_blank',
+      `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+    );
   };
 
   const handleGetDetails = (anomaly: Anomaly) => {
-    setSelectedAnomalyForDetails(anomaly);
-    setIsDetailsModalOpen(true);
+    console.log('Opening details window for anomaly:', anomaly.id);
+    // Open details in a smaller window
+    const width = 700;
+    const height = 600;
+    const left = (window.screen.width - width) / 2;
+    const top = (window.screen.height - height) / 2;
+    
+    window.open(
+      `/details-window?anomalyId=${anomaly.id}`,
+      '_blank',
+      `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+    );
   };
 
   return (
@@ -204,13 +224,13 @@ export default function Anomalies() {
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => handleGetRecommendations(anomaly)}
-                        className="inline-flex items-center justify-center px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors"
+                        className="inline-flex items-center justify-center px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors cursor-pointer"
                       >
                         Recommend
                       </button>
                       <button
                         onClick={() => handleGetDetails(anomaly)}
-                        className="inline-flex items-center justify-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                        className="inline-flex items-center justify-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors cursor-pointer"
                       >
                         Details
                       </button>

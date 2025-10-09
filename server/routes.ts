@@ -405,6 +405,146 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // SSE endpoint for streaming recommendations
+  app.get("/api/recommendations/stream/:anomalyId", async (req, res) => {
+    const { anomalyId } = req.params;
+    
+    // Set SSE headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no'); // Disable Nginx buffering
+    
+    try {
+      console.log('SSE: Received recommendation request for anomaly ID:', anomalyId);
+      
+      // Get anomaly details from storage
+      const anomaly = await storage.getAnomaly(anomalyId);
+      if (!anomaly) {
+        res.write(`event: error\ndata: ${JSON.stringify({ message: 'Anomaly not found' })}\n\n`);
+        res.end();
+        return;
+      }
+
+      console.log('SSE: Found anomaly:', anomaly.id, anomaly.type);
+
+      // Call Mistral GGUF inference server for AI recommendations
+      const inferenceHost = process.env.TSLAM_REMOTE_HOST || 'localhost';
+      const inferencePort = '8000';
+      const inferenceUrl = `http://${inferenceHost}:${inferencePort}/v1/chat/completions`;
+      
+      console.log(`SSE: Connecting to AI inference server: ${inferenceUrl}`);
+
+      // Prepare LLM request
+      const llmRequest = {
+        model: "mistral-7b-instruct-gguf",
+        messages: [
+          {
+            role: "system",
+            content: "You are an expert L1 network troubleshooting AI assistant. Analyze the anomaly and provide specific technical recommendations for resolution."
+          },
+          {
+            role: "user",
+            content: `Analyze this L1 network anomaly:\n\nType: ${anomaly.type}\nDescription: ${anomaly.description || 'Network anomaly detected'}\nSeverity: ${anomaly.severity || 'unknown'}\n\nProvide detailed troubleshooting steps and root cause analysis.`
+          }
+        ],
+        max_tokens: 500,
+        temperature: 0.3,
+        stream: true
+      };
+
+      console.log('===== SSE LLM REQUEST =====');
+      console.log('URL:', inferenceUrl);
+      console.log('Streaming:', llmRequest.stream);
+      console.log('Prompt:', llmRequest.messages[1].content);
+      console.log('Model:', llmRequest.model);
+      console.log('===========================');
+
+      try {
+        const response = await axios.post(inferenceUrl, llmRequest, {
+          responseType: 'stream',
+          timeout: 60000
+        });
+
+        console.log('SSE: Streaming AI recommendations...');
+        let completeResponse = '';
+
+        response.data.on('data', (chunk: Buffer) => {
+          const lines = chunk.toString().split('\n').filter(line => line.trim() !== '');
+          
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              
+              if (data === '[DONE]') {
+                console.log('\n===== SSE COMPLETE LLM RESPONSE =====');
+                console.log(completeResponse);
+                console.log('=====================================\n');
+                
+                res.write(`event: complete\ndata: ${JSON.stringify({ message: 'done' })}\n\n`);
+                res.end();
+                return;
+              }
+
+              try {
+                const parsed = JSON.parse(data);
+                const content = parsed.choices?.[0]?.delta?.content;
+                
+                if (content) {
+                  completeResponse += content;
+                  console.log('SSE LLM Response Chunk:', content);
+                  
+                  // Send chunk via SSE
+                  res.write(`data: ${JSON.stringify({ content })}\n\n`);
+                }
+              } catch (e) {
+                console.error('SSE: Error parsing streaming chunk:', e);
+              }
+            }
+          }
+        });
+
+        response.data.on('end', () => {
+          console.log('SSE: AI recommendations stream complete');
+          if (completeResponse) {
+            console.log('\n===== SSE COMPLETE LLM RESPONSE =====');
+            console.log(completeResponse);
+            console.log('=====================================\n');
+          }
+          res.write(`event: complete\ndata: ${JSON.stringify({ message: 'done' })}\n\n`);
+          res.end();
+        });
+
+        response.data.on('error', (error: Error) => {
+          console.error('SSE: Stream error:', error);
+          res.write(`event: error\ndata: ${JSON.stringify({ message: 'AI inference stream error' })}\n\n`);
+          res.end();
+        });
+
+      } catch (error: any) {
+        console.error('SSE: AI inference error:', error.message);
+        console.log('SSE: Providing rule-based recommendations as fallback');
+        
+        // Provide rule-based recommendations as fallback
+        const ruleBasedRecommendation = getRuleBasedRecommendations(anomaly);
+        const words = ruleBasedRecommendation.split(' ');
+        
+        for (const word of words) {
+          res.write(`data: ${JSON.stringify({ content: word + ' ' })}\n\n`);
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+        
+        res.write(`event: complete\ndata: ${JSON.stringify({ message: 'done' })}\n\n`);
+        res.end();
+      }
+
+    } catch (error: any) {
+      console.error('SSE: Error:', error);
+      res.write(`event: error\ndata: ${JSON.stringify({ message: error.message })}\n\n`);
+      res.end();
+    }
+  });
+
   // Get recommendation for anomaly
   app.get("/api/anomalies/:id/recommendation", async (req, res) => {
     try {

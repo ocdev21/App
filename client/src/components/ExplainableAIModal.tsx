@@ -195,7 +195,7 @@ ${data.top_negative_features.map(f => `  • ${explanationData.feature_descripti
         aria-modal="true"
         aria-labelledby="explainable-modal-title"
         aria-describedby="explainable-modal-description"
-        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-6xl max-h-[90vh] bg-white rounded-lg shadow-xl overflow-hidden"
+        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[60] w-full max-w-6xl max-h-[90vh] bg-white rounded-lg shadow-xl overflow-hidden"
       >
         {/* Header */}
         <div className="border-b p-6 pb-4">

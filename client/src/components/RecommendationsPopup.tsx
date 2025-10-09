@@ -158,7 +158,7 @@ export function RecommendationsPopup({ isOpen, onClose, anomaly }: Recommendatio
         aria-modal="true"
         aria-labelledby="modal-title"
         aria-describedby="modal-description"
-        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-4xl max-h-[80vh] bg-white rounded-lg shadow-xl overflow-hidden"
+        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[60] w-full max-w-4xl max-h-[80vh] bg-white rounded-lg shadow-xl overflow-hidden"
       >
         {/* Header */}
         <div className="border-b p-6 pb-4">

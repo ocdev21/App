@@ -106,7 +106,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           // Call Mistral GGUF inference server for AI recommendations
           const inferenceHost = process.env.TSLAM_REMOTE_HOST || 'localhost';
-          const inferencePort = process.env.TSLAM_REMOTE_PORT || '8000';
+          const inferencePort = '8000'; // LLM inference always on port 8000
           const inferenceUrl = `http://${inferenceHost}:${inferencePort}/v1/chat/completions`;
           
           console.log(`Connecting to AI inference server: ${inferenceUrl}`);
@@ -126,12 +126,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ],
             max_tokens: 500,
             temperature: 0.3,
-            stream: true
+            stream: true  // Enable streaming for real-time responses
           };
 
           // Log the request being sent to LLM
           console.log('===== LLM REQUEST =====');
           console.log('URL:', inferenceUrl);
+          console.log('Streaming:', llmRequest.stream);
           console.log('Prompt:', llmRequest.messages[1].content);
           console.log('Model:', llmRequest.model);
           console.log('======================');
@@ -143,6 +144,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
 
             console.log('Streaming AI recommendations...');
+            
+            // Accumulate complete response for logging
+            let completeResponse = '';
 
             response.data.on('data', (chunk: Buffer) => {
               const lines = chunk.toString().split('\n').filter(line => line.trim() !== '');
@@ -152,6 +156,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   const data = line.slice(6);
                   
                   if (data === '[DONE]') {
+                    // Print complete response before completion
+                    console.log('\n===== COMPLETE LLM RESPONSE =====');
+                    console.log(completeResponse);
+                    console.log('==================================\n');
+                    
                     ws.send(JSON.stringify({ type: 'recommendation_complete', code: 0 }));
                     return;
                   }
@@ -161,7 +170,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     const content = parsed.choices?.[0]?.delta?.content;
                     
                     if (content) {
-                      // Log LLM response chunks
+                      // Accumulate response
+                      completeResponse += content;
+                      
+                      // Log each chunk
                       console.log('LLM Response Chunk:', content);
                       
                       ws.send(JSON.stringify({ 
@@ -178,6 +190,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
             response.data.on('end', () => {
               console.log('AI recommendations stream complete');
+              
+              // Print complete response if not already printed
+              if (completeResponse) {
+                console.log('\n===== COMPLETE LLM RESPONSE =====');
+                console.log(completeResponse);
+                console.log('==================================\n');
+              }
+              
               ws.send(JSON.stringify({ type: 'recommendation_complete', code: 0 }));
             });
 

@@ -77,11 +77,15 @@ General troubleshooting steps:
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
-  // WebSocket setup for streaming responses
+  // Create standalone WebSocket server on port 6080
+  const wsPort = parseInt(process.env.WS_PORT || '6080', 10);
   const wss = new WebSocketServer({
-    server: httpServer,
+    port: wsPort,
+    host: '0.0.0.0',
     path: '/ws'
   });
+
+  console.log(`WebSocket server listening on port ${wsPort}`);
 
   wss.on('connection', (ws) => {
     console.log('WebSocket client connected');

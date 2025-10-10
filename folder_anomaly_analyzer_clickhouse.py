@@ -59,7 +59,7 @@ class ClickHouseFolderAnalyzer:
                 print(f"WARNING: ClickHouse connection failed: {e}")
                 print("Running in console-only mode")
 
-    def scan_folder(self, folder_path="/app/input_files"):
+    def scan_folder(self, folder_path="/pvc/input_files"):
         """Scan folder for network files"""
         print(f"\nSCANNING FOLDER: {folder_path}")
         print("-" * 40)
@@ -119,7 +119,7 @@ class ClickHouseFolderAnalyzer:
 
     def store_session_in_clickhouse(self, session_data):
         """Store analysis session in ClickHouse"""
-        if not self.clickhouse_available:
+        if not self.clickhouse_available or self.client is None:
             return None
 
         try:
@@ -153,7 +153,7 @@ class ClickHouseFolderAnalyzer:
 
     def store_anomalies_in_clickhouse(self, anomalies, session_id):
         """Store detected anomalies in ClickHouse (only confidence >= 0.50)"""
-        if not self.clickhouse_available or not anomalies:
+        if not self.clickhouse_available or self.client is None or not anomalies:
             return
 
         try:
@@ -224,8 +224,12 @@ class ClickHouseFolderAnalyzer:
 
         try:
             if file_type == 'PCAP':
-                # Use ML anomaly detector for PCAP files
-                detector = MLAnomalyDetector()
+                # Use ML anomaly detector for PCAP files with PVC-based incremental learning
+                detector = MLAnomalyDetector(
+                    models_dir="/pvc/models",
+                    feature_history_dir="/pvc/feature_history",
+                    retrain_threshold=10
+                )
                 result = detector.analyze_pcap(file_path)
 
                 if 'anomalies' in result:
@@ -350,7 +354,7 @@ class ClickHouseFolderAnalyzer:
         self.total_anomalies_found += len(anomalies)
         
         # Store processed file record in ClickHouse
-        if self.clickhouse_available:
+        if self.clickhouse_available and self.client is not None:
             try:
                 import os
                 file_size = os.path.getsize(file_path) if os.path.exists(file_path) else 0
@@ -578,6 +582,73 @@ class ClickHouseFolderAnalyzer:
         except Exception as e:
             print(f"WARNING: Failed to save detailed report: {e}")
 
+def watch_folder(analyzer, folder_path, dummy_mode=False, check_interval=10):
+    """Watch folder for new files and process them automatically"""
+    import time
+    
+    processed_files = set()
+    print(f"\n🔍 WATCH MODE: Monitoring {folder_path} for new files...")
+    print(f"   Check interval: {check_interval} seconds")
+    print("   Press Ctrl+C to stop\n")
+    
+    while True:
+        try:
+            # Scan for all files
+            found_files = analyzer.scan_folder(folder_path)
+            
+            # Filter out already processed files
+            new_files = []
+            for file_info in found_files:
+                if file_info['path'] not in processed_files:
+                    new_files.append(file_info)
+                    processed_files.add(file_info['path'])
+            
+            # Process new files
+            if new_files:
+                print(f"\n📁 Detected {len(new_files)} new file(s):")
+                for f in new_files:
+                    print(f"   - {f['name']} ({f['type']}, {f['size']/1024:.1f} KB)")
+                
+                session_id = int(datetime.now().timestamp())
+                all_anomalies = []
+                start_time = datetime.now()
+                
+                # Process each new file
+                for file_info in new_files:
+                    file_anomalies = analyzer.process_single_file(file_info)
+                    all_anomalies.extend(file_anomalies)
+                
+                # Store results
+                if not dummy_mode and analyzer.clickhouse_available:
+                    session_data = {
+                        'id': session_id,
+                        'session_name': f"Watch Mode: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+                        'folder_path': folder_path,
+                        'total_files': len(new_files),
+                        'pcap_files': sum(1 for f in new_files if f['type'] == 'PCAP'),
+                        'text_files': sum(1 for f in new_files if f['type'] == 'TEXT'),
+                        'total_anomalies': len(all_anomalies),
+                        'start_time': start_time,
+                        'end_time': datetime.now(),
+                        'duration_seconds': int((datetime.now() - start_time).total_seconds())
+                    }
+                    analyzer.store_session_in_clickhouse(session_data)
+                    analyzer.store_anomalies_in_clickhouse(all_anomalies, session_id)
+                
+                print(f"✅ Processed {len(new_files)} file(s), found {len(all_anomalies)} anomalies")
+                print(f"   Total files processed: {len(processed_files)}")
+            
+            # Wait before next check
+            time.sleep(check_interval)
+            
+        except KeyboardInterrupt:
+            print("\n\n⏹️  Watch mode stopped by user")
+            print(f"Total files processed: {len(processed_files)}")
+            break
+        except Exception as e:
+            print(f"ERROR in watch loop: {e}")
+            time.sleep(check_interval)
+
 def main():
     """Main function for folder-based L1 anomaly detection"""
 
@@ -590,25 +661,34 @@ def main():
     print("- ClickHouse database integration")
     print("- Batch processing with summary report")
 
-    # Check for dummy mode FIRST (before anything else)
-    dummy_mode = False
-    if len(sys.argv) >= 3 and sys.argv[2].lower() == 'dummy':
-        dummy_mode = True
+    # Parse command line arguments
+    import argparse
+    parser = argparse.ArgumentParser(description='L1 Anomaly Detection System')
+    parser.add_argument('folder_path', nargs='?', default='/pvc/input_files', help='Folder to process')
+    parser.add_argument('--watch', action='store_true', help='Watch mode: continuously monitor for new files')
+    parser.add_argument('--interval', type=int, default=10, help='Watch mode check interval in seconds (default: 10)')
+    parser.add_argument('--dummy', action='store_true', help='Dummy mode: skip database writes')
+    parser.add_argument('--input-dir', type=str, help='Alternative way to specify input directory')
+    
+    args = parser.parse_args()
+    
+    # Use input-dir if provided
+    folder_path = args.input_dir if args.input_dir else args.folder_path
+    dummy_mode = args.dummy
+    
+    if dummy_mode:
         print("\nRUNNING IN DUMMY MODE - Database writes disabled")
         print("Results will only be shown in console and report file")
-
-    # Get folder path from command line or use default
-    if len(sys.argv) < 2:
-        folder_path = "/app/input_files"
-        print(f"\nINFO: No folder specified, using default: {folder_path}")
-    else:
-        folder_path = sys.argv[1]
-        print(f"\nUsing specified folder: {folder_path}")
+    
+    if args.watch:
+        print(f"\n🔄 WATCH MODE ENABLED - Continuous monitoring")
+    
+    print(f"\nUsing folder: {folder_path}")
 
     if not os.path.exists(folder_path):
         print(f"\nERROR: Folder '{folder_path}' does not exist")
-        if folder_path == "/app/input_files":
-            print("TIP: Upload PCAP/text files to /app/input_files directory")
+        if folder_path == "/pvc/input_files":
+            print("TIP: Upload PCAP/text files to /pvc/input_files directory")
             # Create the directory if it doesn't exist
             try:
                 os.makedirs(folder_path, exist_ok=True)
@@ -622,65 +702,72 @@ def main():
     # Initialize analyzer (skip database connection in dummy mode)
     analyzer = ClickHouseFolderAnalyzer(skip_database=dummy_mode)
 
-    # Scan folder for files
-    found_files = analyzer.scan_folder(folder_path)
-
-    if not found_files:
-        sys.exit(1)
-
-    # Create session record
-    session_id = int(datetime.now().timestamp())
-    session_data = {
-        'id': session_id,
-        'session_name': f"Folder Analysis: {os.path.basename(folder_path)}",
-        'folder_path': os.path.abspath(folder_path),
-        'total_files': len(found_files),
-        'pcap_files': sum(1 for f in found_files if f['type'] == 'PCAP'),
-        'text_files': sum(1 for f in found_files if f['type'] == 'TEXT'),
-        'total_anomalies': 0,
-        'start_time': datetime.now(),  # Fixed: Use datetime object directly
-        'end_time': None,
-        'duration_seconds': 0
-    }
-
-    print(f"\nPROCESSING FILES...")
-    print("=" * 30)
-
-    all_anomalies = []
-    start_time = datetime.now()
-
-    # Process each file
-    for file_info in found_files:
-        file_anomalies = analyzer.process_single_file(file_info)
-        all_anomalies.extend(file_anomalies)
-
-    # Update session data
-    end_time = datetime.now()
-    duration = (end_time - start_time).total_seconds()
-
-    session_data['end_time'] = end_time  # Fixed: Use datetime object directly
-    session_data['duration_seconds'] = int(duration)
-    session_data['total_anomalies'] = len(all_anomalies)
-
-    # Store in ClickHouse (unless in dummy mode)
-    stored_session_id = None
-    if not dummy_mode:
-        stored_session_id = analyzer.store_session_in_clickhouse(session_data)
-        analyzer.store_anomalies_in_clickhouse(all_anomalies, session_id)
+    # Choose mode: watch or single-run
+    if args.watch:
+        # WATCH MODE: Continuously monitor for new files
+        watch_folder(analyzer, folder_path, dummy_mode, args.interval)
     else:
-        print("\nDUMMY MODE: Skipping database writes")
+        # SINGLE-RUN MODE: Process existing files once
+        # Scan folder for files
+        found_files = analyzer.scan_folder(folder_path)
 
-    # Generate summary report
-    analyzer.generate_summary_report(folder_path, all_anomalies, stored_session_id)
+        if not found_files:
+            print("\nNo files found to process")
+            sys.exit(1)
 
-    # Save detailed report
-    report_file = os.path.join(folder_path, "anomaly_analysis_report.txt")
-    analyzer.save_detailed_report(report_file, folder_path, all_anomalies)
+        # Create session record
+        session_id = int(datetime.now().timestamp())
+        session_data = {
+            'id': session_id,
+            'session_name': f"Folder Analysis: {os.path.basename(folder_path)}",
+            'folder_path': os.path.abspath(folder_path),
+            'total_files': len(found_files),
+            'pcap_files': sum(1 for f in found_files if f['type'] == 'PCAP'),
+            'text_files': sum(1 for f in found_files if f['type'] == 'TEXT'),
+            'total_anomalies': 0,
+            'start_time': datetime.now(),
+            'end_time': None,
+            'duration_seconds': 0
+        }
 
-    print(f"\nFOLDER ANALYSIS COMPLETE")
-    if not dummy_mode and analyzer.clickhouse_available:
-        print("All data stored in ClickHouse database")
-    print("All network files have been processed and analyzed.")
+        print(f"\nPROCESSING FILES...")
+        print("=" * 30)
+
+        all_anomalies = []
+        start_time = datetime.now()
+
+        # Process each file
+        for file_info in found_files:
+            file_anomalies = analyzer.process_single_file(file_info)
+            all_anomalies.extend(file_anomalies)
+
+        # Update session data
+        end_time = datetime.now()
+        duration = (end_time - start_time).total_seconds()
+
+        session_data['end_time'] = end_time
+        session_data['duration_seconds'] = int(duration)
+        session_data['total_anomalies'] = len(all_anomalies)
+
+        # Store in ClickHouse (unless in dummy mode)
+        stored_session_id = None
+        if not dummy_mode:
+            stored_session_id = analyzer.store_session_in_clickhouse(session_data)
+            analyzer.store_anomalies_in_clickhouse(all_anomalies, session_id)
+        else:
+            print("\nDUMMY MODE: Skipping database writes")
+
+        # Generate summary report
+        analyzer.generate_summary_report(folder_path, all_anomalies, stored_session_id)
+
+        # Save detailed report
+        report_file = os.path.join(folder_path, "anomaly_analysis_report.txt")
+        analyzer.save_detailed_report(report_file, folder_path, all_anomalies)
+
+        print(f"\nFOLDER ANALYSIS COMPLETE")
+        if not dummy_mode and analyzer.clickhouse_available:
+            print("All data stored in ClickHouse database")
+        print("All network files have been processed and analyzed.")
 
 if __name__ == "__main__":
     main()

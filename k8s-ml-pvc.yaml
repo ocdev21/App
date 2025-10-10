@@ -1,0 +1,128 @@
+---
+# ML Storage PVC Configuration
+# This PVC provides persistent storage for incremental ML learning
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: l1-ml-storage-pvc
+  namespace: l1-app-ai
+  labels:
+    app: l1-troubleshooting
+    component: ml-storage
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: standard
+---
+# ML Training Job Deployment
+# This deployment handles ML model training and incremental learning
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: l1-ml-analyzer
+  namespace: l1-app-ai
+  labels:
+    app: l1-ml-analyzer
+    version: v1.0.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: l1-ml-analyzer
+  template:
+    metadata:
+      labels:
+        app: l1-ml-analyzer
+        version: v1.0.0
+    spec:
+      initContainers:
+      - name: setup-ml-dirs
+        image: busybox:1.35
+        command: ['sh', '-c']
+        args:
+        - |
+          chmod -R 777 /pvc/models /pvc/input_files /pvc/feature_history
+          echo "ML directories initialized successfully"
+        volumeMounts:
+        - name: ml-storage
+          mountPath: /pvc/models
+          subPath: models
+        - name: ml-storage
+          mountPath: /pvc/input_files
+          subPath: input_files
+        - name: ml-storage
+          mountPath: /pvc/feature_history
+          subPath: feature_history
+        securityContext:
+          runAsUser: 0
+      containers:
+      - name: ml-analyzer
+        image: python:3.11-slim
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: ML_MODELS_DIR
+          value: "/pvc/models"
+        - name: INPUT_FILES_DIR
+          value: "/pvc/input_files"
+        - name: FEATURE_HISTORY_DIR
+          value: "/pvc/feature_history"
+        - name: RETRAIN_THRESHOLD
+          value: "10"
+        command: ["/bin/bash"]
+        args:
+        - "-c"
+        - |
+          echo "Installing ML dependencies..."
+          apt-get update && apt-get install -y gcc g++ libpcap-dev git
+          pip install --no-cache-dir scapy scikit-learn numpy pandas joblib clickhouse-connect requests
+          
+          echo "Starting ML analyzer with incremental learning..."
+          cd /app
+          
+          # Run the ML analyzer in watch mode
+          python3 folder_anomaly_analyzer_clickhouse.py --watch --input-dir /pvc/input_files
+        workingDir: /app
+        volumeMounts:
+        - name: ml-storage
+          mountPath: /pvc/models
+          subPath: models
+        - name: ml-storage
+          mountPath: /pvc/input_files
+          subPath: input_files
+        - name: ml-storage
+          mountPath: /pvc/feature_history
+          subPath: feature_history
+        - name: app-scripts
+          mountPath: /app
+        resources:
+          requests:
+            memory: "4Gi"
+            cpu: "2000m"
+          limits:
+            memory: "8Gi"
+            cpu: "4000m"
+      volumes:
+      - name: ml-storage
+        persistentVolumeClaim:
+          claimName: l1-ml-storage-pvc
+      - name: app-scripts
+        configMap:
+          name: ml-analyzer-scripts
+      restartPolicy: Always
+---
+# ConfigMap for ML analyzer scripts
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ml-analyzer-scripts
+  namespace: l1-app-ai
+data:
+  folder_anomaly_analyzer_clickhouse.py: |
+    # This will be populated with the actual Python script
+    # Placeholder for deployment

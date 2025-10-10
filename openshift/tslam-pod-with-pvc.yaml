@@ -1,0 +1,98 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: l1-integrated
+  namespace: l1-app-ai
+  labels:
+    app: l1-integrated
+spec:
+  containers:
+    - name: l1-integrated
+      image: 10.0.1.224:5000/l1-integrated:latest
+      imagePullPolicy: Always
+      ports:
+        - name: webapp
+          containerPort: 5000
+          protocol: TCP
+      env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "5000"
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: PYTHONDONTWRITEBYTECODE
+          value: "1"
+        - name: TSLAM_REMOTE_HOST
+          value: "localhost"
+        - name: TSLAM_REMOTE_PORT
+          value: "5000"
+        # ML Configuration
+        - name: ML_MODELS_DIR
+          value: "/pvc/models"
+        - name: INPUT_FILES_DIR
+          value: "/pvc/input_files"
+        - name: FEATURE_HISTORY_DIR
+          value: "/pvc/feature_history"
+        - name: RETRAIN_THRESHOLD
+          value: "10"
+      
+      # Mount PVC for ML data
+      volumeMounts:
+        - name: ml-data
+          mountPath: /pvc
+      
+      livenessProbe:
+        httpGet:
+          path: /
+          port: 5000
+        initialDelaySeconds: 120
+        periodSeconds: 30
+        timeoutSeconds: 10
+        failureThreshold: 3
+      readinessProbe:
+        httpGet:
+          path: /
+          port: 5000
+        initialDelaySeconds: 30
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+  
+  # Add PVC volume
+  volumes:
+    - name: ml-data
+      persistentVolumeClaim:
+        claimName: l1-ml-data-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: l1-integrated-service
+  namespace: l1-app-ai
+spec:
+  selector:
+    app: l1-integrated
+  ports:
+    - name: webapp
+      port: 5000
+      targetPort: 5000
+      nodePort: 30500
+      protocol: TCP
+  type: NodePort
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: l1-integrated-route
+  namespace: l1-app-ai
+spec:
+  to:
+    kind: Service
+    name: l1-integrated-service
+  port:
+    targetPort: webapp
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

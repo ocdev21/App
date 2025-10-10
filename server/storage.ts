@@ -58,6 +58,7 @@ export class MemStorage implements IStorage {
   }
 
   private addTestAnomalies() {
+    const now = new Date();
     const testAnomalies = [
       {
         type: 'fronthaul',
@@ -70,7 +71,8 @@ export class MemStorage implements IStorage {
         anomaly_type: 'fronthaul_du_ru_communication_failure',
         confidence_score: 0.95,
         detection_algorithm: 'isolation_forest',
-        context_data: '{"cell_id": "Cell-45", "sector_id": 2, "frequency_band": "2600MHz", "technology": "5G-NR", "affected_users": 150}'
+        context_data: '{"cell_id": "Cell-45", "sector_id": 2, "frequency_band": "2600MHz", "technology": "5G-NR", "affected_users": 150}',
+        hoursAgo: 2
       },
       {
         type: 'ue_event',
@@ -83,7 +85,8 @@ export class MemStorage implements IStorage {
         anomaly_type: 'ue_attach_failure',
         confidence_score: 0.88,
         detection_algorithm: 'dbscan',
-        context_data: '{"cell_id": "Cell-23", "sector_id": 1, "frequency_band": "1800MHz", "technology": "5G-NR", "affected_users": 1}'
+        context_data: '{"cell_id": "Cell-23", "sector_id": 1, "frequency_band": "1800MHz", "technology": "5G-NR", "affected_users": 1}',
+        hoursAgo: 24
       },
       {
         type: 'mac_address',
@@ -95,7 +98,8 @@ export class MemStorage implements IStorage {
         anomaly_type: 'mac_address_conflict',
         confidence_score: 0.82,
         detection_algorithm: 'one_class_svm',
-        context_data: '{"cell_id": "Cell-67", "sector_id": 3, "frequency_band": "2100MHz", "technology": "5G-NR", "affected_users": 25}'
+        context_data: '{"cell_id": "Cell-67", "sector_id": 3, "frequency_band": "2100MHz", "technology": "5G-NR", "affected_users": 25}',
+        hoursAgo: 48
       },
       {
         type: 'protocol',
@@ -106,7 +110,8 @@ export class MemStorage implements IStorage {
         anomaly_type: 'protocol_violation',
         confidence_score: 0.91,
         detection_algorithm: 'hybrid_ensemble',
-        context_data: '{"cell_id": "Cell-12", "sector_id": 1, "frequency_band": "2600MHz", "technology": "5G-NR", "affected_users": 75}'
+        context_data: '{"cell_id": "Cell-12", "sector_id": 1, "frequency_band": "2600MHz", "technology": "5G-NR", "affected_users": 75}',
+        hoursAgo: 72
       },
       {
         type: 'fronthaul',
@@ -117,16 +122,56 @@ export class MemStorage implements IStorage {
         anomaly_type: 'signal_quality_degradation',
         confidence_score: 0.93,
         detection_algorithm: 'isolation_forest',
-        context_data: '{"cell_id": "Cell-89", "sector_id": 2, "frequency_band": "1800MHz", "technology": "5G-NR", "affected_users": 300}'
+        context_data: '{"cell_id": "Cell-89", "sector_id": 2, "frequency_band": "1800MHz", "technology": "5G-NR", "affected_users": 300}',
+        hoursAgo: 96
+      },
+      {
+        type: 'ue_event',
+        severity: 'high',
+        description: 'Multiple UE detach events detected in sector 3',
+        source_file: 'log_20250813_090000.txt',
+        ue_id: 'UE-567890',
+        status: 'open',
+        anomaly_type: 'ue_detach_pattern',
+        confidence_score: 0.87,
+        detection_algorithm: 'dbscan',
+        context_data: '{"cell_id": "Cell-45", "sector_id": 3, "frequency_band": "2600MHz", "technology": "5G-NR", "affected_users": 45}',
+        hoursAgo: 12
+      },
+      {
+        type: 'fronthaul',
+        severity: 'medium',
+        description: 'Latency spike detected on DU-RU interface, avg delay: 15ms',
+        source_file: 'log_20250813_140000.txt',
+        packet_number: 3456,
+        status: 'open',
+        anomaly_type: 'latency_anomaly',
+        confidence_score: 0.79,
+        detection_algorithm: 'isolation_forest',
+        context_data: '{"cell_id": "Cell-23", "sector_id": 1, "frequency_band": "1800MHz", "technology": "5G-NR", "affected_users": 80}',
+        hoursAgo: 36
+      },
+      {
+        type: 'protocol',
+        severity: 'critical',
+        description: 'Invalid message sequence in RRC connection setup',
+        source_file: 'log_20250814_100000.txt',
+        status: 'open',
+        anomaly_type: 'protocol_sequence_error',
+        confidence_score: 0.94,
+        detection_algorithm: 'hybrid_ensemble',
+        context_data: '{"cell_id": "Cell-67", "sector_id": 2, "frequency_band": "2100MHz", "technology": "5G-NR", "affected_users": 120}',
+        hoursAgo: 60
       }
     ];
 
     testAnomalies.forEach(anomalyData => {
       const id = this.generateId();
+      const timestamp = new Date(now.getTime() - (anomalyData.hoursAgo * 60 * 60 * 1000));
       const anomaly: Anomaly = {
         ...anomalyData,
         id,
-        timestamp: new Date(),
+        timestamp,
         details: anomalyData.details || null,
         status: anomalyData.status || 'open',
         mac_address: anomalyData.mac_address || null,

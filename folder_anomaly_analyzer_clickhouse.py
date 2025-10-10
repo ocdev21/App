@@ -362,8 +362,8 @@ class ClickHouseFolderAnalyzer:
                     datetime.now(),              # upload_date
                     'completed',                  # processing_status
                     len(anomalies),              # anomalies_found
-                    None,                         # processing_time (null for now)
-                    None                          # error_message (null for now)
+                    datetime.now(),              # processing_time
+                    ''                            # error_message (empty string instead of null)
                 ]]
                 
                 self.client.insert('processed_files', file_record, column_names=[

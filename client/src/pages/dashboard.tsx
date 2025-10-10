@@ -321,27 +321,37 @@ export default function Dashboard() {
         <h3 className="text-lg font-semibold text-gray-900 mb-6">Hourly Anomaly Heatmap (Last 7 Days)</h3>
         <div className="h-80">
           {heatmapData && heatmapData.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={heatmapData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis 
-                  dataKey="hour" 
-                  stroke="#6b7280" 
-                  fontSize={11}
-                  label={{ value: 'Hour of Day', position: 'insideBottom', offset: -5 }}
-                />
-                <YAxis 
-                  stroke="#6b7280" 
-                  fontSize={11}
-                  label={{ value: 'Anomaly Count', angle: -90, position: 'insideLeft' }}
-                />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
-                  formatter={(value: any, name: string, props: any) => [`${value} anomalies`, `${props.payload.day} ${props.payload.hour}:00`]}
-                />
-                <Bar dataKey="count" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            (() => {
+              const filteredData = heatmapData.filter(d => d.count > 0);
+              return filteredData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={filteredData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis 
+                      dataKey="hour" 
+                      stroke="#6b7280" 
+                      fontSize={11}
+                      label={{ value: 'Hour of Day', position: 'insideBottom', offset: -5 }}
+                    />
+                    <YAxis 
+                      stroke="#6b7280" 
+                      fontSize={11}
+                      label={{ value: 'Anomaly Count', angle: -90, position: 'insideLeft' }}
+                      allowDecimals={false}
+                    />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+                      formatter={(value: any, name: string, props: any) => [`${value} anomalies`, `${props.payload.day} ${props.payload.hour}:00`]}
+                    />
+                    <Bar dataKey="count" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-gray-400">
+                  <p>No anomalies detected in the last 7 days</p>
+                </div>
+              );
+            })()
           ) : (
             <div className="h-full flex items-center justify-center text-gray-400">
               <p>No heatmap data available</p>

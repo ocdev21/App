@@ -1,4 +1,4 @@
-import { type Anomaly, type InsertAnomaly, type ProcessedFile, type InsertProcessedFile, type Session, type InsertSession, type Metric, type InsertMetric, type DashboardMetrics, type AnomalyTrend, type AnomalyTypeBreakdown, type SeverityBreakdown, type HourlyHeatmapData, type TopAffectedSource, type NetworkHealthScore, type AlgorithmPerformance, type RecurringIssue, type SystemPerformance } from "@shared/schema";
+import { type Anomaly, type InsertAnomaly, type ProcessedFile, type InsertProcessedFile, type Session, type InsertSession, type Metric, type InsertMetric, type DashboardMetrics, type AnomalyTrend, type AnomalyTypeBreakdown, type SeverityBreakdown, type HourlyHeatmapData, type TopAffectedSource, type NetworkHealthScore, type AlgorithmPerformance, type SystemPerformance } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { spawn } from "child_process";
 import path from "path";
@@ -39,7 +39,6 @@ export interface IStorage {
   }>;
   getNetworkHealthScore(): Promise<NetworkHealthScore>;
   getAlgorithmPerformance(): Promise<AlgorithmPerformance[]>;
-  getRecurringIssues(hours: number): Promise<RecurringIssue[]>;
   getSystemPerformance(): Promise<SystemPerformance>;
 }
 
@@ -493,50 +492,6 @@ export class MemStorage implements IStorage {
         percentage: Math.round((count / total) * 1000) / 10
       }))
       .sort((a, b) => b.count - a.count);
-  }
-
-  async getRecurringIssues(hours: number = 24): Promise<RecurringIssue[]> {
-    const anomaliesArray = Array.from(this.anomalies.values());
-    const now = new Date();
-    const cutoffTime = new Date(now.getTime() - (hours * 60 * 60 * 1000));
-    
-    // Filter anomalies within time window
-    const recentAnomalies = anomaliesArray.filter(a => new Date(a.timestamp) >= cutoffTime);
-    
-    // Group by anomaly_type
-    const typeGroups = recentAnomalies.reduce((acc, anomaly) => {
-      const type = anomaly.anomaly_type || anomaly.type;
-      if (!acc[type]) {
-        acc[type] = [];
-      }
-      acc[type].push(anomaly);
-      return acc;
-    }, {} as Record<string, typeof anomaliesArray>);
-    
-    // Find recurring issues (>= 3 occurrences)
-    return Object.entries(typeGroups)
-      .filter(([, anomalies]) => anomalies.length >= 3)
-      .map(([type, anomalies]) => {
-        const timestamps = anomalies.map(a => new Date(a.timestamp).getTime());
-        const lastOccurrence = new Date(Math.max(...timestamps));
-        const affectedEntities = [...new Set(
-          anomalies.map(a => a.ue_id || a.mac_address || 'N/A').filter(Boolean)
-        )];
-        
-        // Calculate frequency
-        const timeSpan = Math.max(...timestamps) - Math.min(...timestamps);
-        const avgInterval = timeSpan / (anomalies.length - 1);
-        const frequency = avgInterval < 3600000 ? 'hourly' : avgInterval < 86400000 ? 'daily' : 'periodic';
-        
-        return {
-          anomalyType: type,
-          occurrences: anomalies.length,
-          lastOccurrence: lastOccurrence.toISOString(),
-          affectedEntities: affectedEntities.slice(0, 5),
-          frequency
-        };
-      })
-      .sort((a, b) => b.occurrences - a.occurrences);
   }
 
   async getSystemPerformance(): Promise<SystemPerformance> {
@@ -1297,71 +1252,30 @@ export class ClickHouseStorage implements IStorage {
     }
   }
 
-  async getRecurringIssues(hours: number = 24): Promise<RecurringIssue[]> {
-    try {
-      try {
-        const result = await clickhouse.query(`
-          SELECT 
-            anomaly_type,
-            count() as occurrences,
-            max(timestamp) as last_occurrence,
-            groupArray(DISTINCT ue_id) as ue_ids,
-            groupArray(DISTINCT mac_address) as mac_addrs
-          FROM l1_anomaly_detection.anomalies
-          WHERE timestamp >= now() - INTERVAL ${hours} HOUR
-          GROUP BY anomaly_type
-          HAVING count() >= 3
-          ORDER BY occurrences DESC
-        `);
-
-        if (result && result.length > 0) {
-          console.log('Retrieved recurring issues from ClickHouse');
-          return result.map((row: any) => {
-            const affectedEntities = [
-              ...(row.ue_ids || []).filter((id: string) => id),
-              ...(row.mac_addrs || []).filter((mac: string) => mac)
-            ].slice(0, 5);
-            
-            return {
-              anomalyType: row.anomaly_type,
-              occurrences: row.occurrences,
-              lastOccurrence: row.last_occurrence,
-              affectedEntities,
-              frequency: row.occurrences >= 10 ? 'hourly' : row.occurrences >= 5 ? 'frequent' : 'periodic'
-            };
-          });
-        }
-      } catch (chError) {
-        console.log('ClickHouse recurring issues query failed, using fallback');
-      }
-
-      const memStorage = new MemStorage();
-      return await memStorage.getRecurringIssues(hours);
-    } catch (error) {
-      console.error('Recurring issues error:', error);
-      return [];
-    }
-  }
-
   async getSystemPerformance(): Promise<SystemPerformance> {
     try {
       try {
         const result = await clickhouse.query(`
           SELECT 
-            avg(processing_time_seconds) as avg_processing_time
+            avg(duration_seconds) as avg_processing_time,
+            count() / (max(end_time) - min(start_time)) * 60 as files_per_minute
           FROM l1_anomaly_detection.sessions
           WHERE start_time >= now() - INTERVAL 1 HOUR
+          AND end_time IS NOT NULL
         `);
 
-        const avgTime = result?.[0]?.avg_processing_time || 0;
-        
-        console.log('Retrieved system performance from ClickHouse');
-        return {
-          filesPerMinute: 2.5,
-          avgProcessingTime: Math.round(avgTime * 10) / 10,
-          mlInferenceTime: 145,
-          dbQueryTime: 23
-        };
+        if (result && result.length > 0) {
+          const avgTime = result[0].avg_processing_time || 0;
+          const filesPerMin = result[0].files_per_minute || 2.5;
+          
+          console.log('Retrieved system performance from ClickHouse');
+          return {
+            filesPerMinute: Math.round(filesPerMin * 10) / 10,
+            avgProcessingTime: Math.round(avgTime * 10) / 10,
+            mlInferenceTime: 145,
+            dbQueryTime: 23
+          };
+        }
       } catch (chError) {
         console.log('ClickHouse system performance query failed, using fallback');
       }

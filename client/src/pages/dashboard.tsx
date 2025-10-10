@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import MetricCard from "../components/metric-card";
 import { AlertTriangle, BarChart3, Shield, FileText } from "lucide-react";
-import type { DashboardMetrics, DashboardMetricsWithChanges, AnomalyTrend, AnomalyTypeBreakdown, SeverityBreakdown, TopAffectedSource, NetworkHealthScore, AlgorithmPerformance, RecurringIssue, SystemPerformance } from "@shared/schema";
+import type { DashboardMetrics, DashboardMetricsWithChanges, AnomalyTrend, AnomalyTypeBreakdown, SeverityBreakdown, TopAffectedSource, NetworkHealthScore, AlgorithmPerformance, SystemPerformance } from "@shared/schema";
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 export default function Dashboard() {
@@ -38,11 +38,6 @@ export default function Dashboard() {
 
   const { data: algorithmPerformance } = useQuery<AlgorithmPerformance[]>({
     queryKey: ["/api/dashboard/algorithm-performance"],
-    refetchInterval: 60000,
-  });
-
-  const { data: recurringIssues } = useQuery<RecurringIssue[]>({
-    queryKey: ["/api/dashboard/recurring-issues?hours=24"],
     refetchInterval: 60000,
   });
 
@@ -460,70 +455,6 @@ export default function Dashboard() {
             </div>
           )}
         </div>
-      </div>
-
-      {/* Recurring Issues Table */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mt-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Recurring Issues (Last 24 Hours)</h3>
-        {recurringIssues && recurringIssues.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                    Anomaly Type
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                    Occurrences
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                    Frequency
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                    Last Occurrence
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                    Affected Entities
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {recurringIssues.map((issue, idx) => (
-                  <tr key={idx} className="hover:bg-yellow-50 border-b border-gray-200">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {issue.anomalyType}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                        {issue.occurrences}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        issue.frequency === 'hourly' ? 'bg-orange-100 text-orange-800' :
-                        issue.frequency === 'frequent' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-blue-100 text-blue-800'
-                      }`}>
-                        {issue.frequency}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {new Date(issue.lastOccurrence).toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      {issue.affectedEntities.slice(0, 3).join(', ')}
-                      {issue.affectedEntities.length > 3 && ` +${issue.affectedEntities.length - 3} more`}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="flex items-center justify-center py-12 text-gray-400">
-            <p>No recurring issues detected in the last 24 hours</p>
-          </div>
-        )}
       </div>
     </div>
   );

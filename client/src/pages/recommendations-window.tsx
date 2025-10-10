@@ -100,8 +100,8 @@ export default function RecommendationsWindow() {
     ];
 
     // Split content into sections
-    const sections: { header: string; content: string }[] = [];
-    let currentSection = { header: '', content: '' };
+    const sections: { header: string; items: string[] }[] = [];
+    let currentSection = { header: '', items: [] as string[] };
 
     const lines = content.split('\n');
     
@@ -115,18 +115,29 @@ export default function RecommendationsWindow() {
       
       if (isHeader) {
         // Save previous section if it has content
-        if (currentSection.header || currentSection.content) {
-          sections.push({ ...currentSection });
+        if (currentSection.header || currentSection.items.length > 0) {
+          sections.push({ ...currentSection, items: [...currentSection.items] });
         }
         // Start new section
-        currentSection = { header: line, content: '' };
+        currentSection = { header: line, items: [] };
       } else if (line) {
-        currentSection.content += (currentSection.content ? '\n' : '') + line;
+        // Check if line starts with a number (numbered point)
+        const numberedMatch = line.match(/^(\d+)\.\s+(.+)/);
+        if (numberedMatch) {
+          currentSection.items.push(line);
+        } else {
+          // If previous item exists, append to it, otherwise add as new item
+          if (currentSection.items.length > 0) {
+            currentSection.items[currentSection.items.length - 1] += ' ' + line;
+          } else {
+            currentSection.items.push(line);
+          }
+        }
       }
     }
     
     // Add last section
-    if (currentSection.header || currentSection.content) {
+    if (currentSection.header || currentSection.items.length > 0) {
       sections.push(currentSection);
     }
 
@@ -142,10 +153,14 @@ export default function RecommendationsWindow() {
             {section.header && (
               <h3 className="font-bold text-gray-900 text-base mb-2">{section.header}</h3>
             )}
-            {section.content && (
-              <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed ml-4">
-                {section.content}
-              </p>
+            {section.items.length > 0 && (
+              <ul className="ml-4 space-y-2">
+                {section.items.map((item, itemIdx) => (
+                  <li key={itemIdx} className="text-sm text-gray-800 leading-relaxed">
+                    {item}
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
         ))}
@@ -156,15 +171,8 @@ export default function RecommendationsWindow() {
   return (
     <div className="min-h-screen bg-white">
       {/* Blue Header Bar */}
-      <div className="bg-blue-500 px-6 py-4 flex items-center justify-between">
+      <div className="bg-blue-500 px-6 py-4">
         <h1 className="text-xl font-semibold text-white">AI Troubleshooting Recommendations</h1>
-        <button
-          onClick={() => window.close()}
-          className="text-white hover:text-gray-200 transition-colors text-2xl font-light leading-none"
-          aria-label="Close"
-        >
-          ×
-        </button>
       </div>
 
       <div className="max-w-4xl mx-auto p-8">

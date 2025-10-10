@@ -106,8 +106,8 @@ export default function RecommendationsModal({
     ];
 
     // Split content into sections
-    const sections: { header: string; content: string }[] = [];
-    let currentSection = { header: '', content: '' };
+    const sections: { header: string; items: string[] }[] = [];
+    let currentSection = { header: '', items: [] as string[] };
 
     const lines = content.split('\n');
     
@@ -121,18 +121,29 @@ export default function RecommendationsModal({
       
       if (isHeader) {
         // Save previous section if it has content
-        if (currentSection.header || currentSection.content) {
-          sections.push({ ...currentSection });
+        if (currentSection.header || currentSection.items.length > 0) {
+          sections.push({ ...currentSection, items: [...currentSection.items] });
         }
         // Start new section
-        currentSection = { header: line, content: '' };
+        currentSection = { header: line, items: [] };
       } else if (line) {
-        currentSection.content += (currentSection.content ? '\n' : '') + line;
+        // Check if line starts with a number (numbered point)
+        const numberedMatch = line.match(/^(\d+)\.\s+(.+)/);
+        if (numberedMatch) {
+          currentSection.items.push(line);
+        } else {
+          // If previous item exists, append to it, otherwise add as new item
+          if (currentSection.items.length > 0) {
+            currentSection.items[currentSection.items.length - 1] += ' ' + line;
+          } else {
+            currentSection.items.push(line);
+          }
+        }
       }
     }
     
     // Add last section
-    if (currentSection.header || currentSection.content) {
+    if (currentSection.header || currentSection.items.length > 0) {
       sections.push(currentSection);
     }
 
@@ -148,10 +159,14 @@ export default function RecommendationsModal({
             {section.header && (
               <h3 className="font-bold text-slate-900 mb-2">{section.header}</h3>
             )}
-            {section.content && (
-              <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed ml-4">
-                {section.content}
-              </p>
+            {section.items.length > 0 && (
+              <ul className="ml-4 space-y-2">
+                {section.items.map((item, itemIdx) => (
+                  <li key={itemIdx} className="text-sm text-slate-700 leading-relaxed">
+                    {item}
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
         ))}
@@ -163,16 +178,8 @@ export default function RecommendationsModal({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden">
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
+          <DialogTitle>
             AI Recommendations
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClose}
-              className="h-8 w-8 p-0"
-            >
-              <X className="h-4 w-4" />
-            </Button>
           </DialogTitle>
         </DialogHeader>
 

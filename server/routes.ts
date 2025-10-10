@@ -351,19 +351,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/dashboard/recurring-issues", async (req, res) => {
-    try {
-      const hours = parseInt(req.query.hours as string) || 24;
-      const issues = await storage.getRecurringIssues(hours);
-      res.json(issues);
-    } catch (error) {
-      console.error("Error fetching recurring issues:", error);
-      res.status(500).json({ 
-        error: "Failed to fetch recurring issues" 
-      });
-    }
-  });
-
   app.get("/api/dashboard/system-performance", async (req, res) => {
     try {
       const performance = await storage.getSystemPerformance();

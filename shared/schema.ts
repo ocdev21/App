@@ -151,14 +151,6 @@ export type AlgorithmPerformance = {
   percentage: number;
 };
 
-export type RecurringIssue = {
-  anomalyType: string;
-  occurrences: number;
-  lastOccurrence: string;
-  affectedEntities: string[];
-  frequency: string;
-};
-
 export type SystemPerformance = {
   filesPerMinute: number;
   avgProcessingTime: number;

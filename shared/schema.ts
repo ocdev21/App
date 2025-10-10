@@ -133,3 +133,35 @@ export type TopAffectedSource = {
   source: string;
   count: number;
 };
+
+export type NetworkHealthScore = {
+  score: number;
+  status: 'healthy' | 'warning' | 'critical';
+  trend: 'improving' | 'stable' | 'degrading';
+  factors: {
+    anomalyRate: number;
+    criticalCount: number;
+    resolutionRate: number;
+  };
+};
+
+export type AlgorithmPerformance = {
+  algorithm: string;
+  count: number;
+  percentage: number;
+};
+
+export type RecurringIssue = {
+  anomalyType: string;
+  occurrences: number;
+  lastOccurrence: string;
+  affectedEntities: string[];
+  frequency: string;
+};
+
+export type SystemPerformance = {
+  filesPerMinute: number;
+  avgProcessingTime: number;
+  mlInferenceTime: number;
+  dbQueryTime: number;
+};

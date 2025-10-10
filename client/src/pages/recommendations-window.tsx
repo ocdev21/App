@@ -87,6 +87,72 @@ export default function RecommendationsWindow() {
     };
   };
 
+  const formatRecommendations = (content: string) => {
+    if (!content) return null;
+
+    // Define the headers to look for
+    const headers = [
+      '1. ROOT CAUSE ANALYSIS',
+      '2. IMMEDIATE ACTIONS',
+      '3. DETAILED INVESTIGATION',
+      '4. RESOLUTION STEPS',
+      '5. PREVENTION MEASURES'
+    ];
+
+    // Split content into sections
+    const sections: { header: string; content: string }[] = [];
+    let currentSection = { header: '', content: '' };
+
+    const lines = content.split('\n');
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      
+      // Check if line is a header
+      const isHeader = headers.some(h => line.includes(h) || 
+        line.includes(h.replace(/^\d+\.\s*/, '')) ||
+        line.toUpperCase().includes(h.replace(/^\d+\.\s*/, '')));
+      
+      if (isHeader) {
+        // Save previous section if it has content
+        if (currentSection.header || currentSection.content) {
+          sections.push({ ...currentSection });
+        }
+        // Start new section
+        currentSection = { header: line, content: '' };
+      } else if (line) {
+        currentSection.content += (currentSection.content ? '\n' : '') + line;
+      }
+    }
+    
+    // Add last section
+    if (currentSection.header || currentSection.content) {
+      sections.push(currentSection);
+    }
+
+    // If no sections were found, treat entire content as single block
+    if (sections.length === 0) {
+      return <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{content}</p>;
+    }
+
+    return (
+      <div className="space-y-4">
+        {sections.map((section, idx) => (
+          <div key={idx}>
+            {section.header && (
+              <h3 className="font-bold text-gray-900 text-base mb-2">{section.header}</h3>
+            )}
+            {section.content && (
+              <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed ml-4">
+                {section.content}
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-white">
       {/* Blue Header Bar */}
@@ -153,8 +219,8 @@ export default function RecommendationsWindow() {
             </div>
           ) : recommendations ? (
             <div className="relative">
-              <div className="w-full min-h-[200px] max-h-[800px] p-4 border border-gray-200 rounded-lg font-sans text-sm text-gray-800 whitespace-pre-wrap overflow-y-auto bg-white">
-                {recommendations}
+              <div className="w-full min-h-[200px] max-h-[800px] p-4 border border-gray-200 rounded-lg font-sans overflow-y-auto bg-white">
+                {formatRecommendations(recommendations)}
               </div>
               {isStreaming && (
                 <span className="absolute bottom-4 right-4 inline-block w-2 h-4 bg-blue-600 animate-pulse" />

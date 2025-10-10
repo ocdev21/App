@@ -93,6 +93,72 @@ export default function RecommendationsModal({
     URL.revokeObjectURL(url);
   };
 
+  const formatRecommendations = (content: string) => {
+    if (!content) return null;
+
+    // Define the headers to look for
+    const headers = [
+      '1. ROOT CAUSE ANALYSIS',
+      '2. IMMEDIATE ACTIONS',
+      '3. DETAILED INVESTIGATION',
+      '4. RESOLUTION STEPS',
+      '5. PREVENTION MEASURES'
+    ];
+
+    // Split content into sections
+    const sections: { header: string; content: string }[] = [];
+    let currentSection = { header: '', content: '' };
+
+    const lines = content.split('\n');
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      
+      // Check if line is a header
+      const isHeader = headers.some(h => line.includes(h) || 
+        line.includes(h.replace(/^\d+\.\s*/, '')) ||
+        line.toUpperCase().includes(h.replace(/^\d+\.\s*/, '')));
+      
+      if (isHeader) {
+        // Save previous section if it has content
+        if (currentSection.header || currentSection.content) {
+          sections.push({ ...currentSection });
+        }
+        // Start new section
+        currentSection = { header: line, content: '' };
+      } else if (line) {
+        currentSection.content += (currentSection.content ? '\n' : '') + line;
+      }
+    }
+    
+    // Add last section
+    if (currentSection.header || currentSection.content) {
+      sections.push(currentSection);
+    }
+
+    // If no sections were found, treat entire content as single block
+    if (sections.length === 0) {
+      return <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{content}</p>;
+    }
+
+    return (
+      <div className="space-y-4">
+        {sections.map((section, idx) => (
+          <div key={idx}>
+            {section.header && (
+              <h3 className="font-bold text-slate-900 mb-2">{section.header}</h3>
+            )}
+            {section.content && (
+              <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed ml-4">
+                {section.content}
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden">
@@ -132,8 +198,10 @@ export default function RecommendationsModal({
                 </div>
               )}
             </div>
-            <div className="bg-slate-50 p-4 rounded-lg min-h-[200px] max-h-[400px] overflow-y-auto streaming-content">
-              {streamingContent || (
+            <div className="bg-slate-50 p-4 rounded-lg min-h-[200px] max-h-[800px] overflow-y-auto border border-gray-200 streaming-content">
+              {streamingContent ? (
+                formatRecommendations(streamingContent)
+              ) : (
                 <div className="text-slate-500 text-sm animate-pulse">
                   Connecting to TSLAM model...
                 </div>

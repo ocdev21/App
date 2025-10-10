@@ -327,6 +327,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/dashboard/network-health", async (req, res) => {
+    try {
+      const healthScore = await storage.getNetworkHealthScore();
+      res.json(healthScore);
+    } catch (error) {
+      console.error("Error fetching network health:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch network health score" 
+      });
+    }
+  });
+
+  app.get("/api/dashboard/algorithm-performance", async (req, res) => {
+    try {
+      const performance = await storage.getAlgorithmPerformance();
+      res.json(performance);
+    } catch (error) {
+      console.error("Error fetching algorithm performance:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch algorithm performance" 
+      });
+    }
+  });
+
+  app.get("/api/dashboard/recurring-issues", async (req, res) => {
+    try {
+      const hours = parseInt(req.query.hours as string) || 24;
+      const issues = await storage.getRecurringIssues(hours);
+      res.json(issues);
+    } catch (error) {
+      console.error("Error fetching recurring issues:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch recurring issues" 
+      });
+    }
+  });
+
+  app.get("/api/dashboard/system-performance", async (req, res) => {
+    try {
+      const performance = await storage.getSystemPerformance();
+      res.json(performance);
+    } catch (error) {
+      console.error("Error fetching system performance:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch system performance" 
+      });
+    }
+  });
+
   // Anomalies endpoints
   app.get("/api/anomalies", async (req, res) => {
     try {

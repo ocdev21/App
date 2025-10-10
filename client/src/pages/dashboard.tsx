@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import MetricCard from "../components/metric-card";
 import { AlertTriangle, BarChart3, Shield, FileText } from "lucide-react";
-import type { DashboardMetrics, DashboardMetricsWithChanges, AnomalyTrend, AnomalyTypeBreakdown, SeverityBreakdown, HourlyHeatmapData, TopAffectedSource } from "@shared/schema";
+import type { DashboardMetrics, DashboardMetricsWithChanges, AnomalyTrend, AnomalyTypeBreakdown, SeverityBreakdown, TopAffectedSource, NetworkHealthScore, AlgorithmPerformance, RecurringIssue, SystemPerformance } from "@shared/schema";
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 export default function Dashboard() {
@@ -26,13 +26,28 @@ export default function Dashboard() {
     refetchInterval: 60000,
   });
 
-  const { data: heatmapData } = useQuery<HourlyHeatmapData[]>({
-    queryKey: ["/api/dashboard/heatmap?days=7"],
+  const { data: topSources } = useQuery<TopAffectedSource[]>({
+    queryKey: ["/api/dashboard/top-sources?limit=10"],
     refetchInterval: 60000,
   });
 
-  const { data: topSources } = useQuery<TopAffectedSource[]>({
-    queryKey: ["/api/dashboard/top-sources?limit=10"],
+  const { data: networkHealth } = useQuery<NetworkHealthScore>({
+    queryKey: ["/api/dashboard/network-health"],
+    refetchInterval: 60000,
+  });
+
+  const { data: algorithmPerformance } = useQuery<AlgorithmPerformance[]>({
+    queryKey: ["/api/dashboard/algorithm-performance"],
+    refetchInterval: 60000,
+  });
+
+  const { data: recurringIssues } = useQuery<RecurringIssue[]>({
+    queryKey: ["/api/dashboard/recurring-issues?hours=24"],
+    refetchInterval: 60000,
+  });
+
+  const { data: systemPerformance } = useQuery<SystemPerformance>({
+    queryKey: ["/api/dashboard/system-performance"],
     refetchInterval: 60000,
   });
 
@@ -316,48 +331,199 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Hourly Heatmap */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-6">Hourly Anomaly Heatmap (Last 7 Days)</h3>
-        <div className="h-80">
-          {heatmapData && heatmapData.length > 0 ? (
-            (() => {
-              const filteredData = heatmapData.filter(d => d.count > 0);
-              return filteredData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={filteredData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis 
-                      dataKey="hour" 
-                      stroke="#6b7280" 
-                      fontSize={11}
-                      label={{ value: 'Hour of Day', position: 'insideBottom', offset: -5 }}
+      {/* New Enhanced Widgets Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+        
+        {/* Network Health Score */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Network Health Score</h3>
+          {networkHealth ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-center">
+                <div className="relative w-32 h-32">
+                  <svg className="transform -rotate-90 w-32 h-32">
+                    <circle
+                      cx="64"
+                      cy="64"
+                      r="56"
+                      stroke="#e5e7eb"
+                      strokeWidth="8"
+                      fill="none"
                     />
-                    <YAxis 
-                      stroke="#6b7280" 
-                      fontSize={11}
-                      label={{ value: 'Anomaly Count', angle: -90, position: 'insideLeft' }}
-                      allowDecimals={false}
+                    <circle
+                      cx="64"
+                      cy="64"
+                      r="56"
+                      stroke={networkHealth.status === 'healthy' ? '#10b981' : networkHealth.status === 'warning' ? '#f59e0b' : '#ef4444'}
+                      strokeWidth="8"
+                      fill="none"
+                      strokeDasharray={`${(networkHealth.score / 100) * 351.86} 351.86`}
+                      strokeLinecap="round"
                     />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
-                      formatter={(value: any, name: string, props: any) => [`${value} anomalies`, `${props.payload.day} ${props.payload.hour}:00`]}
-                    />
-                    <Bar dataKey="count" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-full flex items-center justify-center text-gray-400">
-                  <p>No anomalies detected in the last 7 days</p>
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-3xl font-bold text-gray-900">{networkHealth.score}</span>
+                  </div>
                 </div>
-              );
-            })()
+              </div>
+              <div className="text-center">
+                <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
+                  networkHealth.status === 'healthy' ? 'bg-green-100 text-green-800' :
+                  networkHealth.status === 'warning' ? 'bg-yellow-100 text-yellow-800' :
+                  'bg-red-100 text-red-800'
+                }`}>
+                  {networkHealth.status.toUpperCase()}
+                </span>
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Anomaly Rate:</span>
+                  <span className="font-medium">{networkHealth.factors.anomalyRate}%</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Critical Count:</span>
+                  <span className="font-medium">{networkHealth.factors.criticalCount}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Resolution Rate:</span>
+                  <span className="font-medium">{networkHealth.factors.resolutionRate}%</span>
+                </div>
+              </div>
+            </div>
           ) : (
-            <div className="h-full flex items-center justify-center text-gray-400">
-              <p>No heatmap data available</p>
+            <div className="h-64 flex items-center justify-center text-gray-400">
+              <p>Loading health score...</p>
             </div>
           )}
         </div>
+
+        {/* Detection Algorithm Performance */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Detection Algorithm Performance</h3>
+          <div className="h-64">
+            {algorithmPerformance && algorithmPerformance.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={algorithmPerformance}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ algorithm, percentage }) => `${algorithm}: ${percentage}%`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="count"
+                  >
+                    {algorithmPerformance.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+                    formatter={(value: any, name: string, props: any) => [`${value} detections (${props.payload.percentage}%)`, props.payload.algorithm]}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-gray-400">
+                <p>No algorithm data available</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* System Performance Metrics */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">System Performance</h3>
+          {systemPerformance ? (
+            <div className="space-y-4">
+              <div className="border-b border-gray-200 pb-3">
+                <div className="text-sm text-gray-600">Files/Minute</div>
+                <div className="text-2xl font-bold text-gray-900">{systemPerformance.filesPerMinute}</div>
+              </div>
+              <div className="border-b border-gray-200 pb-3">
+                <div className="text-sm text-gray-600">Avg Processing Time</div>
+                <div className="text-2xl font-bold text-gray-900">{systemPerformance.avgProcessingTime}s</div>
+              </div>
+              <div className="border-b border-gray-200 pb-3">
+                <div className="text-sm text-gray-600">ML Inference Time</div>
+                <div className="text-2xl font-bold text-gray-900">{systemPerformance.mlInferenceTime}ms</div>
+              </div>
+              <div className="pb-3">
+                <div className="text-sm text-gray-600">DB Query Time</div>
+                <div className="text-2xl font-bold text-gray-900">{systemPerformance.dbQueryTime}ms</div>
+              </div>
+            </div>
+          ) : (
+            <div className="h-64 flex items-center justify-center text-gray-400">
+              <p>Loading performance data...</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Recurring Issues Table */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mt-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Recurring Issues (Last 24 Hours)</h3>
+        {recurringIssues && recurringIssues.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    Anomaly Type
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    Occurrences
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    Frequency
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    Last Occurrence
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    Affected Entities
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {recurringIssues.map((issue, idx) => (
+                  <tr key={idx} className="hover:bg-yellow-50 border-b border-gray-200">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {issue.anomalyType}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                        {issue.occurrences}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        issue.frequency === 'hourly' ? 'bg-orange-100 text-orange-800' :
+                        issue.frequency === 'frequent' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-blue-100 text-blue-800'
+                      }`}>
+                        {issue.frequency}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      {new Date(issue.lastOccurrence).toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {issue.affectedEntities.slice(0, 3).join(', ')}
+                      {issue.affectedEntities.length > 3 && ` +${issue.affectedEntities.length - 3} more`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center py-12 text-gray-400">
+            <p>No recurring issues detected in the last 24 hours</p>
+          </div>
+        )}
       </div>
     </div>
   );

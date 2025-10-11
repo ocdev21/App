@@ -83,20 +83,27 @@ spec:
 EOF
 ```
 
-### Step 2: Deploy Pod
+### Step 2: Deploy Pod (Will Start Without Model)
 ```bash
 # Deploy the integrated pod
 oc apply -f tslam-pod-with-pvc.yaml
 
 # Monitor initialization
-oc logs -f l1-integrated -c init-pvc
+oc logs -f l1-integrated
 ```
+
+**Important:** The pod will start successfully even if the model is missing. You'll see:
+```
+WARNING: GGUF Model Not Found!
+AI Inference service will NOT start.
+Web application will start in limited mode.
+```
+
+This is **expected behavior** - the pod stays running so you can copy the model.
 
 ### Step 3: Copy Mistral Model to PVC (ONE-TIME SETUP)
 ```bash
-# ⚠️ CRITICAL: The model must be copied to PVC before services start
-
-# Wait for pod to be ready
+# Wait for pod to be ready (web app will be running)
 oc wait --for=condition=Ready pod/l1-integrated --timeout=300s
 
 # Copy Mistral GGUF model to PVC (4-5GB transfer)
@@ -115,11 +122,11 @@ oc exec l1-integrated -- ls -lh /pvc/models/mistral.gguf
 - ✅ Faster builds and deployments
 - ✅ Model persists across pod restarts
 - ✅ Can swap models without rebuilding image
-- ✅ Shared across multiple pods if needed
+- ✅ Pod starts successfully even without model (copy it later)
 
-### Step 4: Restart Services to Load Model
+### Step 4: Restart Pod to Load Model
 ```bash
-# The model check will verify model exists, then start AI inference
+# Restart pod to start AI inference service with the model
 oc delete pod l1-integrated --force --grace-period=0
 
 # Monitor startup and model loading

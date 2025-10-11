@@ -24,7 +24,9 @@ The container includes **3 integrated services**:
 ## 🏗️ Build From Scratch (No Cache)
 
 ### Prerequisites
-- Mistral GGUF model at: `/home/cloud-user/pjoe/model/mistral7b/mistral-7b-instruct-v0.2.Q4_K_M.gguf`
+- **Mistral GGUF model** at: `/home/cloud-user/pjoe/model/mistral7b/mistral-7b-instruct-v0.2.Q4_K_M.gguf`
+  - ⚠️ **Model is NOT included in the container image**
+  - Will be copied to PVC separately (see deployment steps)
 - Podman or Docker installed
 - Private registry access: `10.0.1.224:5000`
 
@@ -46,7 +48,7 @@ podman push 10.0.1.224:5000/l1-integrated:latest
 
 ### Step 2: Verify Image
 ```bash
-# Check image size (expect ~6-8GB due to GGUF model)
+# Check image size (expect ~6-8GB - much smaller without GGUF model!)
 podman images | grep l1-integrated
 
 # Inspect layers
@@ -90,7 +92,46 @@ oc apply -f tslam-pod-with-pvc.yaml
 oc logs -f l1-integrated -c init-pvc
 ```
 
-### Step 3: Verify Services
+### Step 3: Copy Mistral Model to PVC (ONE-TIME SETUP)
+```bash
+# ⚠️ CRITICAL: The model must be copied to PVC before services start
+
+# Wait for pod to be ready
+oc wait --for=condition=Ready pod/l1-integrated --timeout=300s
+
+# Copy Mistral GGUF model to PVC (4-5GB transfer)
+oc cp /home/cloud-user/pjoe/model/mistral7b/mistral-7b-instruct-v0.2.Q4_K_M.gguf \
+  l1-integrated:/pvc/models/mistral.gguf
+
+# Verify model was copied successfully
+oc exec l1-integrated -- ls -lh /pvc/models/mistral.gguf
+
+# Expected output: ~4.1GB file
+# -rw-r--r-- 1 appuser appuser 4.1G ... /pvc/models/mistral.gguf
+```
+
+**Why PVC-Based Storage?**
+- ✅ Reduces container image from 50GB → 6-8GB (85% smaller!)
+- ✅ Faster builds and deployments
+- ✅ Model persists across pod restarts
+- ✅ Can swap models without rebuilding image
+- ✅ Shared across multiple pods if needed
+
+### Step 4: Restart Services to Load Model
+```bash
+# The model check will verify model exists, then start AI inference
+oc delete pod l1-integrated --force --grace-period=0
+
+# Monitor startup and model loading
+oc logs -f l1-integrated
+
+# You should see:
+# "Checking for GGUF model in PVC..."
+# "Model found: 4.1G at /pvc/models/mistral.gguf"
+# "[2/3] Starting AI Inference Server (port 8000)..."
+```
+
+### Step 5: Verify Services
 ```bash
 # Check pod status
 oc get pods -l app=l1-integrated
@@ -103,7 +144,7 @@ POD_NAME=$(oc get pods -l app=l1-integrated -o jsonpath='{.items[0].metadata.nam
 oc exec $POD_NAME -- ls -la /pvc/
 ```
 
-### Step 4: Access Application
+### Step 6: Access Application
 ```bash
 # Get the public URL
 oc get route l1-integrated -o jsonpath='{.spec.host}'
@@ -218,12 +259,16 @@ oc logs -f l1-integrated
 After initialization:
 ```
 /pvc/
-├── models/              # ML model files (.pkl)
+├── models/              # ML model files (.pkl) + Mistral GGUF (4-5GB)
+│   └── mistral.gguf     # ⚠️ Must be copied manually via kubectl cp
 ├── input_files/         # PCAP files for analysis
 ├── feature_history/     # Accumulated features
 ├── chromadb/           # RAG vector database
 └── uploaded_docs/      # Original PDF/TXT/MD files
 ```
+
+**Important**: The Mistral GGUF model is stored in PVC, not in the container image.
+This reduces the image size by 4-5GB and allows model updates without rebuilding.
 
 ---
 
@@ -240,11 +285,33 @@ oc logs l1-integrated | grep RAG
 
 ### AI Model Load Failure
 ```bash
-# Check model file
-oc exec l1-integrated -- ls -lh /models/mistral.gguf
+# Check if model exists in PVC
+oc exec l1-integrated -- ls -lh /pvc/models/mistral.gguf
+
+# If model is missing, copy it to PVC
+oc cp /home/cloud-user/pjoe/model/mistral7b/mistral-7b-instruct-v0.2.Q4_K_M.gguf \
+  l1-integrated:/pvc/models/mistral.gguf
 
 # Check memory usage
 oc exec l1-integrated -- free -h
+
+# Restart pod to load model
+oc delete pod l1-integrated --force --grace-period=0
+```
+
+### Model Not Found Error
+If you see: `ERROR: GGUF Model Not Found!`
+```bash
+# This means the model hasn't been copied to PVC yet
+# Copy model using kubectl cp (one-time setup)
+oc cp /path/to/mistral-7b-instruct-v0.2.Q4_K_M.gguf \
+  l1-integrated:/pvc/models/mistral.gguf
+
+# Verify copy succeeded
+oc exec l1-integrated -- ls -lh /pvc/models/mistral.gguf
+
+# Restart services
+oc delete pod l1-integrated --force --grace-period=0
 ```
 
 ### PVC Not Initialized
@@ -268,6 +335,7 @@ oc exec l1-integrated -- mkdir -p /pvc/{models,input_files,feature_history,chrom
 
 ---
 
-**Build Time**: ~10-15 minutes (with GGUF model)
-**Image Size**: ~6-8 GB
+**Build Time**: ~5-10 minutes (without GGUF model in image)
+**Image Size**: ~6-8 GB (85% smaller - model stored in PVC!)
 **Memory Required**: 8GB+ (for Mistral-7B)
+**Model Transfer**: One-time ~4-5GB kubectl cp to PVC

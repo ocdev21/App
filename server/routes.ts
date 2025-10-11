@@ -870,8 +870,8 @@ This represents a general network anomaly requiring further investigation.`;
       let anomalyData;
       
       try {
-        if (clickhouse.client) {
-          const result = await clickhouse.client.query({
+        if (clickhouse.isAvailable()) {
+          const result = await clickhouse.getClient().query({
             query: `
               SELECT timestamp
               FROM anomalies 
@@ -1103,8 +1103,8 @@ This represents a general network anomaly requiring further investigation.`;
       let anomalyData;
       
       try {
-        if (clickhouse.client) {
-          const result = await clickhouse.client.query({
+        if (clickhouse.isAvailable()) {
+          const result = await clickhouse.getClient().query({
             query: `
               SELECT 
                 type,
@@ -1142,12 +1142,12 @@ This represents a general network anomaly requiring further investigation.`;
       const typeBreakdown = last24h.reduce((acc: any, a: any) => {
         acc[a.type] = (acc[a.type] || 0) + 1;
         return acc;
-      }, {});
+      }, {}) as Record<string, number>;
       
       const sourceBreakdown = last24h.reduce((acc: any, a: any) => {
         acc[a.source || 'unknown'] = (acc[a.source || 'unknown'] || 0) + 1;
         return acc;
-      }, {});
+      }, {}) as Record<string, number>;
       
       const hourlyTrend = [];
       for (let i = 23; i >= 0; i--) {
@@ -1170,8 +1170,8 @@ This represents a general network anomaly requiring further investigation.`;
         anomaly_rate: Math.round(anomalyRate),
         critical_count: criticalCount,
         total_anomalies_24h: totalCount,
-        type_breakdown: Object.entries(typeBreakdown).map(([type, count]) => ({ type, count })),
-        source_breakdown: Object.entries(sourceBreakdown).map(([source, count]) => ({ source, count })),
+        type_breakdown: Object.entries(typeBreakdown).map(([type, count]) => ({ type, count: count as number })),
+        source_breakdown: Object.entries(sourceBreakdown).map(([source, count]) => ({ source, count: count as number })),
         hourly_trend: hourlyTrend,
         status: healthScore > 70 ? 'healthy' : healthScore > 40 ? 'warning' : 'critical'
       });

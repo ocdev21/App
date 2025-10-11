@@ -5,24 +5,14 @@ echo "L1 Integrated Container Build Script"
 echo "Frontend + Backend + AI Inference"
 echo "=========================================="
 echo ""
+echo "NOTE: Model will be loaded from PVC at /pvc/models/mistral.gguf"
+echo "      Use 'kubectl cp' to copy model to PVC (see BUILD_INSTRUCTIONS.md)"
+echo ""
 
-MODEL_SOURCE="/home/cloud-user/pjoe/model/mistral7b/mistral-7b-instruct-v0.2.Q4_K_M.gguf"
 IMAGE_NAME="l1-integrated"
 IMAGE_TAG="latest"
 REGISTRY="10.0.1.224:5000"
 
-# Check if GGUF file exists
-if [ ! -f "$MODEL_SOURCE" ]; then
-    echo "ERROR: GGUF model file not found: $MODEL_SOURCE"
-    echo ""
-    echo "Please verify the path to your Mistral GGUF file"
-    exit 1
-fi
-
-MODEL_SIZE=$(du -h "$MODEL_SOURCE" | cut -f1)
-echo "Found GGUF model: $MODEL_SIZE"
-
-echo ""
 echo "Step 1: Preparing build context..."
 rm -rf build-context
 mkdir -p build-context
@@ -33,13 +23,15 @@ rsync -a --exclude='node_modules' \
          --exclude='dist' \
          --exclude='build' \
          --exclude='.git' \
+         --exclude='.local' \
+         --exclude='.config' \
+         --exclude='.cache' \
+         --exclude='.venv' \
+         --exclude='__pycache__' \
+         --exclude='*.pyc' \
          --exclude='build-context' \
          --exclude='*.log' \
          ../ build-context/
-
-# Copy GGUF model
-echo "  Copying GGUF model ($MODEL_SIZE)..."
-cp "$MODEL_SOURCE" build-context/mistral-7b-instruct-v0.2.Q4_K_M.gguf
 
 # Copy Docker files from current directory
 echo "  Copying Dockerfile and scripts..."

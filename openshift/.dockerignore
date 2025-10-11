@@ -1,0 +1,79 @@
+# Version control
+.git
+.gitignore
+
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Python virtual environments and cache
+.venv
+venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+.cache
+.pythonlibs
+
+# Build outputs
+dist
+build
+build-context
+*.egg-info
+.next
+out
+
+# IDE and editor files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Config and local folders
+.local
+.config
+.npm
+.yarn
+
+# Logs
+*.log
+logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Testing
+coverage
+.nyc_output
+*.test.js
+
+# Temp files
+*.tmp
+*.temp
+tmp
+temp
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Data directories (will be mounted via PVC)
+data/
+models/
+input_files/
+feature_history/
+
+# OpenShift deployment files (not needed in image)
+*.yaml
+*.yml
+
+# Documentation
+*.md
+!README.md

@@ -47,9 +47,8 @@ RUN pip install --no-cache-dir \
     sentence-transformers \
     PyPDF2
 
-# Copy GGUF model first (separate layer for better caching)
-COPY mistral-7b-instruct-v0.2.Q4_K_M.gguf /models/mistral.gguf
-RUN chmod -R 755 /models
+# Model will be loaded from PVC at /pvc/models/mistral.gguf (not included in image)
+# This reduces image size by 4-5GB
 
 # Copy package files for dependency installation
 COPY package*.json ./
@@ -86,8 +85,7 @@ RUN mkdir -p /app/.cache /app/input_files
 
 # Create non-root user
 RUN useradd -m -u 1001 -s /bin/bash appuser \
-    && chown -R appuser:appuser /app \
-    && chown -R appuser:appuser /models
+    && chown -R appuser:appuser /app
 
 USER appuser
 

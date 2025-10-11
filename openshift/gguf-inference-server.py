@@ -30,7 +30,7 @@ def load_gguf_model():
     global model, model_loaded, load_time
     
     try:
-        model_path = "/models/mistral.gguf"
+        model_path = "/pvc/models/mistral.gguf"
         logger.info("=" * 60)
         logger.info("STARTING MODEL INITIALIZATION")
         logger.info("=" * 60)

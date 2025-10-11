@@ -11,22 +11,22 @@ spec:
     fsGroup: 2000
     fsGroupChangePolicy: "OnRootMismatch"
   
-  # InitContainer to create PVC directories before main container starts
+  # InitContainer to create model directory
   initContainers:
-    - name: setup-pvc-dirs
+    - name: setup-model-dir
       image: quay.io/prometheus/busybox:latest
       command: 
         - sh
         - -c
         - |
-          echo "Creating PVC directories..."
-          mkdir -p /pvc/models /pvc/input_files /pvc/feature_history /pvc/chromadb /pvc/uploaded_docs
-          chmod -R 777 /pvc
-          ls -la /pvc
-          echo "PVC setup complete!"
+          echo "Setting up model directory..."
+          mkdir -p /models
+          chmod -R 777 /models
+          ls -la /models
+          echo "Model directory setup complete!"
       volumeMounts:
-        - name: ml-data
-          mountPath: /pvc
+        - name: model-data
+          mountPath: /models
   
   containers:
     - name: l1-integrated
@@ -51,25 +51,25 @@ spec:
           value: "5000"
         # ML Configuration
         - name: ML_MODELS_DIR
-          value: "/pvc/models"
+          value: "/models"
         - name: INPUT_FILES_DIR
-          value: "/pvc/input_files"
+          value: "/app/input_files"
         - name: FEATURE_HISTORY_DIR
-          value: "/pvc/feature_history"
+          value: "/app/feature_history"
         - name: RETRAIN_THRESHOLD
           value: "10"
         # RAG Configuration
         - name: CHROMADB_PERSIST_DIR
-          value: "/pvc/chromadb"
+          value: "/app/chromadb"
         - name: RAG_SERVICE_URL
           value: "http://localhost:8001"
         - name: UPLOADED_DOCS_DIR
-          value: "/pvc/uploaded_docs"
+          value: "/app/uploaded_docs"
       
-      # Mount PVC for ML data
+      # Mount model PVC only
       volumeMounts:
-        - name: ml-data
-          mountPath: /pvc
+        - name: model-data
+          mountPath: /models
       
       livenessProbe:
         httpGet:
@@ -88,11 +88,11 @@ spec:
         timeoutSeconds: 5
         failureThreshold: 3
   
-  # Add PVC volume
+  # Add model PVC volume
   volumes:
-    - name: ml-data
+    - name: model-data
       persistentVolumeClaim:
-        claimName: l1-ml-data-pvc
+        claimName: l1-app-ai-model-pvc
 
 ---
 apiVersion: v1

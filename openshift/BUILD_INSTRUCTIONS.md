@@ -59,29 +59,35 @@ podman inspect 10.0.1.224:5000/l1-integrated:latest
 
 ## 🚀 Deploy to OpenShift
 
-### Step 1: Setup PVC (Fresh)
+### Step 1: Create Model PVC
 ```bash
 # Login to OpenShift
 oc login <cluster-url>
 oc project l1-app-ai
 
-# Delete old PVC for fresh start
-oc delete pvc l1-ml-data-pvc --ignore-not-found=true
+# Delete old PVC if exists
+oc delete pvc l1-app-ai-model-pvc --ignore-not-found=true
 
-# Create new PVC
+# Create model PVC
 oc apply -f - <<EOF
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: l1-ml-data-pvc
+  name: l1-app-ai-model-pvc
+  namespace: l1-app-ai
 spec:
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 20Gi
+      storage: 10Gi
 EOF
+
+# Check PVC status (will show "WaitingForFirstConsumer" - this is NORMAL!)
+oc get pvc l1-app-ai-model-pvc -n l1-app-ai
 ```
+
+**Note:** `WaitingForFirstConsumer` status is expected - the PVC will bind automatically when the pod starts.
 
 ### Step 2: Deploy Pod (Will Start Without Model)
 ```bash
@@ -106,23 +112,24 @@ This is **expected behavior** - the pod stays running so you can copy the model.
 # Wait for pod to be ready (web app will be running)
 oc wait --for=condition=Ready pod/l1-integrated --timeout=300s
 
-# Copy Mistral GGUF model to PVC (4-5GB transfer)
+# Copy Mistral GGUF model to dedicated model PVC (4-5GB transfer)
 oc cp /home/cloud-user/pjoe/model/mistral7b/mistral-7b-instruct-v0.2.Q4_K_M.gguf \
-  l1-integrated:/pvc/models/mistral.gguf
+  l1-integrated:/models/mistral.gguf -n l1-app-ai
 
 # Verify model was copied successfully
-oc exec l1-integrated -- ls -lh /pvc/models/mistral.gguf
+oc exec l1-integrated -n l1-app-ai -- ls -lh /models/mistral.gguf
 
 # Expected output: ~4.1GB file
-# -rw-r--r-- 1 appuser appuser 4.1G ... /pvc/models/mistral.gguf
+# -rw-r--r-- 1 appuser appuser 4.1G ... /models/mistral.gguf
 ```
 
-**Why PVC-Based Storage?**
+**Why Single PVC for Model?**
 - ✅ Reduces container image from 50GB → 6-8GB (85% smaller!)
-- ✅ Faster builds and deployments
+- ✅ Faster builds and deployments  
 - ✅ Model persists across pod restarts
 - ✅ Can swap models without rebuilding image
 - ✅ Pod starts successfully even without model (copy it later)
+- ✅ Other data (ChromaDB, input files) uses ephemeral container storage
 
 ### Step 4: Restart Pod to Load Model
 ```bash
@@ -324,12 +331,12 @@ oc apply -f tslam-pod-with-pvc.yaml
 
 ### AI Model Load Failure
 ```bash
-# Check if model exists in PVC
-oc exec l1-integrated -- ls -lh /pvc/models/mistral.gguf
+# Check if model exists in model PVC
+oc exec l1-integrated -n l1-app-ai -- ls -lh /models/mistral.gguf
 
-# If model is missing, copy it to PVC
+# If model is missing, copy it to model PVC
 oc cp /home/cloud-user/pjoe/model/mistral7b/mistral-7b-instruct-v0.2.Q4_K_M.gguf \
-  l1-integrated:/pvc/models/mistral.gguf
+  l1-integrated:/models/mistral.gguf -n l1-app-ai
 
 # Check memory usage
 oc exec l1-integrated -- free -h
@@ -339,15 +346,15 @@ oc delete pod l1-integrated --force --grace-period=0
 ```
 
 ### Model Not Found Error
-If you see: `ERROR: GGUF Model Not Found!`
+If you see: `WARNING: GGUF Model Not Found!`
 ```bash
-# This means the model hasn't been copied to PVC yet
-# Copy model using kubectl cp (one-time setup)
-oc cp /path/to/mistral-7b-instruct-v0.2.Q4_K_M.gguf \
-  l1-integrated:/pvc/models/mistral.gguf
+# This means the model hasn't been copied to model PVC yet
+# Copy model using oc cp (one-time setup)
+oc cp /home/cloud-user/pjoe/model/mistral7b/mistral-7b-instruct-v0.2.Q4_K_M.gguf \
+  l1-integrated:/models/mistral.gguf -n l1-app-ai
 
 # Verify copy succeeded
-oc exec l1-integrated -- ls -lh /pvc/models/mistral.gguf
+oc exec l1-integrated -n l1-app-ai -- ls -lh /models/mistral.gguf
 
 # Restart services
 oc delete pod l1-integrated --force --grace-period=0

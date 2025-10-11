@@ -73,18 +73,33 @@ oc delete pvc l1-app-ai-model-pvc -n l1-app-ai --force --grace-period=0 --ignore
 sleep 5
 ```
 
-### Step 2: Create Model PVC
+### Step 2: Check Available Storage Classes
 ```bash
-# Apply the PVC YAML
+# Check what storage classes are available in your cluster
+oc get storageclass
+
+# Look for the default storage class (marked with "(default)")
+# Common names: gp2, gp3, standard, ocs-storagecluster-ceph-rbd, etc.
+```
+
+### Step 3: Create Model PVC
+```bash
+# Option 1: Use default storage class (PVC as-is)
 oc apply -f openshift/pvc-model.yaml
 
-# Check PVC status (will show "WaitingForFirstConsumer" - this is NORMAL!)
+# Option 2: If you need to specify a storage class, edit the PVC first:
+# Add this line under spec:
+#   storageClassName: "your-storage-class-name"
+
+# Check PVC status
 oc get pvc l1-app-ai-model-pvc -n l1-app-ai
 ```
 
-**Note:** `WaitingForFirstConsumer` status is expected - the PVC will bind automatically when the pod starts.
+**Important Notes:**
+- If PVC shows `Pending` (not `WaitingForFirstConsumer`), you need to specify a valid storageClassName
+- `WaitingForFirstConsumer` is NORMAL - it will bind when the pod starts
 
-### Step 3: Deploy Pod (Will Start Without Model)
+### Step 4: Deploy Pod (Will Start Without Model)
 ```bash
 # Deploy the integrated pod
 oc apply -f tslam-pod-with-pvc.yaml
@@ -102,7 +117,7 @@ Web application will start in limited mode.
 
 This is **expected behavior** - the pod stays running so you can copy the model.
 
-### Step 4: Copy Mistral Model to PVC (ONE-TIME SETUP)
+### Step 5: Copy Mistral Model to PVC (ONE-TIME SETUP)
 ```bash
 # Wait for pod to be ready (web app will be running)
 oc wait --for=condition=Ready pod/l1-integrated --timeout=300s
@@ -126,7 +141,7 @@ oc exec l1-integrated -n l1-app-ai -- ls -lh /models/mistral.gguf
 - ✅ Pod starts successfully even without model (copy it later)
 - ✅ Other data (ChromaDB, input files) uses ephemeral container storage
 
-### Step 5: Restart Pod to Load Model
+### Step 6: Restart Pod to Load Model
 ```bash
 # Restart pod to start AI inference service with the model
 oc delete pod l1-integrated --force --grace-period=0
@@ -140,7 +155,7 @@ oc logs -f l1-integrated
 # "[2/3] Starting AI Inference Server (port 8000)..."
 ```
 
-### Step 6: Verify Services
+### Step 7: Verify Services
 ```bash
 # Check pod status
 oc get pods -l app=l1-integrated
@@ -153,7 +168,7 @@ POD_NAME=$(oc get pods -l app=l1-integrated -o jsonpath='{.items[0].metadata.nam
 oc exec $POD_NAME -- ls -la /pvc/
 ```
 
-### Step 7: Access Application
+### Step 8: Access Application
 ```bash
 # Get the public URL
 oc get route l1-integrated -o jsonpath='{.spec.host}'

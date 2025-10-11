@@ -4,9 +4,9 @@ metadata:
   name: l1-app-ai-model-pvc
   namespace: l1-app-ai
 spec:
+  storageClassName: standard-csi
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
       storage: 10Gi
-  storageClassName: ""

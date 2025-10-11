@@ -298,9 +298,19 @@ If you see: `ERROR: Your system has an unsupported version of sqlite3. Chroma re
 - Added SQLite module replacement in `rag_service.py` to force ChromaDB to use pysqlite3
 - This is a standard fix for ChromaDB in Docker containers with older base images
 
+### Python 3.9 Compatibility Errors
+If you see errors like:
+- `TypeError: unsupported operand type(s) for |: 'type' and 'NoneType'`
+- `ImportError: cannot import name 'cached_download' from 'huggingface_hub'`
+
+**Fix Applied:**
+- Pinned `sentence-transformers==2.2.2` (compatible with Python 3.9)
+- Pinned `huggingface-hub==0.16.4` (has the required `cached_download` function)
+- Debian Bullseye base image has Python 3.9, which doesn't support `|` type union syntax
+
 **To apply the fix:**
 ```bash
-# Rebuild the container with the SQLite fix
+# Rebuild the container with pinned package versions
 cd openshift
 ./build-tslam-container.sh
 

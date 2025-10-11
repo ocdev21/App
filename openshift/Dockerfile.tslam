@@ -31,6 +31,7 @@ RUN ln -sf /usr/bin/python3 /usr/bin/python \
     && python -m pip install --upgrade pip setuptools wheel
 
 # Install Python AI dependencies for inference server + ML analysis + RAG
+# Pin versions for Python 3.9 compatibility (Debian Bullseye)
 RUN pip install --no-cache-dir \
     ctransformers \
     flask \
@@ -45,7 +46,8 @@ RUN pip install --no-cache-dir \
     joblib \
     pysqlite3-binary \
     chromadb \
-    sentence-transformers \
+    sentence-transformers==2.2.2 \
+    huggingface-hub==0.16.4 \
     PyPDF2
 
 # Model will be loaded from PVC at /pvc/models/mistral.gguf (not included in image)

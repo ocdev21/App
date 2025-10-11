@@ -14,13 +14,13 @@ spec:
   # InitContainer to create PVC directories before main container starts
   initContainers:
     - name: setup-pvc-dirs
-      image: busybox:latest
+      image: quay.io/prometheus/busybox:latest
       command: 
         - sh
         - -c
         - |
           echo "Creating PVC directories..."
-          mkdir -p /pvc/models /pvc/input_files /pvc/feature_history
+          mkdir -p /pvc/models /pvc/input_files /pvc/feature_history /pvc/chromadb /pvc/uploaded_docs
           chmod -R 777 /pvc
           ls -la /pvc
           echo "PVC setup complete!"
@@ -58,6 +58,13 @@ spec:
           value: "/pvc/feature_history"
         - name: RETRAIN_THRESHOLD
           value: "10"
+        # RAG Configuration
+        - name: CHROMADB_PERSIST_DIR
+          value: "/pvc/chromadb"
+        - name: RAG_SERVICE_URL
+          value: "http://localhost:8001"
+        - name: UPLOADED_DOCS_DIR
+          value: "/pvc/uploaded_docs"
       
       # Mount PVC for ML data
       volumeMounts:

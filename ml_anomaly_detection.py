@@ -156,14 +156,14 @@ class MLAnomalyDetector:
         try:
             if os.path.exists(feature_file):
                 # Load existing features and append new ones
-                existing_features = np.load(feature_file)
+                existing_features = np.load(feature_file, allow_pickle=True)
                 combined_features = np.vstack([existing_features, features_array])
                 np.save(feature_file, combined_features)
-                print(f"📊 Accumulated features: {len(combined_features)} total windows")
+                print(f"Accumulated features: {len(combined_features)} total windows")
             else:
                 # Save new features
                 np.save(feature_file, features_array)
-                print(f"📊 Saved {len(features_array)} feature windows for training")
+                print(f"Saved {len(features_array)} feature windows for training")
         except Exception as e:
             print(f"WARNING: Failed to save features: {e}")
     
@@ -177,8 +177,8 @@ class MLAnomalyDetector:
         
         try:
             # Load all accumulated features
-            all_features = np.load(feature_file)
-            print(f"🔄 Retraining models on {len(all_features)} accumulated feature windows")
+            all_features = np.load(feature_file, allow_pickle=True)
+            print(f"Retraining models on {len(all_features)} accumulated feature windows")
             
             # Retrain scaler
             self.models['scaler'].fit(all_features)
@@ -195,7 +195,7 @@ class MLAnomalyDetector:
             # Save retrained models with timestamp update
             self.save_models(update_retrain_timestamp=True)
             
-            print("✅ Models retrained successfully! Counter reset to 0")
+            print("Models retrained successfully! Counter reset to 0")
             
         except Exception as e:
             print(f"ERROR: Failed to retrain models: {e}")
@@ -411,7 +411,7 @@ class MLAnomalyDetector:
     
     def run_ml_ensemble_analysis(self, features, packet_metadata):
         """Run ML ensemble analysis with incremental learning"""
-        print(f"🧠 Running ML ensemble analysis on {len(features)} feature windows")
+        print(f"Running ML ensemble analysis on {len(features)} feature windows")
         
         # Convert to numpy array
         features_array = np.array(features)
@@ -424,21 +424,21 @@ class MLAnomalyDetector:
         
         # Check if we should retrain models (after incrementing counter)
         if self.metadata['files_processed'] >= self.retrain_threshold:
-            print(f"🔄 Retraining threshold ({self.retrain_threshold}) reached, retraining models...")
+            print(f"Retraining threshold ({self.retrain_threshold}) reached, retraining models...")
             self.retrain_models()
         
         # Use trained models for inference OR train new models if not trained
         if self.models_trained:
             # INFERENCE MODE: Use existing models (no retraining)
             features_scaled = self.models['scaler'].transform(features_array)
-            print("📏 Features normalized with existing scaler (inference mode)")
+            print("Features normalized with existing scaler (inference mode)")
             
             iso_predictions = self.models['isolation_forest'].predict(features_scaled)
             svm_predictions = self.models['one_class_svm'].predict(features_scaled)
             dbscan_labels = self.models['dbscan'].fit_predict(features_scaled)  # DBSCAN always needs fit_predict
         else:
             # TRAINING MODE: First-time training
-            print("🎓 First-time training mode - fitting models on current data")
+            print("First-time training mode - fitting models on current data")
             features_scaled = self.models['scaler'].fit_transform(features_array)
             
             iso_predictions = self.models['isolation_forest'].fit_predict(features_scaled)
@@ -456,7 +456,7 @@ class MLAnomalyDetector:
         # Save metadata (counter already incremented earlier)
         self.save_metadata()
         
-        print(f"✅ ML analysis complete (Files processed: {self.metadata['files_processed']})")
+        print(f"ML analysis complete (Files processed: {self.metadata['files_processed']})")
         
         # Enhanced ensemble voting (≥1 algorithm flags = anomaly, more sensitive)
         anomalies = []
@@ -497,9 +497,9 @@ class MLAnomalyDetector:
                     'error_log': error_log  # NEW: Packet details for LLM analysis
                 }
                 anomalies.append(anomaly)
-                print(f"⚠️ Anomaly in window {i}: {votes}/4 algorithms agree, confidence={votes/4.0:.2f}")
+                print(f"WARNING: Anomaly in window {i}: {votes}/4 algorithms agree, confidence={votes/4.0:.2f}")
         
-        print(f"✅ Found {len(anomalies)} anomalies (>=1 algorithm agreement, enhanced sensitivity)")
+        print(f"Found {len(anomalies)} anomalies (>=1 algorithm agreement, enhanced sensitivity)")
         return anomalies
 
 # Test function for standalone usage

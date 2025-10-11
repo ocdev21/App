@@ -1,0 +1,33 @@
+# Alternative InitContainer Images (if Quay.io doesn't work)
+# Replace the initContainer image in tslam-pod-with-pvc.yaml with one of these:
+
+# Option 1: Quay.io (Red Hat, recommended for OpenShift)
+# image: quay.io/prometheus/busybox:latest
+
+# Option 2: Red Hat Universal Base Image (UBI) - minimal
+# image: registry.access.redhat.com/ubi8/ubi-minimal:latest
+# Note: Use 'microdnf' instead of 'apk' for package management
+
+# Option 3: Your internal registry (if you have one)
+# image: 10.0.1.224:5000/busybox:latest
+# (you'll need to push busybox to your registry first)
+
+# Option 4: Amazon ECR Public
+# image: public.ecr.aws/amazonlinux/amazonlinux:minimal
+
+# ===== EXAMPLE: Using Red Hat UBI Minimal =====
+# initContainers:
+#   - name: setup-pvc-dirs
+#     image: registry.access.redhat.com/ubi8/ubi-minimal:latest
+#     command: 
+#       - sh
+#       - -c
+#       - |
+#         echo "Creating PVC directories..."
+#         mkdir -p /pvc/models /pvc/input_files /pvc/feature_history
+#         chmod -R 777 /pvc
+#         ls -la /pvc
+#         echo "PVC setup complete!"
+#     volumeMounts:
+#       - name: ml-data
+#         mountPath: /pvc

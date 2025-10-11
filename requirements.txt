@@ -29,6 +29,10 @@ aiofiles>=23.0.0
 sentencepiece>=0.1.99
 protobuf>=4.23.0
 
+# RAG (Retrieval-Augmented Generation)
+chromadb>=0.4.0
+sentence-transformers>=2.2.0
+
 # File Processing
 h5py>=3.9.0
 tables>=3.8.0
@@ -60,3 +64,8 @@ joblib
 numpy
 scapy-python3
 scikit-learn
+chromadb
+sentence-transformers
+flask
+flask-cors
+PyPDF2

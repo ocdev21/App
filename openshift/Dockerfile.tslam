@@ -30,10 +30,11 @@ RUN apt-get update && apt-get install -y \
 RUN ln -sf /usr/bin/python3 /usr/bin/python \
     && python -m pip install --upgrade pip setuptools wheel
 
-# Install Python AI dependencies for inference server + ML analysis
+# Install Python AI dependencies for inference server + ML analysis + RAG
 RUN pip install --no-cache-dir \
     ctransformers \
     flask \
+    flask-cors \
     requests \
     psutil \
     clickhouse-connect \
@@ -41,7 +42,10 @@ RUN pip install --no-cache-dir \
     scikit-learn \
     pandas \
     numpy \
-    joblib
+    joblib \
+    chromadb \
+    sentence-transformers \
+    PyPDF2
 
 # Copy GGUF model first (separate layer for better caching)
 COPY mistral-7b-instruct-v0.2.Q4_K_M.gguf /models/mistral.gguf
@@ -87,8 +91,8 @@ RUN useradd -m -u 1001 -s /bin/bash appuser \
 
 USER appuser
 
-# Expose both ports
-EXPOSE 5000 8000
+# Expose all service ports
+EXPOSE 5000 8000 8001
 
 # Health check on main app
 HEALTHCHECK --interval=30s --timeout=30s --start-period=120s --retries=3 \

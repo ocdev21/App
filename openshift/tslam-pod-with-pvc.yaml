@@ -92,7 +92,7 @@ spec:
   volumes:
     - name: model-data
       persistentVolumeClaim:
-        claimName: l1-app-ai-model-pvc
+        claimName: l1-model-storage
 
 ---
 apiVersion: v1

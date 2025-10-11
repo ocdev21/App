@@ -283,6 +283,28 @@ oc exec l1-integrated -- ls -la /pvc/chromadb/
 oc logs l1-integrated | grep RAG
 ```
 
+### ChromaDB SQLite Version Error
+If you see: `ERROR: Your system has an unsupported version of sqlite3. Chroma requires sqlite3 >= 3.35.0`
+
+**Fix Applied:**
+- Added `pysqlite3-binary` to Dockerfile (provides newer SQLite bundled with Python)
+- Added SQLite module replacement in `rag_service.py` to force ChromaDB to use pysqlite3
+- This is a standard fix for ChromaDB in Docker containers with older base images
+
+**To apply the fix:**
+```bash
+# Rebuild the container with the SQLite fix
+cd openshift
+./build-tslam-container.sh
+
+# Push to registry
+podman push 10.0.1.224:5000/l1-integrated:latest
+
+# Delete and recreate pod
+oc delete pod l1-integrated --force --grace-period=0
+oc apply -f tslam-pod-with-pvc.yaml
+```
+
 ### AI Model Load Failure
 ```bash
 # Check if model exists in PVC

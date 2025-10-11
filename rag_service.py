@@ -1,3 +1,8 @@
+# Fix for ChromaDB SQLite version requirement (requires pysqlite3-binary)
+import sys
+__import__('pysqlite3')
+sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+
 import os
 import chromadb
 from chromadb.config import Settings

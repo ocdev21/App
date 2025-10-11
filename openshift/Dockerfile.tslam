@@ -43,6 +43,7 @@ RUN pip install --no-cache-dir \
     pandas \
     numpy \
     joblib \
+    pysqlite3-binary \
     chromadb \
     sentence-transformers \
     PyPDF2

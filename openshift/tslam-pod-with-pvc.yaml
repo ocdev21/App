@@ -6,6 +6,28 @@ metadata:
   labels:
     app: l1-integrated
 spec:
+  # Security context to ensure PVC is writable by appuser
+  securityContext:
+    fsGroup: 2000
+    fsGroupChangePolicy: "OnRootMismatch"
+  
+  # InitContainer to create PVC directories before main container starts
+  initContainers:
+    - name: setup-pvc-dirs
+      image: busybox:latest
+      command: 
+        - sh
+        - -c
+        - |
+          echo "Creating PVC directories..."
+          mkdir -p /pvc/models /pvc/input_files /pvc/feature_history
+          chmod -R 777 /pvc
+          ls -la /pvc
+          echo "PVC setup complete!"
+      volumeMounts:
+        - name: ml-data
+          mountPath: /pvc
+  
   containers:
     - name: l1-integrated
       image: 10.0.1.224:5000/l1-integrated:latest

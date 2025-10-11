@@ -1,0 +1,16 @@
+# Simple PVC for ML Incremental Learning (Single Pod Setup)
+# For OpenShift Container Storage (OCS) clusters
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: l1-ml-data-pvc
+  namespace: l1-app-ai
+spec:
+  accessModes:
+    - ReadWriteOnce  # Single pod access
+  storageClassName: ocs-storagecluster-ceph-rbd
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 20Gi

@@ -29,7 +29,7 @@ except ImportError as e:
 class MLAnomalyDetector:
     """ML-based anomaly detection for PCAP files with model persistence"""
     
-    def __init__(self, models_dir="/pvc/models", feature_history_dir="/pvc/feature_history", retrain_threshold=10):
+    def __init__(self, models_dir="/app/ml_data/models", feature_history_dir="/app/ml_data/feature_history", retrain_threshold=10):
         """Initialize detector with incremental learning support"""
         self.models_dir = models_dir
         self.feature_history_dir = feature_history_dir

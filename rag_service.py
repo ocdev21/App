@@ -15,12 +15,12 @@ import io
 
 class RAGService:
     def __init__(self, persist_directory: str = None):
-        # Use environment variable or /pvc/chromadb in production (Kubernetes), local directory in development
+        # Use environment variable or /app/chromadb in production (embedded storage), local directory in development
         if persist_directory is None:
             persist_directory = os.environ.get('CHROMADB_PERSIST_DIR')
             if persist_directory is None:
-                if os.path.exists('/pvc'):
-                    persist_directory = '/pvc/chromadb'
+                if os.path.exists('/app'):
+                    persist_directory = '/app/chromadb'
                 else:
                     persist_directory = './data/chromadb'
         
@@ -30,8 +30,8 @@ class RAGService:
         # Setup uploaded files directory
         self.uploaded_docs_dir = os.environ.get('UPLOADED_DOCS_DIR')
         if self.uploaded_docs_dir is None:
-            if os.path.exists('/pvc'):
-                self.uploaded_docs_dir = '/pvc/uploaded_docs'
+            if os.path.exists('/app'):
+                self.uploaded_docs_dir = '/app/uploaded_docs'
             else:
                 self.uploaded_docs_dir = './data/uploaded_docs'
         os.makedirs(self.uploaded_docs_dir, exist_ok=True)

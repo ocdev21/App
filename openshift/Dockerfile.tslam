@@ -50,9 +50,6 @@ RUN pip install --no-cache-dir \
     huggingface-hub==0.16.4 \
     PyPDF2
 
-# Model will be loaded from PVC at /pvc/models/mistral.gguf (not included in image)
-# This reduces image size by 4-5GB
-
 # Copy package files for dependency installation
 COPY package*.json ./
 
@@ -68,6 +65,14 @@ RUN sed -i 's/allowedHosts: "all"/allowedHosts: true/g' vite.config.ts || true
 # Build the application (frontend + backend)
 RUN npm run build
 
+# Create directories for embedded storage
+RUN mkdir -p /app/models /app/ml_data/input_files /app/ml_data/models \
+    /app/chromadb /app/uploaded_docs /app/.cache
+
+# IMPORTANT: Copy Mistral model during build (must be in build context)
+# Place mistral-7b-instruct-v0.2.Q4_K_M.gguf in openshift/ directory before building
+COPY mistral-7b-instruct-v0.2.Q4_K_M.gguf /app/models/mistral.gguf
+
 # Copy GGUF inference server
 COPY gguf-inference-server.py /app/gguf-server.py
 RUN chmod +x /app/gguf-server.py
@@ -82,9 +87,11 @@ ENV PORT=5000
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
-
-# Create cache and input directories
-RUN mkdir -p /app/.cache /app/input_files
+ENV ML_MODELS_DIR=/app/models
+ENV INPUT_FILES_DIR=/app/ml_data/input_files
+ENV FEATURE_HISTORY_DIR=/app/ml_data/feature_history
+ENV CHROMADB_PERSIST_DIR=/app/chromadb
+ENV UPLOADED_DOCS_DIR=/app/uploaded_docs
 
 # Create non-root user
 RUN useradd -m -u 1001 -s /bin/bash appuser \

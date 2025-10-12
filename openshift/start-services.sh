@@ -38,10 +38,10 @@ fi
 echo "  RAG Service initialized successfully"
 echo ""
 
-# Check if GGUF model exists in model PVC
-MODEL_PATH="/models/mistral.gguf"
+# Check if GGUF model exists in embedded storage
+MODEL_PATH="/app/models/mistral.gguf"
 AI_PID=""
-echo "Checking for GGUF model in PVC..."
+echo "Checking for GGUF model..."
 if [ ! -f "$MODEL_PATH" ]; then
     echo "=========================================="
     echo "WARNING: GGUF Model Not Found!"
@@ -53,14 +53,9 @@ if [ ! -f "$MODEL_PATH" ]; then
     echo "Web application will start in limited mode."
     echo ""
     echo "To enable AI recommendations:"
-    echo "  1. Copy the model to PVC using:"
-    echo "     oc cp /path/to/mistral-7b-instruct-v0.2.Q4_K_M.gguf \\"
-    echo "       l1-integrated:/models/mistral.gguf -n l1-app-ai"
+    echo "  The model should be embedded in the Docker image during build."
+    echo "  See BUILD_INSTRUCTIONS.md for build steps with model inclusion."
     echo ""
-    echo "  2. Restart the pod:"
-    echo "     oc delete pod l1-integrated --force --grace-period=0"
-    echo ""
-    echo "See BUILD_INSTRUCTIONS.md for detailed setup steps"
     echo "=========================================="
     echo ""
 else

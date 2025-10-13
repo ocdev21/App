@@ -30,12 +30,10 @@ RUN apt-get update && apt-get install -y \
 RUN ln -sf /usr/bin/python3 /usr/bin/python \
     && python -m pip install --upgrade pip setuptools wheel
 
-# Install Python AI dependencies for inference server + ML analysis + RAG
-# Pin versions for Python 3.9 compatibility (Debian Bullseye)
+# Install Python AI dependencies for inference server + ML analysis
 RUN pip install --no-cache-dir \
     ctransformers \
     flask \
-    flask-cors \
     requests \
     psutil \
     clickhouse-connect \
@@ -43,12 +41,11 @@ RUN pip install --no-cache-dir \
     scikit-learn \
     pandas \
     numpy \
-    joblib \
-    pysqlite3-binary \
-    chromadb \
-    sentence-transformers==2.2.2 \
-    huggingface-hub==0.16.4 \
-    PyPDF2
+    joblib
+
+# Copy GGUF model first (separate layer for better caching)
+COPY mistral-7b-instruct-v0.2.Q4_K_M.gguf /models/mistral.gguf
+RUN chmod -R 755 /models
 
 # Copy package files for dependency installation
 COPY package*.json ./
@@ -65,14 +62,6 @@ RUN sed -i 's/allowedHosts: "all"/allowedHosts: true/g' vite.config.ts || true
 # Build the application (frontend + backend)
 RUN npm run build
 
-# Create directories for embedded storage
-RUN mkdir -p /app/models /app/ml_data/input_files /app/ml_data/models \
-    /app/chromadb /app/uploaded_docs /app/.cache
-
-# IMPORTANT: Copy Mistral model during build (must be in build context)
-# Place mistral-7b-instruct-v0.2.Q4_K_M.gguf in openshift/ directory before building
-COPY mistral-7b-instruct-v0.2.Q4_K_M.gguf /app/models/mistral.gguf
-
 # Copy GGUF inference server
 COPY gguf-inference-server.py /app/gguf-server.py
 RUN chmod +x /app/gguf-server.py
@@ -87,20 +76,19 @@ ENV PORT=5000
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
-ENV ML_MODELS_DIR=/app/models
-ENV INPUT_FILES_DIR=/app/ml_data/input_files
-ENV FEATURE_HISTORY_DIR=/app/ml_data/feature_history
-ENV CHROMADB_PERSIST_DIR=/app/chromadb
-ENV UPLOADED_DOCS_DIR=/app/uploaded_docs
+
+# Create cache and input directories
+RUN mkdir -p /app/.cache /app/input_files
 
 # Create non-root user
 RUN useradd -m -u 1001 -s /bin/bash appuser \
-    && chown -R appuser:appuser /app
+    && chown -R appuser:appuser /app \
+    && chown -R appuser:appuser /models
 
 USER appuser
 
-# Expose all service ports
-EXPOSE 5000 8000 8001
+# Expose both ports
+EXPOSE 5000 8000
 
 # Health check on main app
 HEALTHCHECK --interval=30s --timeout=30s --start-period=120s --retries=3 \

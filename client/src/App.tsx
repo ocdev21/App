@@ -4,7 +4,6 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import Dashboard from "./pages/dashboard";
 import Anomalies from "./pages/anomalies";
-import RAGManagement from "./pages/rag-management";
 import RecommendationsWindow from "./pages/recommendations-window";
 import DetailsWindow from "./pages/details-window";
 import Sidebar from "./components/sidebar";
@@ -19,7 +18,6 @@ function Router() {
       <Route path="/" component={Dashboard} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/anomalies" component={Anomalies} />
-      <Route path="/rag" component={RAGManagement} />
       <Route><Dashboard /></Route>
     </Switch>
   );

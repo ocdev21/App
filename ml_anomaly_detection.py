@@ -29,14 +29,10 @@ except ImportError as e:
 class MLAnomalyDetector:
     """ML-based anomaly detection for PCAP files with model persistence"""
     
-    def __init__(self, models_dir="/app/ml_data/models", feature_history_dir="/app/ml_data/feature_history", retrain_threshold=10):
-        """Initialize detector with incremental learning support"""
+    def __init__(self, models_dir="/app/models"):
+        """Initialize detector with model persistence"""
         self.models_dir = models_dir
-        self.feature_history_dir = feature_history_dir
-        self.retrain_threshold = retrain_threshold
-        
         os.makedirs(models_dir, exist_ok=True)
-        os.makedirs(feature_history_dir, exist_ok=True)
         
         # Equipment MAC addresses (from folder_anomaly_analyzer_clickhouse.py)
         self.DU_MAC = "00:11:22:33:44:67"
@@ -47,15 +43,10 @@ class MLAnomalyDetector:
         
         if ML_AVAILABLE and SCAPY_AVAILABLE:
             self.models = self.load_or_create_models()
-            self.metadata = self.load_metadata()
-            self.models_trained = self.check_if_models_trained()
             print(f"MLAnomalyDetector initialized with models in {models_dir}")
-            print(f"Incremental learning: {self.metadata['files_processed']} files processed, threshold={retrain_threshold}")
         else:
             print("WARNING: MLAnomalyDetector created in limited mode (no ML/Scapy)")
             self.models = {}
-            self.metadata = {}
-            self.models_trained = False
     
     def load_or_create_models(self):
         """Load existing models or create new ones with joblib persistence"""
@@ -107,100 +98,7 @@ class MLAnomalyDetector:
         else:
             return None
     
-    def load_metadata(self):
-        """Load or create metadata for incremental learning tracking"""
-        metadata_file = f"{self.models_dir}/metadata.json"
-        if os.path.exists(metadata_file):
-            try:
-                import json
-                with open(metadata_file, 'r') as f:
-                    metadata = json.load(f)
-                print(f"Loaded metadata: {metadata['files_processed']} files processed")
-                return metadata
-            except Exception as e:
-                print(f"WARNING: Failed to load metadata: {e}")
-        
-        # Create new metadata
-        return {
-            'files_processed': 0,
-            'last_retrain': None,
-            'model_versions': {},
-            'created_at': datetime.now().isoformat()
-        }
-    
-    def check_if_models_trained(self):
-        """Check if models have been trained (not just initialized)"""
-        metadata_file = f"{self.models_dir}/metadata.json"
-        if os.path.exists(metadata_file):
-            try:
-                import json
-                with open(metadata_file, 'r') as f:
-                    metadata = json.load(f)
-                return metadata.get('last_retrain') is not None
-            except:
-                pass
-        return False
-    
-    def save_metadata(self):
-        """Save metadata to file"""
-        import json
-        try:
-            with open(f"{self.models_dir}/metadata.json", 'w') as f:
-                json.dump(self.metadata, f, indent=2)
-        except Exception as e:
-            print(f"WARNING: Failed to save metadata: {e}")
-    
-    def save_features_for_training(self, features_array):
-        """Accumulate features for incremental learning"""
-        feature_file = f"{self.feature_history_dir}/accumulated_features.npy"
-        try:
-            if os.path.exists(feature_file):
-                # Load existing features and append new ones
-                existing_features = np.load(feature_file, allow_pickle=True)
-                combined_features = np.vstack([existing_features, features_array])
-                np.save(feature_file, combined_features)
-                print(f"Accumulated features: {len(combined_features)} total windows")
-            else:
-                # Save new features
-                np.save(feature_file, features_array)
-                print(f"Saved {len(features_array)} feature windows for training")
-        except Exception as e:
-            print(f"WARNING: Failed to save features: {e}")
-    
-    def retrain_models(self):
-        """Retrain models on all accumulated features"""
-        feature_file = f"{self.feature_history_dir}/accumulated_features.npy"
-        
-        if not os.path.exists(feature_file):
-            print("No accumulated features found for retraining")
-            return
-        
-        try:
-            # Load all accumulated features
-            all_features = np.load(feature_file, allow_pickle=True)
-            print(f"Retraining models on {len(all_features)} accumulated feature windows")
-            
-            # Retrain scaler
-            self.models['scaler'].fit(all_features)
-            features_scaled = self.models['scaler'].transform(all_features)
-            
-            # Retrain ML models
-            self.models['isolation_forest'].fit(features_scaled)
-            self.models['one_class_svm'].fit(features_scaled)
-            
-            # Reset file counter and clear accumulated features BEFORE saving
-            self.metadata['files_processed'] = 0
-            os.remove(feature_file)
-            
-            # Save retrained models with timestamp update
-            self.save_models(update_retrain_timestamp=True)
-            
-            print("Models retrained successfully! Counter reset to 0")
-            
-        except Exception as e:
-            print(f"ERROR: Failed to retrain models: {e}")
-    
-    def save_models(self, update_retrain_timestamp=False):
+    def save_models(self):
         """Save trained models as .pkl files using joblib"""
         if not self.models:
             print("WARNING: No models to save")
@@ -214,15 +112,13 @@ class MLAnomalyDetector:
                 joblib.dump(model, pkl_file)
                 print(f"Saved {model_name} to {pkl_file}")
             
-            # Update in-memory metadata if retraining occurred
-            if update_retrain_timestamp:
-                self.metadata['last_retrain'] = datetime.now().isoformat()
-            
-            # Save metadata as JSON (use in-memory metadata)
-            import json
-            with open(f"{self.models_dir}/metadata.json", 'w') as f:
-                json.dump(self.metadata, f, indent=2)
-            print("All models and metadata saved successfully!")
+            # Save metadata
+            metadata = {
+                'last_updated': datetime.now().isoformat(),
+                'model_versions': {name: str(type(model).__name__) for name, model in self.models.items()}
+            }
+            joblib.dump(metadata, f"{self.models_dir}/metadata.pkl")
+            print("All models saved successfully!")
             
         except Exception as e:
             print(f"ERROR: Error saving models: {e}")
@@ -257,8 +153,11 @@ class MLAnomalyDetector:
                     'anomalies': []
                 }
             
-            # Run ML analysis with ensemble voting (includes incremental learning)
+            # Run ML analysis with ensemble voting
             anomalies = self.run_ml_ensemble_analysis(features, packet_metadata)
+            
+            # Save updated models after training
+            self.save_models()
             
             return {
                 'total_packets': len(packets),
@@ -410,53 +309,26 @@ class MLAnomalyDetector:
         ]
     
     def run_ml_ensemble_analysis(self, features, packet_metadata):
-        """Run ML ensemble analysis with incremental learning"""
-        print(f"Running ML ensemble analysis on {len(features)} feature windows")
+        """Run ML ensemble analysis with voting"""
+        print(f"🧠 Running ML ensemble analysis on {len(features)} feature windows")
         
         # Convert to numpy array
         features_array = np.array(features)
         
-        # Save features for incremental learning
-        self.save_features_for_training(features_array)
+        # Scale features (and potentially retrain scaler)
+        features_scaled = self.models['scaler'].fit_transform(features_array)
+        print("📏 Features normalized with StandardScaler")
         
-        # Increment file counter BEFORE threshold check
-        self.metadata['files_processed'] += 1
-        
-        # Check if we should retrain models (after incrementing counter)
-        if self.metadata['files_processed'] >= self.retrain_threshold:
-            print(f"Retraining threshold ({self.retrain_threshold}) reached, retraining models...")
-            self.retrain_models()
-        
-        # Use trained models for inference OR train new models if not trained
-        if self.models_trained:
-            # INFERENCE MODE: Use existing models (no retraining)
-            features_scaled = self.models['scaler'].transform(features_array)
-            print("Features normalized with existing scaler (inference mode)")
-            
-            iso_predictions = self.models['isolation_forest'].predict(features_scaled)
-            svm_predictions = self.models['one_class_svm'].predict(features_scaled)
-            dbscan_labels = self.models['dbscan'].fit_predict(features_scaled)  # DBSCAN always needs fit_predict
-        else:
-            # TRAINING MODE: First-time training
-            print("First-time training mode - fitting models on current data")
-            features_scaled = self.models['scaler'].fit_transform(features_array)
-            
-            iso_predictions = self.models['isolation_forest'].fit_predict(features_scaled)
-            svm_predictions = self.models['one_class_svm'].fit_predict(features_scaled)
-            dbscan_labels = self.models['dbscan'].fit_predict(features_scaled)
-            
-            # Mark as trained and save with timestamp
-            self.models_trained = True
-            self.save_models(update_retrain_timestamp=True)
+        # Apply ML algorithms (train + predict)
+        iso_predictions = self.models['isolation_forest'].fit_predict(features_scaled)
+        svm_predictions = self.models['one_class_svm'].fit_predict(features_scaled) 
+        dbscan_labels = self.models['dbscan'].fit_predict(features_scaled)
         
         # LOF requires a separate instance (doesn't persist well)
-        lof = LocalOutlierFactor(n_neighbors=min(20, len(features)), contamination=0.05)
+        lof = LocalOutlierFactor(n_neighbors=min(20, len(features)), contamination=0.05)  # More sensitive: 5%
         lof_predictions = lof.fit_predict(features_scaled)
         
-        # Save metadata (counter already incremented earlier)
-        self.save_metadata()
-        
-        print(f"ML analysis complete (Files processed: {self.metadata['files_processed']})")
+        print("All ML algorithms completed training and prediction")
         
         # Enhanced ensemble voting (≥1 algorithm flags = anomaly, more sensitive)
         anomalies = []
@@ -497,9 +369,9 @@ class MLAnomalyDetector:
                     'error_log': error_log  # NEW: Packet details for LLM analysis
                 }
                 anomalies.append(anomaly)
-                print(f"WARNING: Anomaly in window {i}: {votes}/4 algorithms agree, confidence={votes/4.0:.2f}")
+                print(f"⚠️ Anomaly in window {i}: {votes}/4 algorithms agree, confidence={votes/4.0:.2f}")
         
-        print(f"Found {len(anomalies)} anomalies (>=1 algorithm agreement, enhanced sensitivity)")
+        print(f"✅ Found {len(anomalies)} anomalies (>=1 algorithm agreement, enhanced sensitivity)")
         return anomalies
 
 # Test function for standalone usage

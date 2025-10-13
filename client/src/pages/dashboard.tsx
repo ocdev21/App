@@ -46,11 +46,6 @@ export default function Dashboard() {
     refetchInterval: 60000,
   });
 
-  const { data: hourlyTrend } = useQuery<Array<{ hour: number; count: number }>>({
-    queryKey: ["/api/dashboard/hourly-trend"],
-    refetchInterval: 60000,
-  });
-
   if (metricsLoading) {
     return (
       <div className="p-8">
@@ -403,20 +398,26 @@ export default function Dashboard() {
           <div className="h-64">
             {algorithmPerformance && algorithmPerformance.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={algorithmPerformance} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" />
-                  <YAxis dataKey="algorithm" type="category" width={120} />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
-                    formatter={(value: any, name: string, props: any) => [`${value} detections (${props.payload.percentage}%)`, 'Count']}
-                  />
-                  <Bar dataKey="count" radius={[0, 8, 8, 0]}>
+                <PieChart>
+                  <Pie
+                    data={algorithmPerformance}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ algorithm, percentage }) => `${algorithm}: ${percentage}%`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="count"
+                  >
                     {algorithmPerformance.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
-                  </Bar>
-                </BarChart>
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+                    formatter={(value: any, name: string, props: any) => [`${value} detections (${props.payload.percentage}%)`, props.payload.algorithm]}
+                  />
+                </PieChart>
               </ResponsiveContainer>
             ) : (
               <div className="h-full flex items-center justify-center text-gray-400">
@@ -453,46 +454,6 @@ export default function Dashboard() {
               <p>Loading performance data...</p>
             </div>
           )}
-        </div>
-      </div>
-
-      {/* 24-Hour Anomaly Trend */}
-      <div className="mt-6">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">24-Hour Anomaly Trend</h3>
-          <div className="h-80">
-            {hourlyTrend && hourlyTrend.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={hourlyTrend}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis 
-                    dataKey="hour" 
-                    label={{ value: 'Hour of Day', position: 'insideBottom', offset: -5 }}
-                  />
-                  <YAxis 
-                    label={{ value: 'Anomalies Detected', angle: -90, position: 'insideLeft' }} 
-                  />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
-                    formatter={(value: any) => [`${value} anomalies`, 'Count']}
-                    labelFormatter={(hour) => `Hour: ${hour}:00`}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="count" 
-                    stroke="#3b82f6" 
-                    strokeWidth={2}
-                    dot={{ fill: '#3b82f6', r: 4 }}
-                    activeDot={{ r: 6 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex items-center justify-center text-gray-400">
-                <p>No trend data available</p>
-              </div>
-            )}
-          </div>
         </div>
       </div>
     </div>

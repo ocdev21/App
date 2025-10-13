@@ -1,8 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { 
   BarChart3, 
-  AlertTriangle,
-  Database,
+  AlertTriangle, 
   Wifi
 } from "lucide-react";
 
@@ -16,7 +15,6 @@ export default function Sidebar({ setCurrentPage }: SidebarProps) {
   const navigationItems = [
     { path: "/dashboard", icon: BarChart3, label: "Dashboard" },
     { path: "/anomalies", icon: AlertTriangle, label: "Anomalies" },
-    { path: "/rag", icon: Database, label: "Knowledge Base" },
   ];
 
   const handleNavClick = (label: string) => {

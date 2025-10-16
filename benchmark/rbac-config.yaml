@@ -1,5 +1,10 @@
-# RBAC Configuration for benchmark-genius to read logs from ricplt and ricxapp namespaces
-# This allows the Flask app to run kubectl logs commands against pods in these namespaces
+# RBAC Configuration for benchmark-genius with cluster-wide access
+# This allows the Flask app to manage pods and deployments in ALL namespaces
+# Permissions:
+# - Read pod logs across all namespaces
+# - Delete pods in any namespace
+# - Restart deployments (get, list, patch) in any namespace
+# WARNING: This grants cluster-wide access - use with caution
 
 apiVersion: v1
 kind: ServiceAccount
@@ -7,54 +12,29 @@ metadata:
   name: benchmark-genius-sa
   namespace: benchmark
 ---
-# Role to read pod logs in ricplt namespace
+# ClusterRole with cluster-wide permissions for pods and deployments
 apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
+kind: ClusterRole
 metadata:
-  name: pod-log-reader
-  namespace: ricplt
+  name: cluster-pod-deployment-manager
 rules:
 - apiGroups: [""]
   resources: ["pods", "pods/log"]
-  verbs: ["get", "list"]
+  verbs: ["get", "list", "delete"]
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list", "patch"]
 ---
-# Bind the ServiceAccount to the Role
+# Bind the ServiceAccount to the ClusterRole (cluster-wide access)
 apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
+kind: ClusterRoleBinding
 metadata:
-  name: benchmark-genius-log-reader
-  namespace: ricplt
+  name: benchmark-genius-cluster-access
 subjects:
 - kind: ServiceAccount
   name: benchmark-genius-sa
   namespace: benchmark
 roleRef:
-  kind: Role
-  name: pod-log-reader
-  apiGroup: rbac.authorization.k8s.io
----
-# Role to read pod logs in ricxapp namespace
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: pod-log-reader
-  namespace: ricxapp
-rules:
-- apiGroups: [""]
-  resources: ["pods", "pods/log"]
-  verbs: ["get", "list"]
----
-# Bind the ServiceAccount to the Role in ricxapp namespace
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: benchmark-genius-log-reader
-  namespace: ricxapp
-subjects:
-- kind: ServiceAccount
-  name: benchmark-genius-sa
-  namespace: benchmark
-roleRef:
-  kind: Role
-  name: pod-log-reader
+  kind: ClusterRole
+  name: cluster-pod-deployment-manager
   apiGroup: rbac.authorization.k8s.io

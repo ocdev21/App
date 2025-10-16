@@ -3,6 +3,67 @@
 # Services exposed via NodePort:
 # - Prometheus: 30090
 # - Node Exporter: 31008
+# RBAC: Cluster-wide access for both Prometheus and Node Exporter to access all pods
+
+---
+# ServiceAccount: Prometheus
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus-sa
+  namespace: benchmark
+
+---
+# ServiceAccount: Node Exporter
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: node-exporter-sa
+  namespace: benchmark
+
+---
+# ClusterRole: Full access to pods, services, endpoints, and nodes for monitoring
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: monitoring-cluster-access
+rules:
+- apiGroups: [""]
+  resources: ["pods", "pods/log", "services", "endpoints", "nodes"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+  verbs: ["get", "list", "watch"]
+
+---
+# ClusterRoleBinding: Prometheus
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus-cluster-access
+subjects:
+- kind: ServiceAccount
+  name: prometheus-sa
+  namespace: benchmark
+roleRef:
+  kind: ClusterRole
+  name: monitoring-cluster-access
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# ClusterRoleBinding: Node Exporter
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: node-exporter-cluster-access
+subjects:
+- kind: ServiceAccount
+  name: node-exporter-sa
+  namespace: benchmark
+roleRef:
+  kind: ClusterRole
+  name: monitoring-cluster-access
+  apiGroup: rbac.authorization.k8s.io
 
 ---
 # ConfigMap: Prometheus Configuration
@@ -47,6 +108,7 @@ spec:
       labels:
         app: node-exporter
     spec:
+      serviceAccountName: node-exporter-sa
       containers:
       - name: node-exporter
         image: 10.0.1.224:5000/node-exporter:v1.7.0
@@ -100,6 +162,7 @@ spec:
       labels:
         app: prometheus
     spec:
+      serviceAccountName: prometheus-sa
       containers:
       - name: prometheus
         image: 10.0.1.224:5000/prometheus:v2.48.0

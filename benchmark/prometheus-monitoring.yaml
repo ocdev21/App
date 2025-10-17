@@ -29,7 +29,7 @@ metadata:
   name: monitoring-cluster-access
 rules:
 - apiGroups: [""]
-  resources: ["pods", "pods/log", "services", "endpoints", "nodes"]
+  resources: ["pods", "pods/log", "services", "endpoints", "nodes", "nodes/metrics", "nodes/proxy"]
   verbs: ["get", "list", "watch"]
 - apiGroups: ["apps"]
   resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
@@ -88,6 +88,28 @@ data:
       - job_name: 'node-exporter'
         static_configs:
           - targets: ['node-exporter:9100']
+      
+      # Scrape kubelet/cAdvisor for container metrics (CPU, memory per pod/container)
+      - job_name: 'kubernetes-nodes'
+        scheme: https
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          insecure_skip_verify: true
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        kubernetes_sd_configs:
+          - role: node
+        relabel_configs:
+          # Map node labels
+          - action: labelmap
+            regex: __meta_kubernetes_node_label_(.+)
+          # Set address to node IP:10250 (kubelet port)
+          - source_labels: [__address__]
+            regex: ([^:]+)(?::\d+)?
+            target_label: __address__
+            replacement: ${1}:10250
+          # Set metrics path to cAdvisor endpoint
+          - target_label: __metrics_path__
+            replacement: /metrics/cadvisor
       
       # Discover and scrape all pods across all namespaces
       - job_name: 'kubernetes-pods'

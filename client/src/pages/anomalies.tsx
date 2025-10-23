@@ -20,7 +20,13 @@ export default function Anomalies() {
   const [selectedAnomalyForDetails, setSelectedAnomalyForDetails] = useState<Anomaly | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   
-  // Filter states
+  // Filter input states (before submit)
+  const [inputDateFrom, setInputDateFrom] = useState("");
+  const [inputDateTo, setInputDateTo] = useState("");
+  const [inputDescription, setInputDescription] = useState("");
+  const [inputSeverity, setInputSeverity] = useState("");
+  
+  // Applied filter states (after submit)
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
   const [filterDescription, setFilterDescription] = useState("");
@@ -143,6 +149,26 @@ export default function Anomalies() {
     );
   };
 
+  const handleSubmitFilters = () => {
+    setFilterDateFrom(inputDateFrom);
+    setFilterDateTo(inputDateTo);
+    setFilterDescription(inputDescription);
+    setFilterSeverity(inputSeverity);
+    setCurrentPage(1);
+  };
+
+  const handleClearFilters = () => {
+    setInputDateFrom("");
+    setInputDateTo("");
+    setInputDescription("");
+    setInputSeverity("");
+    setFilterDateFrom("");
+    setFilterDateTo("");
+    setFilterDescription("");
+    setFilterSeverity("");
+    setCurrentPage(1);
+  };
+
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
       {/* Page Header */}
@@ -154,18 +180,15 @@ export default function Anomalies() {
       {/* Filters Section */}
       <div className="mb-6 bg-white rounded-lg shadow p-4 border border-gray-300">
         <h3 className="text-sm font-semibold text-gray-700 mb-3">Filters</h3>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Date From */}
           <div>
             <label className="block text-xs text-gray-600 mb-1">Date From</label>
             <input
               type="date"
-              value={filterDateFrom}
-              onChange={(e) => {
-                setFilterDateFrom(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 bg-white text-sm"
+              value={inputDateFrom}
+              onChange={(e) => setInputDateFrom(e.target.value)}
+              className="border border-gray-300 rounded px-3 py-1.5 bg-white text-sm max-w-[180px]"
             />
           </div>
 
@@ -174,12 +197,9 @@ export default function Anomalies() {
             <label className="block text-xs text-gray-600 mb-1">Date To</label>
             <input
               type="date"
-              value={filterDateTo}
-              onChange={(e) => {
-                setFilterDateTo(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 bg-white text-sm"
+              value={inputDateTo}
+              onChange={(e) => setInputDateTo(e.target.value)}
+              className="border border-gray-300 rounded px-3 py-1.5 bg-white text-sm max-w-[180px]"
             />
           </div>
 
@@ -188,11 +208,8 @@ export default function Anomalies() {
             <label className="block text-xs text-gray-600 mb-1">Description</label>
             <input
               type="text"
-              value={filterDescription}
-              onChange={(e) => {
-                setFilterDescription(e.target.value);
-                setCurrentPage(1);
-              }}
+              value={inputDescription}
+              onChange={(e) => setInputDescription(e.target.value)}
               placeholder="Search description..."
               className="w-full border border-gray-300 rounded px-3 py-1.5 bg-white text-sm"
             />
@@ -202,11 +219,8 @@ export default function Anomalies() {
           <div>
             <label className="block text-xs text-gray-600 mb-1">Severity</label>
             <select
-              value={filterSeverity}
-              onChange={(e) => {
-                setFilterSeverity(e.target.value);
-                setCurrentPage(1);
-              }}
+              value={inputSeverity}
+              onChange={(e) => setInputSeverity(e.target.value)}
               className="w-full border border-gray-300 rounded px-3 py-1.5 bg-white text-sm"
             >
               <option value="">All Severities</option>
@@ -218,23 +232,21 @@ export default function Anomalies() {
           </div>
         </div>
 
-        {/* Clear Filters Button */}
-        {(filterDateFrom || filterDateTo || filterDescription || filterSeverity) && (
-          <div className="mt-3 flex justify-end">
-            <button
-              onClick={() => {
-                setFilterDateFrom("");
-                setFilterDateTo("");
-                setFilterDescription("");
-                setFilterSeverity("");
-                setCurrentPage(1);
-              }}
-              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-            >
-              Clear All Filters
-            </button>
-          </div>
-        )}
+        {/* Submit and Clear Buttons */}
+        <div className="mt-3 flex justify-end gap-3">
+          <button
+            onClick={handleClearFilters}
+            className="px-4 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-full hover:bg-gray-50 font-medium"
+          >
+            Clear Filters
+          </button>
+          <button
+            onClick={handleSubmitFilters}
+            className="px-4 py-2 text-sm text-white bg-blue-600 rounded-full hover:bg-blue-700 font-medium"
+          >
+            Submit
+          </button>
+        </div>
       </div>
 
       {/* Controls Bar */}

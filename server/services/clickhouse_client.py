@@ -256,13 +256,23 @@ class ClickHouseClient:
         files = [dict(zip(result.column_names, row)) for row in result.result_rows]
         return convert_decimals(files)
 
-# Global client instance
-clickhouse_client = ClickHouseClient()
+# Global client instance - gracefully handle connection failures
+try:
+    clickhouse_client = ClickHouseClient()
+except Exception as e:
+    print(f"WARNING: ClickHouse client initialization failed: {e}")
+    print("Running without ClickHouse connection")
+    clickhouse_client = None
 
 # Command line interface for storage queries
 if __name__ == "__main__":
     import sys
     import json
+    
+    # Check if ClickHouse client is available
+    if clickhouse_client is None:
+        print(json.dumps({"error": "ClickHouse client not available. Connection failed during initialization."}), file=sys.stderr)
+        sys.exit(1)
     
     if len(sys.argv) > 1:
         try:

@@ -66,6 +66,21 @@ export default function DetailsWindow() {
               </div>
             </div>
           )}
+          
+          {/* Packet Context Section */}
+          {anomaly && anomaly.packet_context && (
+            <div className="mt-6 pt-6 border-t border-gray-200">
+              <h3 className="font-semibold text-gray-900 mb-3">Packet Context</h3>
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <pre className="text-xs text-gray-700 whitespace-pre-wrap font-mono overflow-x-auto">
+                  {anomaly.packet_context}
+                </pre>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                Context shows anomaly packet and surrounding network traffic (±2 packets)
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Explanation Content */}

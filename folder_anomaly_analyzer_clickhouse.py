@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 Folder-based L1 Anomaly Detection System with ClickHouse Integration
-Processes all PCAP and HDF5-converted text files in a directory with database storage
+Processes PCAP, DLF/QXDM, and HDF5-converted text files in a directory with database storage
+Enhanced with packet context extraction, advanced L1 anomaly detection, and QXDM support
 """
 
 import os
@@ -19,6 +20,29 @@ from ml_anomaly_detection import MLAnomalyDetector
 from server.services.ue_analyzer import UEEventAnalyzer
 from server.services.ml_ue_analyzer import MLUEEventAnalyzer
 
+# Import Scapy for packet context extraction
+try:
+    from scapy.all import rdpcap, Ether, Raw, IP, UDP
+    SCAPY_AVAILABLE = True
+except ImportError:
+    print("WARNING: Scapy not available - packet context extraction disabled")
+    SCAPY_AVAILABLE = False
+
+# Import enhanced detection modules
+from enhanced_protocol_parser import EnhancedProtocolParser
+from statistical_baseline_tracker import StatisticalBaselineTracker
+from temporal_pattern_analyzer import TemporalPatternAnalyzer
+import numpy as np
+
+# Import QXDM/DLF support modules
+try:
+    from dlf_parser import DLFParser, QXDMPacket
+    from qxdm_message_decoder import QXDMMessageDecoder
+    DLF_SUPPORT_AVAILABLE = True
+except ImportError as e:
+    print(f"WARNING: DLF/QXDM support not available: {e}")
+    DLF_SUPPORT_AVAILABLE = False
+
 class ClickHouseFolderAnalyzer:
     def __init__(self, clickhouse_host='localhost', clickhouse_port=9000, skip_database=False):
         """Initialize folder analyzer with optional ClickHouse database connection"""
@@ -35,6 +59,23 @@ class ClickHouseFolderAnalyzer:
 
         # Initialize analyzers
         self.unified_analyzer = UnifiedL1Analyzer()
+        
+        # Initialize enhanced detection modules
+        self.protocol_parser = EnhancedProtocolParser()
+        self.baseline_tracker = StatisticalBaselineTracker()
+        self.temporal_analyzer = TemporalPatternAnalyzer()
+        
+        # Initialize DLF/QXDM support if available
+        if DLF_SUPPORT_AVAILABLE:
+            self.dlf_parser = DLFParser()
+            self.qxdm_decoder = QXDMMessageDecoder()
+            print("DLF/QXDM file support enabled")
+        else:
+            self.dlf_parser = None
+            self.qxdm_decoder = None
+        
+        # Cache for loaded PCAP packets (for context extraction)
+        self.pcap_cache = {}
 
         # ClickHouse connection to local database (skip if in dummy mode)
         self.clickhouse_available = False
@@ -66,6 +107,7 @@ class ClickHouseFolderAnalyzer:
 
         # Supported file patterns
         pcap_patterns = ['*.pcap', '*.cap', '*.pcapng']
+        dlf_patterns = ['*.dlf', '*.qmdl', '*.isf']
         text_patterns = ['*.txt', '*.log']
 
         found_files = []
@@ -82,6 +124,19 @@ class ClickHouseFolderAnalyzer:
                     'size': file_size
                 })
 
+        # Find DLF/QXDM files (if support is available)
+        if DLF_SUPPORT_AVAILABLE:
+            for pattern in dlf_patterns:
+                files = glob.glob(os.path.join(folder_path, pattern))
+                for file_path in files:
+                    file_size = os.path.getsize(file_path)
+                    found_files.append({
+                        'path': file_path,
+                        'name': os.path.basename(file_path),
+                        'type': 'DLF',
+                        'size': file_size
+                    })
+
         # Find text files  
         for pattern in text_patterns:
             files = glob.glob(os.path.join(folder_path, pattern))
@@ -96,7 +151,10 @@ class ClickHouseFolderAnalyzer:
 
         if not found_files:
             print("ERROR: No network files found in folder")
-            print("   Supported: .pcap, .cap, .pcapng, .txt, .log")
+            supported_formats = ".pcap, .cap, .pcapng, .txt, .log"
+            if DLF_SUPPORT_AVAILABLE:
+                supported_formats += ", .dlf, .qmdl, .isf"
+            print(f"   Supported: {supported_formats}")
             return []
 
         print(f"Found {len(found_files)} network files:")
@@ -116,6 +174,700 @@ class ClickHouseFolderAnalyzer:
         print(f"- Text files: {text_count}")
 
         return found_files
+
+    def extract_packet_context(self, pcap_file, packet_number, context_size=2):
+        """
+        Extract packet context: anomaly packet + 2 before + 2 after
+        Returns formatted string with packet details
+        """
+        if not SCAPY_AVAILABLE:
+            return "Packet context unavailable (Scapy not installed)"
+        
+        try:
+            # Load packets from cache or read from file
+            if pcap_file not in self.pcap_cache:
+                self.pcap_cache[pcap_file] = rdpcap(pcap_file)
+            
+            packets = self.pcap_cache[pcap_file]
+            
+            # Calculate range (packet_number is 1-indexed)
+            packet_idx = packet_number - 1
+            start_idx = max(0, packet_idx - context_size)
+            end_idx = min(len(packets), packet_idx + context_size + 1)
+            
+            context_packets = []
+            for i in range(start_idx, end_idx):
+                pkt = packets[i]
+                pkt_num = i + 1
+                marker = " <<<< ANOMALY" if i == packet_idx else ""
+                
+                # Extract packet summary
+                pkt_summary = f"Packet #{pkt_num}{marker}\n"
+                
+                # Ethernet layer
+                if pkt.haslayer(Ether):
+                    eth = pkt[Ether]
+                    pkt_summary += f"  Eth: {eth.src} -> {eth.dst}\n"
+                
+                # IP layer
+                if pkt.haslayer(IP):
+                    ip = pkt[IP]
+                    pkt_summary += f"  IP: {ip.src} -> {ip.dst}, Len={ip.len}\n"
+                
+                # UDP layer
+                if pkt.haslayer(UDP):
+                    udp = pkt[UDP]
+                    pkt_summary += f"  UDP: {udp.sport} -> {udp.dport}\n"
+                
+                # Payload size
+                if pkt.haslayer(Raw):
+                    payload_len = len(pkt[Raw].load)
+                    pkt_summary += f"  Payload: {payload_len} bytes\n"
+                
+                # Timestamp
+                pkt_summary += f"  Time: {float(pkt.time):.6f}\n"
+                
+                context_packets.append(pkt_summary)
+            
+            return "\n".join(context_packets)
+            
+        except Exception as e:
+            return f"Error extracting packet context: {str(e)}"
+
+    def detect_rach_failures(self, packets):
+        """
+        Enhanced RACH failure detection with protocol analysis and adaptive thresholds
+        Uses temporal patterns, statistical baselines, and multi-factor confidence scoring
+        """
+        anomalies = []
+        if not SCAPY_AVAILABLE:
+            return anomalies
+        
+        try:
+            rach_events = []
+            rach_attempts = 0
+            rach_failures = 0
+            rach_timestamps = []
+            
+            for i, pkt in enumerate(packets):
+                if not pkt.haslayer(Raw):
+                    continue
+                    
+                payload = bytes(pkt[Raw].load)
+                indicators = self.protocol_parser.extract_l1_indicators(payload, packet_obj=pkt)
+                
+                if indicators['has_rach']:
+                    rach_attempts += 1
+                    timestamp = float(pkt.time) if hasattr(pkt, 'time') else i
+                    rach_timestamps.append(timestamp)
+                    
+                    has_failure = len(indicators['failure_indicators']) > 0
+                    
+                    if has_failure:
+                        rach_failures += 1
+                        
+                        pattern_strength = len(indicators['failure_indicators']) / 3.0
+                        
+                        timing_features = self.protocol_parser.extract_timing_features(packets[max(0, i-5):i+5])
+                        temporal_score = 0.5
+                        if timing_features:
+                            if timing_features.get('jitter', 0) > 0.1:
+                                temporal_score += 0.2
+                            if timing_features.get('max_inter_arrival', 0) > 1.0:
+                                temporal_score += 0.3
+                        
+                        baseline_deviation = 0.5
+                        is_anomalous, deviation_score, severity = self.baseline_tracker.is_anomalous(
+                            'rach', 'attempt_count', rach_failures
+                        )
+                        if is_anomalous:
+                            baseline_deviation = deviation_score
+                        
+                        confidence = min((pattern_strength * 0.4 + temporal_score * 0.3 + baseline_deviation * 0.3), 1.0)
+                        
+                        anomalies.append({
+                            'packet_number': i + 1,
+                            'anomaly_type': 'RACH Failure',
+                            'confidence': max(confidence, 0.7),
+                            'details': [
+                                f'RACH failure detected with {len(indicators["failure_indicators"])} error indicators',
+                                f'Pattern strength: {pattern_strength:.2f}',
+                                f'Temporal anomaly score: {temporal_score:.2f}',
+                                f'Baseline deviation: {baseline_deviation:.2f}'
+                            ],
+                            'error_log': f'RACH failure at packet {i+1}: {indicators["failure_indicators"]}'
+                        })
+            
+            self.baseline_tracker.update_baseline('rach', 'attempt_count', rach_attempts)
+            if rach_attempts > 0:
+                success_rate = 1.0 - (rach_failures / rach_attempts)
+                self.baseline_tracker.update_baseline('rach', 'success_rate', success_rate)
+            
+            if len(rach_timestamps) >= 3:
+                temporal_analysis = self.temporal_analyzer.analyze_event_rate('rach', rach_timestamps)
+                
+                if temporal_analysis['burst_detected']:
+                    severity_map = {'critical': 0.95, 'high': 0.85, 'medium': 0.75, 'low': 0.65}
+                    confidence = severity_map.get(temporal_analysis['burst_severity'], 0.70)
+                    
+                    anomalies.append({
+                        'packet_number': 1,
+                        'anomaly_type': 'RACH Burst Pattern',
+                        'confidence': confidence,
+                        'details': [
+                            f'Burst detected: {temporal_analysis["burst_severity"]} severity',
+                            f'Peak rate: {temporal_analysis["max_window_rate"]:.2f} events/sec',
+                            f'Average rate: {temporal_analysis["avg_window_rate"]:.2f} events/sec'
+                        ],
+                        'error_log': f'RACH burst: {temporal_analysis["total_events"]} attempts in {temporal_analysis["duration"]:.2f}s'
+                    })
+            
+            threshold = self.baseline_tracker.get_adaptive_threshold('rach', 'attempt_count') or 10
+            if rach_attempts > threshold:
+                is_anomalous, deviation_score, severity = self.baseline_tracker.is_anomalous(
+                    'rach', 'attempt_count', rach_attempts
+                )
+                
+                confidence = 0.65 + (deviation_score * 0.3)
+                
+                anomalies.append({
+                    'packet_number': 1,
+                    'anomaly_type': 'Excessive RACH Attempts',
+                    'confidence': min(confidence, 0.95),
+                    'details': [
+                        f'Excessive RACH attempts: {rach_attempts} (threshold: {threshold:.1f})',
+                        f'Severity: {severity}',
+                        f'Deviation score: {deviation_score:.2f}',
+                        'Indicates possible network congestion or cell overload'
+                    ],
+                    'error_log': f'High RACH attempt count: {rach_attempts} attempts detected'
+                })
+        
+        except Exception as e:
+            print(f"  RACH detection error: {e}")
+        
+        return anomalies
+
+    def detect_handover_failures(self, packets):
+        """
+        Enhanced handover failure detection with state tracking and success ratio analysis
+        Detects mobility issues and handover performance degradation
+        """
+        anomalies = []
+        if not SCAPY_AVAILABLE:
+            return anomalies
+        
+        try:
+            handover_attempts = 0
+            handover_failures = 0
+            handover_timestamps = []
+            handover_durations = []
+            
+            for i, pkt in enumerate(packets):
+                if not pkt.haslayer(Raw):
+                    continue
+                    
+                payload = bytes(pkt[Raw].load)
+                indicators = self.protocol_parser.extract_l1_indicators(payload, packet_obj=pkt)
+                
+                if indicators['has_handover']:
+                    handover_attempts += 1
+                    timestamp = float(pkt.time) if hasattr(pkt, 'time') else i
+                    handover_timestamps.append(timestamp)
+                    
+                    has_failure = len(indicators['failure_indicators']) > 0
+                    
+                    if has_failure:
+                        handover_failures += 1
+                        
+                        pattern_strength = min(len(indicators['failure_indicators']) / 2.0, 1.0)
+                        
+                        sequence_anomalies = self.protocol_parser.detect_sequence_anomalies(
+                            packets[max(0, i-10):i+10]
+                        )
+                        sequence_score = min(len(sequence_anomalies) / 5.0, 1.0) if sequence_anomalies else 0.3
+                        
+                        baseline_deviation = 0.5
+                        is_anomalous, deviation_score, severity = self.baseline_tracker.is_anomalous(
+                            'handover', 'success_rate', 0.0
+                        )
+                        if is_anomalous:
+                            baseline_deviation = deviation_score
+                        
+                        confidence = min((pattern_strength * 0.5 + sequence_score * 0.2 + baseline_deviation * 0.3), 1.0)
+                        
+                        anomalies.append({
+                            'packet_number': i + 1,
+                            'anomaly_type': 'Handover Failure',
+                            'confidence': max(confidence, 0.75),
+                            'details': [
+                                f'Handover failure: {len(indicators["failure_indicators"])} error indicators',
+                                f'Sequence anomalies detected: {len(sequence_anomalies)}',
+                                f'Pattern match strength: {pattern_strength:.2f}',
+                                'Indicates UE mobility or inter-cell coordination issue'
+                            ],
+                            'error_log': f'Handover failure at packet {i+1}: {indicators["failure_indicators"]}'
+                        })
+            
+            self.baseline_tracker.update_baseline('handover', 'attempt_count', handover_attempts)
+            if handover_attempts > 0:
+                success_rate = 1.0 - (handover_failures / handover_attempts)
+                self.baseline_tracker.update_baseline('handover', 'success_rate', success_rate)
+                
+                is_anomalous, deviation_score, severity = self.baseline_tracker.is_anomalous(
+                    'handover', 'success_rate', success_rate
+                )
+                
+                if is_anomalous and success_rate < 0.85:
+                    confidence = 0.70 + (deviation_score * 0.25)
+                    
+                    anomalies.append({
+                        'packet_number': 1,
+                        'anomaly_type': 'Low Handover Success Rate',
+                        'confidence': min(confidence, 0.95),
+                        'details': [
+                            f'Handover success rate: {success_rate*100:.1f}% (expected >85%)',
+                            f'Failures: {handover_failures}/{handover_attempts} attempts',
+                            f'Severity: {severity}',
+                            'Indicates systemic mobility or resource allocation issues'
+                        ],
+                        'error_log': f'Low handover success: {handover_failures} failures in {handover_attempts} attempts'
+                    })
+        
+        except Exception as e:
+            print(f"  Handover detection error: {e}")
+        
+        return anomalies
+
+    def detect_harq_retransmissions(self, packets):
+        """
+        Enhanced HARQ retransmission detection with sequence tracking and statistical analysis
+        Detects poor radio quality, interference, and link degradation
+        """
+        anomalies = []
+        if not SCAPY_AVAILABLE:
+            return anomalies
+        
+        try:
+            retransmission_count = 0
+            total_harq_packets = 0
+            retx_timestamps = []
+            consecutive_retx = 0
+            max_consecutive = 0
+            
+            for i, pkt in enumerate(packets):
+                if not pkt.haslayer(Raw):
+                    continue
+                    
+                payload = bytes(pkt[Raw].load)
+                indicators = self.protocol_parser.extract_l1_indicators(payload, packet_obj=pkt)
+                
+                if indicators['has_harq']:
+                    total_harq_packets += 1
+                    
+                    is_retransmission = b'retx' in payload.lower() or b'nack' in payload.lower()
+                    
+                    if is_retransmission:
+                        retransmission_count += 1
+                        consecutive_retx += 1
+                        max_consecutive = max(max_consecutive, consecutive_retx)
+                        
+                        timestamp = float(pkt.time) if hasattr(pkt, 'time') else i
+                        retx_timestamps.append(timestamp)
+                    else:
+                        consecutive_retx = 0
+            
+            if total_harq_packets > 0:
+                retransmission_rate = retransmission_count / total_harq_packets
+                self.baseline_tracker.update_baseline('harq', 'retransmission_rate', retransmission_rate)
+                self.baseline_tracker.update_baseline('harq', 'max_consecutive_retx', max_consecutive)
+                
+                is_anomalous, deviation_score, severity = self.baseline_tracker.is_anomalous(
+                    'harq', 'retransmission_rate', retransmission_rate
+                )
+                
+                threshold = self.baseline_tracker.get_adaptive_threshold('harq', 'retransmission_rate') or 0.15
+                
+                if retransmission_rate > threshold or max_consecutive > 3:
+                    temporal_score = 0.5
+                    if len(retx_timestamps) >= 3:
+                        temporal_analysis = self.temporal_analyzer.analyze_event_rate('harq_retx', retx_timestamps)
+                        if temporal_analysis['burst_detected']:
+                            temporal_score = 0.9
+                    
+                    confidence = min((deviation_score * 0.4 + temporal_score * 0.4 + 0.2), 1.0)
+                    
+                    anomalies.append({
+                        'packet_number': 1,
+                        'anomaly_type': 'Excessive HARQ Retransmissions',
+                        'confidence': max(confidence, 0.70),
+                        'details': [
+                            f'Retransmission rate: {retransmission_rate*100:.1f}% (threshold: {threshold*100:.1f}%)',
+                            f'Total retransmissions: {retransmission_count}/{total_harq_packets} packets',
+                            f'Max consecutive retx: {max_consecutive}',
+                            f'Severity: {severity}',
+                            'Indicates poor radio quality, interference, or link budget issues'
+                        ],
+                        'error_log': f'High HARQ retransmission rate: {retransmission_count} retransmissions in {total_harq_packets} packets'
+                    })
+                
+                if max_consecutive >= 5:
+                    anomalies.append({
+                        'packet_number': 1,
+                        'anomaly_type': 'HARQ Retransmission Burst',
+                        'confidence': 0.85,
+                        'details': [
+                            f'Consecutive retransmissions: {max_consecutive}',
+                            'Severe radio link quality degradation detected',
+                            'May indicate deep fade, strong interference, or equipment malfunction'
+                        ],
+                        'error_log': f'HARQ burst: {max_consecutive} consecutive retransmissions'
+                    })
+        
+        except Exception as e:
+            print(f"  HARQ detection error: {e}")
+        
+        return anomalies
+
+    def detect_crc_errors(self, packets):
+        """
+        Enhanced CRC error detection with error rate calculation and correlation analysis
+        Detects data corruption, signal quality issues, and equipment problems
+        """
+        anomalies = []
+        if not SCAPY_AVAILABLE:
+            return anomalies
+        
+        try:
+            crc_errors = 0
+            crc_error_timestamps = []
+            total_packets_checked = 0
+            
+            for i, pkt in enumerate(packets):
+                if not pkt.haslayer(Raw):
+                    continue
+                    
+                payload = bytes(pkt[Raw].load)
+                indicators = self.protocol_parser.extract_l1_indicators(payload, packet_obj=pkt)
+                
+                if indicators['has_crc']:
+                    total_packets_checked += 1
+                    
+                    has_error = b'error' in payload.lower() or b'fail' in payload.lower()
+                    
+                    if has_error:
+                        crc_errors += 1
+                        timestamp = float(pkt.time) if hasattr(pkt, 'time') else i
+                        crc_error_timestamps.append(timestamp)
+                        
+                        pattern_strength = min(len([x for x in indicators['error_indicators'] if 'crc' in x.lower()]) / 2.0, 1.0) if len(indicators['error_indicators']) > 0 else 0.8
+                        
+                        anomalies.append({
+                            'packet_number': i + 1,
+                            'anomaly_type': 'CRC Error',
+                            'confidence': max(pattern_strength, 0.85),
+                            'details': [
+                                'CRC check failed - data corruption detected',
+                                f'Error indicators: {len(indicators["error_indicators"])}',
+                                'Likely caused by: poor signal quality, interference, or equipment malfunction'
+                            ],
+                            'error_log': f'CRC error at packet {i+1}'
+                        })
+            
+            if total_packets_checked > 100:
+                error_rate = crc_errors / total_packets_checked
+                errors_per_1000 = (crc_errors / total_packets_checked) * 1000
+                
+                self.baseline_tracker.update_baseline('crc', 'error_rate', error_rate)
+                self.baseline_tracker.update_baseline('crc', 'errors_per_1000_packets', errors_per_1000)
+                
+                is_anomalous, deviation_score, severity = self.baseline_tracker.is_anomalous(
+                    'crc', 'error_rate', error_rate
+                )
+                
+                if is_anomalous or error_rate > 0.01:
+                    temporal_score = 0.5
+                    if len(crc_error_timestamps) >= 3:
+                        temporal_analysis = self.temporal_analyzer.analyze_event_rate('crc_errors', crc_error_timestamps)
+                        if temporal_analysis['burst_detected']:
+                            temporal_score = 0.9
+                    
+                    confidence = min((deviation_score * 0.5 + temporal_score * 0.4 + 0.1), 1.0)
+                    
+                    anomalies.append({
+                        'packet_number': 1,
+                        'anomaly_type': 'High CRC Error Rate',
+                        'confidence': max(confidence, 0.75),
+                        'details': [
+                            f'CRC error rate: {error_rate*100:.2f}% ({errors_per_1000:.1f} per 1000 packets)',
+                            f'Total errors: {crc_errors}/{total_packets_checked} packets',
+                            f'Severity: {severity}',
+                            'Indicates persistent signal quality or equipment issues'
+                        ],
+                        'error_log': f'High CRC error rate: {crc_errors} errors in {total_packets_checked} packets'
+                    })
+        
+        except Exception as e:
+            print(f"  CRC detection error: {e}")
+        
+        return anomalies
+
+    def detect_rrc_connection_failures(self, packets):
+        """
+        Enhanced RRC connection failure detection with state machine tracking
+        Detects control plane issues and resource allocation problems
+        """
+        anomalies = []
+        if not SCAPY_AVAILABLE:
+            return anomalies
+        
+        try:
+            rrc_attempts = 0
+            rrc_failures = 0
+            rrc_failure_timestamps = []
+            rrc_states = []
+            
+            for i, pkt in enumerate(packets):
+                if not pkt.haslayer(Raw):
+                    continue
+                    
+                payload = bytes(pkt[Raw].load)
+                indicators = self.protocol_parser.extract_l1_indicators(payload, packet_obj=pkt)
+                
+                if indicators['has_rrc']:
+                    is_setup_attempt = b'Connect' in payload or b'Setup' in payload
+                    is_failure = b'Reject' in payload or b'Fail' in payload
+                    
+                    if is_setup_attempt:
+                        rrc_attempts += 1
+                        rrc_states.append('attempt')
+                    
+                    if is_failure:
+                        rrc_failures += 1
+                        rrc_states.append('failure')
+                        timestamp = float(pkt.time) if hasattr(pkt, 'time') else i
+                        rrc_failure_timestamps.append(timestamp)
+                        
+                        pattern_strength = min(len(indicators['failure_indicators']) / 2.0, 1.0)
+                        
+                        sequence_anomalies = self.protocol_parser.detect_sequence_anomalies(
+                            packets[max(0, i-5):i+5]
+                        )
+                        sequence_score = 0.3 + min(len(sequence_anomalies) / 3.0, 0.5)
+                        
+                        confidence = min((pattern_strength * 0.5 + sequence_score * 0.5), 1.0)
+                        
+                        anomalies.append({
+                            'packet_number': i + 1,
+                            'anomaly_type': 'RRC Connection Failure',
+                            'confidence': max(confidence, 0.80),
+                            'details': [
+                                'RRC connection rejected or failed',
+                                f'Failure indicators: {len(indicators["failure_indicators"])}',
+                                'Indicates control plane congestion or resource shortage'
+                            ],
+                            'error_log': f'RRC failure at packet {i+1}: {indicators["failure_indicators"]}'
+                        })
+            
+            if rrc_attempts > 0:
+                success_rate = 1.0 - (rrc_failures / rrc_attempts)
+                self.baseline_tracker.update_baseline('rrc', 'connection_success_rate', success_rate)
+                self.baseline_tracker.update_baseline('rrc', 'setup_attempts', rrc_attempts)
+                
+                is_anomalous, deviation_score, severity = self.baseline_tracker.is_anomalous(
+                    'rrc', 'connection_success_rate', success_rate
+                )
+                
+                if is_anomalous and success_rate < 0.90:
+                    confidence = 0.75 + (deviation_score * 0.20)
+                    
+                    anomalies.append({
+                        'packet_number': 1,
+                        'anomaly_type': 'Low RRC Connection Success Rate',
+                        'confidence': min(confidence, 0.95),
+                        'details': [
+                            f'RRC success rate: {success_rate*100:.1f}% (expected >90%)',
+                            f'Failures: {rrc_failures}/{rrc_attempts} attempts',
+                            f'Severity: {severity}',
+                            'Indicates control plane overload or admission control issues'
+                        ],
+                        'error_log': f'Low RRC success: {rrc_failures} failures in {rrc_attempts} attempts'
+                    })
+        
+        except Exception as e:
+            print(f"  RRC detection error: {e}")
+        
+        return anomalies
+
+    def detect_timing_advance_violations(self, packets):
+        """
+        Enhanced timing advance violation detection with range validation
+        Detects synchronization issues and distance-related problems
+        """
+        anomalies = []
+        if not SCAPY_AVAILABLE:
+            return anomalies
+        
+        try:
+            ta_violations = 0
+            ta_adjustments = 0
+            ta_violation_timestamps = []
+            ta_values = []
+            
+            for i, pkt in enumerate(packets):
+                if not pkt.haslayer(Raw):
+                    continue
+                    
+                payload = bytes(pkt[Raw].load)
+                indicators = self.protocol_parser.extract_l1_indicators(payload, packet_obj=pkt)
+                
+                if indicators['has_timing_advance']:
+                    ta_adjustments += 1
+                    
+                    has_violation = b'violation' in payload.lower() or b'out of range' in payload.lower() or b'invalid' in payload.lower()
+                    
+                    if has_violation:
+                        ta_violations += 1
+                        timestamp = float(pkt.time) if hasattr(pkt, 'time') else i
+                        ta_violation_timestamps.append(timestamp)
+                        
+                        pattern_strength = min(len(indicators['failure_indicators']) / 2.0, 1.0) if indicators['failure_indicators'] else 0.7
+                        
+                        timing_features = self.protocol_parser.extract_timing_features(packets[max(0, i-5):i+5])
+                        temporal_score = 0.5
+                        if timing_features and timing_features.get('jitter', 0) > 0.05:
+                            temporal_score = 0.8
+                        
+                        confidence = min((pattern_strength * 0.6 + temporal_score * 0.4), 1.0)
+                        
+                        anomalies.append({
+                            'packet_number': i + 1,
+                            'anomaly_type': 'Timing Advance Violation',
+                            'confidence': max(confidence, 0.75),
+                            'details': [
+                                'Timing Advance out of acceptable range',
+                                'Indicates UE synchronization issue or excessive distance',
+                                f'Timing jitter detected: {timing_features.get("jitter", 0):.4f}s' if timing_features else 'N/A'
+                            ],
+                            'error_log': f'TA violation at packet {i+1}: {indicators["failure_indicators"]}'
+                        })
+            
+            if ta_adjustments > 0:
+                violation_rate = ta_violations / ta_adjustments
+                self.baseline_tracker.update_baseline('timing_advance', 'violation_rate', violation_rate)
+                self.baseline_tracker.update_baseline('timing_advance', 'avg_ta_adjustments', ta_adjustments)
+                
+                is_anomalous, deviation_score, severity = self.baseline_tracker.is_anomalous(
+                    'timing_advance', 'violation_rate', violation_rate
+                )
+                
+                if is_anomalous and violation_rate > 0.05:
+                    temporal_score = 0.5
+                    if len(ta_violation_timestamps) >= 3:
+                        temporal_analysis = self.temporal_analyzer.analyze_event_rate('ta_violations', ta_violation_timestamps)
+                        if temporal_analysis['burst_detected']:
+                            temporal_score = 0.9
+                    
+                    confidence = min((deviation_score * 0.5 + temporal_score * 0.4 + 0.1), 1.0)
+                    
+                    anomalies.append({
+                        'packet_number': 1,
+                        'anomaly_type': 'High TA Violation Rate',
+                        'confidence': max(confidence, 0.70),
+                        'details': [
+                            f'TA violation rate: {violation_rate*100:.2f}% (threshold: 5%)',
+                            f'Violations: {ta_violations}/{ta_adjustments} TA commands',
+                            f'Severity: {severity}',
+                            'Indicates systematic synchronization or cell planning issues'
+                        ],
+                        'error_log': f'High TA violation rate: {ta_violations} violations in {ta_adjustments} adjustments'
+                    })
+        
+        except Exception as e:
+            print(f"  TA detection error: {e}")
+        
+        return anomalies
+
+    def detect_power_control_anomalies(self, packets):
+        """
+        Enhanced power control anomaly detection with TPC command tracking
+        Detects transmit power management issues and coverage problems
+        """
+        anomalies = []
+        if not SCAPY_AVAILABLE:
+            return anomalies
+        
+        try:
+            power_issues = 0
+            power_adjustments = 0
+            power_issue_timestamps = []
+            excessive_adjustments = 0
+            
+            for i, pkt in enumerate(packets):
+                if not pkt.haslayer(Raw):
+                    continue
+                    
+                payload = bytes(pkt[Raw].load)
+                indicators = self.protocol_parser.extract_l1_indicators(payload, packet_obj=pkt)
+                
+                if indicators['has_power_control']:
+                    power_adjustments += 1
+                    
+                    has_issue = len(indicators['failure_indicators']) > 0 or b'exceed' in payload.lower() or b'limit' in payload.lower()
+                    
+                    if has_issue:
+                        power_issues += 1
+                        timestamp = float(pkt.time) if hasattr(pkt, 'time') else i
+                        power_issue_timestamps.append(timestamp)
+                        
+                        pattern_strength = min(len(indicators['failure_indicators']) / 2.0, 1.0) if indicators['failure_indicators'] else 0.6
+                        
+                        anomalies.append({
+                            'packet_number': i + 1,
+                            'anomaly_type': 'Power Control Anomaly',
+                            'confidence': max(pattern_strength, 0.70),
+                            'details': [
+                                'Transmit power control issue detected',
+                                f'Error indicators: {len(indicators["failure_indicators"])}',
+                                'May indicate coverage hole, interference, or UE power limitations'
+                            ],
+                            'error_log': f'Power control issue at packet {i+1}: {indicators["failure_indicators"]}'
+                        })
+            
+            if power_adjustments > 50:
+                adjustment_frequency = power_adjustments / len(packets)
+                self.baseline_tracker.update_baseline('power_control', 'adjustment_frequency', adjustment_frequency)
+                
+                is_anomalous, deviation_score, severity = self.baseline_tracker.is_anomalous(
+                    'power_control', 'adjustment_frequency', adjustment_frequency
+                )
+                
+                if is_anomalous and adjustment_frequency > 0.20:
+                    temporal_score = 0.5
+                    if len(power_issue_timestamps) >= 3:
+                        temporal_analysis = self.temporal_analyzer.analyze_event_rate('power_issues', power_issue_timestamps)
+                        if temporal_analysis['burst_detected']:
+                            temporal_score = 0.8
+                    
+                    confidence = min((deviation_score * 0.4 + temporal_score * 0.4 + 0.2), 1.0)
+                    
+                    anomalies.append({
+                        'packet_number': 1,
+                        'anomaly_type': 'Excessive Power Control Activity',
+                        'confidence': max(confidence, 0.65),
+                        'details': [
+                            f'Power adjustment frequency: {adjustment_frequency*100:.1f}% of packets',
+                            f'Total adjustments: {power_adjustments} in {len(packets)} packets',
+                            f'Severity: {severity}',
+                            'Indicates unstable radio environment or coverage issues'
+                        ],
+                        'error_log': f'Excessive power control: {power_adjustments} adjustments'
+                    })
+        
+        except Exception as e:
+            print(f"  Power control detection error: {e}")
+        
+        return anomalies
 
     def store_session_in_clickhouse(self, session_data):
         """Store analysis session in ClickHouse"""
@@ -182,6 +934,15 @@ class ClickHouseFolderAnalyzer:
                 
                 confidence = anomaly.get('confidence', 0)
                 
+                # Extract packet context for PCAP files
+                packet_context = ""
+                if anomaly['file_type'] == 'PCAP':
+                    packet_context = self.extract_packet_context(
+                        anomaly['file'], 
+                        packet_number, 
+                        context_size=2
+                    )
+                
                 record = [
                     int(f"{session_id}{i:04d}"),  # Unique ID
                     str(anomaly['file']),
@@ -196,7 +957,8 @@ class ClickHouseFolderAnalyzer:
                     str(self.RU_MAC),
                     datetime.now(),  # Fixed: Use datetime object directly, not string
                     'active',
-                    str(anomaly.get('error_log', ''))  # NEW: Packet/event data for LLM analysis
+                    str(anomaly.get('error_log', '')),  # Packet/event data for LLM analysis
+                    packet_context  # NEW: Packet context (anomaly + 2 before + 2 after)
                 ]
                 anomaly_records.append(record)
 
@@ -204,7 +966,7 @@ class ClickHouseFolderAnalyzer:
             self.client.insert('anomalies', anomaly_records, column_names=[
                 'id', 'file_path', 'file_type', 'packet_number', 'anomaly_type',
                 'severity', 'description', 'details', 'ue_id', 'du_mac', 
-                'ru_mac', 'timestamp', 'status', 'error_log'
+                'ru_mac', 'timestamp', 'status', 'error_log', 'packet_context'
             ])
 
             print(f"SUCCESS: {len(high_confidence_anomalies)} high-confidence anomalies stored in ClickHouse database")
@@ -249,8 +1011,107 @@ class ClickHouseFolderAnalyzer:
                             ]
                         }
                         anomalies.append(anomaly_record)
+                
+                # Run advanced L1 anomaly detection on the same PCAP file
+                if SCAPY_AVAILABLE:
+                    try:
+                        print(f"  Running advanced L1 anomaly detection...")
+                        packets = rdpcap(file_path)
+                        
+                        # Run all new anomaly detection methods
+                        rach_anomalies = self.detect_rach_failures(packets)
+                        handover_anomalies = self.detect_handover_failures(packets)
+                        harq_anomalies = self.detect_harq_retransmissions(packets)
+                        crc_anomalies = self.detect_crc_errors(packets)
+                        rrc_anomalies = self.detect_rrc_connection_failures(packets)
+                        ta_anomalies = self.detect_timing_advance_violations(packets)
+                        power_anomalies = self.detect_power_control_anomalies(packets)
+                        
+                        # Combine all new anomalies
+                        new_anomalies = (rach_anomalies + handover_anomalies + harq_anomalies + 
+                                       crc_anomalies + rrc_anomalies + ta_anomalies + power_anomalies)
+                        
+                        # Add file info to each new anomaly
+                        for anomaly in new_anomalies:
+                            anomaly['file'] = file_path
+                            anomaly['file_type'] = file_type
+                            anomaly['line_number'] = anomaly['packet_number']
+                        
+                        anomalies.extend(new_anomalies)
+                        
+                        if new_anomalies:
+                            print(f"  Advanced detection found {len(new_anomalies)} additional anomalies:")
+                            anomaly_types = {}
+                            for a in new_anomalies:
+                                atype = a['anomaly_type']
+                                anomaly_types[atype] = anomaly_types.get(atype, 0) + 1
+                            for atype, count in anomaly_types.items():
+                                print(f"    - {atype}: {count}")
+                    
+                    except Exception as e:
+                        print(f"  WARNING: Advanced anomaly detection failed: {e}")
 
                 self.pcap_files_processed += 1
+
+            elif file_type == 'DLF':
+                # Process QXDM DLF files using DLF parser
+                if not DLF_SUPPORT_AVAILABLE or not self.dlf_parser:
+                    print(f"  WARNING: DLF support not available, skipping file")
+                    return anomalies
+                
+                try:
+                    print(f"  Parsing DLF/QXDM diagnostic file...")
+                    packets = self.dlf_parser.parse_dlf_file(file_path)
+                    
+                    if not packets:
+                        print(f"  WARNING: No packets extracted from DLF file")
+                        return anomalies
+                    
+                    print(f"  Extracted {len(packets)} QXDM packets, running L1 anomaly detection...")
+                    
+                    # Run all L1 anomaly detection methods on DLF packets
+                    rach_anomalies = self.detect_rach_failures(packets)
+                    handover_anomalies = self.detect_handover_failures(packets)
+                    harq_anomalies = self.detect_harq_retransmissions(packets)
+                    crc_anomalies = self.detect_crc_errors(packets)
+                    rrc_anomalies = self.detect_rrc_connection_failures(packets)
+                    ta_anomalies = self.detect_timing_advance_violations(packets)
+                    power_anomalies = self.detect_power_control_anomalies(packets)
+                    
+                    # Combine all anomalies
+                    dlf_anomalies = (rach_anomalies + handover_anomalies + harq_anomalies + 
+                                   crc_anomalies + rrc_anomalies + ta_anomalies + power_anomalies)
+                    
+                    # Add file info to each anomaly
+                    for anomaly in dlf_anomalies:
+                        anomaly['file'] = file_path
+                        anomaly['file_type'] = file_type
+                        anomaly['line_number'] = anomaly['packet_number']
+                    
+                    anomalies.extend(dlf_anomalies)
+                    
+                    if dlf_anomalies:
+                        print(f"  DLF detection found {len(dlf_anomalies)} anomalies:")
+                        anomaly_types = {}
+                        for a in dlf_anomalies:
+                            atype = a['anomaly_type']
+                            anomaly_types[atype] = anomaly_types.get(atype, 0) + 1
+                        for atype, count in anomaly_types.items():
+                            print(f"    - {atype}: {count}")
+                    else:
+                        print(f"  No anomalies detected in DLF file")
+                    
+                    # Get DLF parser statistics
+                    stats = self.dlf_parser.get_statistics()
+                    if stats['errors'] > 0:
+                        print(f"  WARNING: {stats['errors']} parsing errors encountered")
+                
+                except Exception as e:
+                    print(f"  ERROR: DLF file processing failed: {e}")
+                    import traceback
+                    traceback.print_exc()
+                
+                self.pcap_files_processed += 1  # Count DLF files with PCAP files for now
 
             elif file_type == 'TEXT':
                 # Use both rule-based and ML-based UE event analyzers

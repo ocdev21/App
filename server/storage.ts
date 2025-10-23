@@ -705,7 +705,7 @@ export class ClickHouseStorage implements IStorage {
   // Anomalies
   async getAnomalies(limit = 50, offset = 0, type?: string, severity?: string): Promise<Anomaly[]> {
     try {
-      let query = "SELECT id, timestamp, anomaly_type, description, severity, file_path, file_type, packet_number, du_mac, ru_mac, ue_id, details, status FROM l1_anomaly_detection.anomalies WHERE 1=1";
+      let query = "SELECT id, timestamp, anomaly_type, description, severity, file_path, file_type, packet_number, du_mac, ru_mac, ue_id, details, status, error_log, packet_context FROM l1_anomaly_detection.anomalies WHERE 1=1";
       const params: any[] = [];
 
       if (type) {
@@ -738,6 +738,7 @@ export class ClickHouseStorage implements IStorage {
           status: row.status || 'open',
           recommendation: null,
           error_log: row.error_log || null,  // Packet/event data for LLM
+          packet_context: row.packet_context || null,  // Packet context for enhanced analysis
           // Additional ML fields from ClickHouse
           anomaly_type: row.anomaly_type || null,
           confidence_score: row.confidence_score || null,
@@ -766,7 +767,7 @@ export class ClickHouseStorage implements IStorage {
   async getAnomaly(id: string): Promise<Anomaly | undefined> {
     try {
       console.log('Looking up anomaly in ClickHouse:', id);
-      const result = await this.execClickHouseQuery("SELECT id, timestamp, anomaly_type, description, severity, file_path, file_type, packet_number, du_mac, ru_mac, ue_id, details, status FROM l1_anomaly_detection.anomalies WHERE id = ? LIMIT 1", [id]);
+      const result = await this.execClickHouseQuery("SELECT id, timestamp, anomaly_type, description, severity, file_path, file_type, packet_number, du_mac, ru_mac, ue_id, details, status, error_log, packet_context FROM l1_anomaly_detection.anomalies WHERE id = ? LIMIT 1", [id]);
 
       if (result && result.length > 0) {
         const row = result[0];
@@ -784,6 +785,7 @@ export class ClickHouseStorage implements IStorage {
           status: row.status || 'open',
           recommendation: null,
           error_log: row.error_log || null,  // Packet/event data for LLM
+          packet_context: row.packet_context || null,  // Packet context for enhanced analysis
           // Add LLM-compatible fields
           anomaly_type: row.anomaly_type || 'unknown',
           confidence_score: 0.9,

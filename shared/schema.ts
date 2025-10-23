@@ -17,6 +17,7 @@ export const anomalies = pgTable("anomalies", {
   status: text("status").notNull().default('open'), // 'open', 'investigating', 'resolved'
   recommendation: text("recommendation"),
   error_log: text("error_log"), // Packet/event data for LLM analysis
+  packet_context: text("packet_context"), // Anomaly packet + 2 before/after for context
 });
 
 

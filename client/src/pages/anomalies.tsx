@@ -19,6 +19,12 @@ export default function Anomalies() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedAnomalyForDetails, setSelectedAnomalyForDetails] = useState<Anomaly | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  
+  // Filter states
+  const [filterDateFrom, setFilterDateFrom] = useState("");
+  const [filterDateTo, setFilterDateTo] = useState("");
+  const [filterDescription, setFilterDescription] = useState("");
+  const [filterSeverity, setFilterSeverity] = useState("");
 
   const { data: anomalies = [], isLoading } = useQuery<Anomaly[]>({
     queryKey: ["/api/anomalies?limit=10000"],
@@ -28,14 +34,46 @@ export default function Anomalies() {
   // Filter and sort anomalies
   const filteredAndSortedAnomalies = useMemo(() => {
     let filtered = anomalies.filter((anomaly) => {
-      if (!searchTerm) return true;
-      const search = searchTerm.toLowerCase();
-      return (
-        anomaly.description?.toLowerCase().includes(search) ||
-        anomaly.type?.toLowerCase().includes(search) ||
-        anomaly.source_file?.toLowerCase().includes(search) ||
-        anomaly.severity?.toLowerCase().includes(search)
-      );
+      // Search term filter (searches across all fields)
+      if (searchTerm) {
+        const search = searchTerm.toLowerCase();
+        const matchesSearch = (
+          anomaly.description?.toLowerCase().includes(search) ||
+          anomaly.type?.toLowerCase().includes(search) ||
+          anomaly.source_file?.toLowerCase().includes(search) ||
+          anomaly.severity?.toLowerCase().includes(search)
+        );
+        if (!matchesSearch) return false;
+      }
+      
+      // Date from filter
+      if (filterDateFrom) {
+        const anomalyDate = new Date(anomaly.timestamp);
+        const fromDate = new Date(filterDateFrom);
+        fromDate.setHours(0, 0, 0, 0);
+        if (anomalyDate < fromDate) return false;
+      }
+      
+      // Date to filter
+      if (filterDateTo) {
+        const anomalyDate = new Date(anomaly.timestamp);
+        const toDate = new Date(filterDateTo);
+        toDate.setHours(23, 59, 59, 999);
+        if (anomalyDate > toDate) return false;
+      }
+      
+      // Description filter
+      if (filterDescription) {
+        const descSearch = filterDescription.toLowerCase();
+        if (!anomaly.description?.toLowerCase().includes(descSearch)) return false;
+      }
+      
+      // Severity filter
+      if (filterSeverity) {
+        if (anomaly.severity?.toLowerCase() !== filterSeverity.toLowerCase()) return false;
+      }
+      
+      return true;
     });
 
     // Sort
@@ -54,7 +92,7 @@ export default function Anomalies() {
     });
 
     return filtered;
-  }, [anomalies, searchTerm, sortField, sortOrder]);
+  }, [anomalies, searchTerm, filterDateFrom, filterDateTo, filterDescription, filterSeverity, sortField, sortOrder]);
 
   // Pagination
   const totalPages = Math.ceil(filteredAndSortedAnomalies.length / itemsPerPage);
@@ -113,6 +151,92 @@ export default function Anomalies() {
         <p className="text-gray-600">Detected network anomalies and recommendations</p>
       </div>
 
+      {/* Filters Section */}
+      <div className="mb-6 bg-white rounded-lg shadow p-4 border border-gray-300">
+        <h3 className="text-sm font-semibold text-gray-700 mb-3">Filters</h3>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Date From */}
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">Date From</label>
+            <input
+              type="date"
+              value={filterDateFrom}
+              onChange={(e) => {
+                setFilterDateFrom(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full border border-gray-300 rounded px-3 py-1.5 bg-white text-sm"
+            />
+          </div>
+
+          {/* Date To */}
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">Date To</label>
+            <input
+              type="date"
+              value={filterDateTo}
+              onChange={(e) => {
+                setFilterDateTo(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full border border-gray-300 rounded px-3 py-1.5 bg-white text-sm"
+            />
+          </div>
+
+          {/* Description Search */}
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">Description</label>
+            <input
+              type="text"
+              value={filterDescription}
+              onChange={(e) => {
+                setFilterDescription(e.target.value);
+                setCurrentPage(1);
+              }}
+              placeholder="Search description..."
+              className="w-full border border-gray-300 rounded px-3 py-1.5 bg-white text-sm"
+            />
+          </div>
+
+          {/* Severity Filter */}
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">Severity</label>
+            <select
+              value={filterSeverity}
+              onChange={(e) => {
+                setFilterSeverity(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full border border-gray-300 rounded px-3 py-1.5 bg-white text-sm"
+            >
+              <option value="">All Severities</option>
+              <option value="critical">Critical</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Clear Filters Button */}
+        {(filterDateFrom || filterDateTo || filterDescription || filterSeverity) && (
+          <div className="mt-3 flex justify-end">
+            <button
+              onClick={() => {
+                setFilterDateFrom("");
+                setFilterDateTo("");
+                setFilterDescription("");
+                setFilterSeverity("");
+                setCurrentPage(1);
+              }}
+              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+            >
+              Clear All Filters
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* Controls Bar */}
       <div className="mb-6 flex items-center justify-between">
         {/* Display selector */}
@@ -144,6 +268,7 @@ export default function Anomalies() {
               setSearchTerm(e.target.value);
               setCurrentPage(1);
             }}
+            placeholder="Search all fields..."
             className="border border-gray-300 rounded px-3 py-1 bg-white text-sm w-64"
           />
         </div>

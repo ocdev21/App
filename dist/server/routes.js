@@ -2,10 +2,7 @@ import { createServer } from "http";
 import { storage } from "./storage";
 import { insertAnomalySchema, insertSessionSchema } from "@shared/schema";
 import { WebSocketServer } from "ws";
-import { clickhouse } from "./clickhouse.js";
 import axios from 'axios';
-import multer from 'multer';
-import FormData from 'form-data';
 function getRuleBasedRecommendations(anomaly) {
     const recommendations = {
         'fronthaul': `Based on the fronthaul anomaly detected, here are the recommended troubleshooting steps:
@@ -84,22 +81,6 @@ export async function registerRoutes(app) {
                         return;
                     }
                     console.log('Found anomaly:', anomaly.id, anomaly.type);
-                    const ragServiceUrl = process.env.RAG_SERVICE_URL || 'http://localhost:8001';
-                    let ragContext = '';
-                    try {
-                        const ragResponse = await axios.post(`${ragServiceUrl}/rag/get-context`, {
-                            anomaly_type: anomaly.type,
-                            error_log: anomaly.error_log || anomaly.description || 'Network anomaly',
-                            n_results: 3
-                        }, { timeout: 5000 });
-                        if (ragResponse.data && ragResponse.data.context) {
-                            ragContext = ragResponse.data.context;
-                            console.log(`WS: Retrieved RAG context with ${ragResponse.data.context.length} characters`);
-                        }
-                    }
-                    catch (ragError) {
-                        console.log('WS: RAG context unavailable, proceeding without it:', ragError.message);
-                    }
                     const inferenceHost = process.env.TSLAM_REMOTE_HOST || 'localhost';
                     const inferencePort = '8000';
                     const inferenceUrl = `http://${inferenceHost}:${inferencePort}/v1/chat/completions`;
@@ -109,11 +90,11 @@ export async function registerRoutes(app) {
                         messages: [
                             {
                                 role: "system",
-                                content: "You are an expert L1 network troubleshooting AI assistant. Analyze the anomaly and provide specific technical recommendations for resolution. When past cases are provided, reference them to improve recommendations."
+                                content: "You are an expert L1 network troubleshooting AI assistant. Analyze the anomaly and provide specific technical recommendations for resolution."
                             },
                             {
                                 role: "user",
-                                content: `Analyze this L1 network anomaly:\n\nType: ${anomaly.type}\nDescription: ${anomaly.description || 'Network anomaly detected'}\nSeverity: ${anomaly.severity || 'unknown'}\n\n${anomaly.error_log ? `Packet/Event Details:\n${anomaly.error_log}\n\n` : ''}${ragContext ? `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nKNOWLEDGE BASE - SIMILAR PAST CASES:\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n${ragContext}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nUse these past cases to inform your analysis.\n\n` : ''}Provide detailed troubleshooting steps and root cause analysis.`
+                                content: `Analyze this L1 network anomaly:\n\nType: ${anomaly.type}\nDescription: ${anomaly.description || 'Network anomaly detected'}\nSeverity: ${anomaly.severity || 'unknown'}\n\n${anomaly.error_log ? `Packet/Event Details:\n${anomaly.error_log}\n\n` : ''}Provide detailed troubleshooting steps and root cause analysis.`
                             }
                         ],
                         max_tokens: 500,
@@ -367,37 +348,10 @@ export async function registerRoutes(app) {
     });
     app.patch("/api/anomalies/:id/status", async (req, res) => {
         try {
-            const { status, resolution_notes } = req.body;
+            const { status } = req.body;
             const anomaly = await storage.updateAnomalyStatus(req.params.id, status);
             if (!anomaly) {
                 return res.status(404).json({ message: "Anomaly not found" });
-            }
-            if (status === 'resolved' && anomaly.error_log) {
-                try {
-                    console.log(`Auto-indexing resolved anomaly ${anomaly.id} to knowledge base`);
-                    let recommendation = `Resolved ${anomaly.type} anomaly. `;
-                    if (anomaly.description) {
-                        recommendation += anomaly.description;
-                    }
-                    await axios.post(`${ragServiceUrl}/rag/add-document`, {
-                        anomaly_id: anomaly.id,
-                        anomaly_type: anomaly.type,
-                        severity: anomaly.severity,
-                        error_log: anomaly.error_log,
-                        recommendation: recommendation,
-                        resolution_notes: resolution_notes || 'Successfully resolved',
-                        metadata: {
-                            source_file: anomaly.source_file,
-                            timestamp: anomaly.timestamp,
-                            mac_address: anomaly.mac_address,
-                            ue_id: anomaly.ue_id
-                        }
-                    }, { timeout: 5000 });
-                    console.log(`Successfully indexed anomaly ${anomaly.id} to knowledge base`);
-                }
-                catch (ragError) {
-                    console.error('Failed to index to RAG knowledge base:', ragError.message);
-                }
             }
             res.json(anomaly);
         }
@@ -446,21 +400,6 @@ export async function registerRoutes(app) {
             const inferencePort = '8000';
             const inferenceUrl = `http://${inferenceHost}:${inferencePort}/v1/chat/completions`;
             console.log(`SSE: Connecting to AI inference server: ${inferenceUrl}`);
-            let ragContext = '';
-            try {
-                const ragResponse = await axios.post(`${ragServiceUrl}/rag/get-context`, {
-                    anomaly_type: anomaly.type,
-                    error_log: anomaly.error_log || anomaly.description || 'Network anomaly',
-                    n_results: 3
-                }, { timeout: 5000 });
-                if (ragResponse.data && ragResponse.data.context) {
-                    ragContext = ragResponse.data.context;
-                    console.log(`SSE: Retrieved RAG context with ${ragResponse.data.context.length} characters`);
-                }
-            }
-            catch (ragError) {
-                console.log('SSE: RAG context unavailable, proceeding without it:', ragError.message);
-            }
             const llmRequest = {
                 model: "mistral-7b-instruct-gguf",
                 messages: [
@@ -472,8 +411,7 @@ Your responses must be:
 - Technically accurate and actionable
 - Structured with clear priority levels (Critical, Important, Optional)
 - Include specific commands, tools, and configuration changes
-- Focus on root cause analysis and prevention
-- When past cases are provided, reference them to improve recommendations`
+- Focus on root cause analysis and prevention`
                     },
                     {
                         role: "user",
@@ -497,15 +435,6 @@ ${anomaly.error_log}
 
 ` : ''}${anomaly.packet_number ? `PACKET INFO:
 - Packet Number: ${anomaly.packet_number}
-
-` : ''}${ragContext ? `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-KNOWLEDGE BASE - SIMILAR PAST CASES:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-${ragContext}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Use these past cases to inform your analysis and recommendations.
 
 ` : ''}ANALYSIS REQUIRED:
 Provide troubleshooting in this structure:
@@ -747,285 +676,6 @@ This represents a general network anomaly requiring further investigation.`;
             model_agreement: 3
         };
     }
-    app.get("/api/dashboard/hourly-trend", async (req, res) => {
-        try {
-            let anomalyData;
-            try {
-                if (clickhouse.isAvailable()) {
-                    const result = await clickhouse.getClient().query({
-                        query: `
-              SELECT timestamp
-              FROM anomalies 
-              WHERE timestamp >= now() - INTERVAL 24 HOUR
-              ORDER BY timestamp ASC
-            `,
-                        format: 'JSONEachRow'
-                    });
-                    anomalyData = await result.json();
-                }
-                else {
-                    anomalyData = await storage.getAnomalies();
-                }
-            }
-            catch (err) {
-                console.log('Using in-memory storage for hourly trend');
-                anomalyData = await storage.getAnomalies();
-            }
-            const last24h = anomalyData.filter((a) => {
-                const timestamp = new Date(a.timestamp);
-                const hoursSince = (Date.now() - timestamp.getTime()) / (1000 * 60 * 60);
-                return hoursSince <= 24;
-            });
-            const hourlyTrend = [];
-            for (let i = 23; i >= 0; i--) {
-                const hourStart = new Date(Date.now() - i * 60 * 60 * 1000);
-                const hourEnd = new Date(Date.now() - (i - 1) * 60 * 60 * 1000);
-                const count = last24h.filter((a) => {
-                    const t = new Date(a.timestamp);
-                    return t >= hourStart && t < hourEnd;
-                }).length;
-                hourlyTrend.push({
-                    hour: hourStart.getHours(),
-                    count
-                });
-            }
-            res.json(hourlyTrend);
-        }
-        catch (error) {
-            console.error('Error fetching hourly trend:', error);
-            res.status(500).json({ error: 'Failed to fetch hourly trend' });
-        }
-    });
-    const ragServiceUrl = process.env.RAG_SERVICE_URL || 'http://localhost:8001';
-    const upload = multer({
-        storage: multer.memoryStorage(),
-        limits: { fileSize: 10 * 1024 * 1024 }
-    });
-    app.get("/api/rag/stats", async (req, res) => {
-        try {
-            const response = await axios.get(`${ragServiceUrl}/rag/stats`);
-            res.json(response.data);
-        }
-        catch (error) {
-            console.error('RAG stats error:', error.message);
-            res.status(500).json({ error: 'Failed to fetch RAG stats' });
-        }
-    });
-    app.post("/api/rag/add-document", async (req, res) => {
-        try {
-            const response = await axios.post(`${ragServiceUrl}/rag/add-document`, req.body);
-            res.status(201).json(response.data);
-        }
-        catch (error) {
-            console.error('RAG add document error:', error.message);
-            res.status(500).json({ error: 'Failed to add document to knowledge base' });
-        }
-    });
-    app.post("/api/rag/search", async (req, res) => {
-        try {
-            const response = await axios.post(`${ragServiceUrl}/rag/search`, req.body);
-            res.json(response.data);
-        }
-        catch (error) {
-            console.error('RAG search error:', error.message);
-            res.status(500).json({ error: 'Failed to search knowledge base' });
-        }
-    });
-    app.post("/api/rag/get-context", async (req, res) => {
-        try {
-            const response = await axios.post(`${ragServiceUrl}/rag/get-context`, req.body);
-            res.json(response.data);
-        }
-        catch (error) {
-            console.error('RAG get context error:', error.message);
-            res.status(500).json({ error: 'Failed to get RAG context' });
-        }
-    });
-    app.delete("/api/rag/delete-document/:anomalyId", async (req, res) => {
-        try {
-            const response = await axios.delete(`${ragServiceUrl}/rag/delete-document/${req.params.anomalyId}`);
-            res.json(response.data);
-        }
-        catch (error) {
-            console.error('RAG delete document error:', error.message);
-            res.status(500).json({ error: 'Failed to delete document' });
-        }
-    });
-    app.post("/api/rag/upload-file", upload.single('file'), async (req, res) => {
-        try {
-            if (!req.file) {
-                return res.status(400).json({ error: 'No file uploaded' });
-            }
-            const formData = new FormData();
-            formData.append('file', req.file.buffer, {
-                filename: req.file.originalname,
-                contentType: req.file.mimetype
-            });
-            const response = await axios.post(`${ragServiceUrl}/rag/upload-file`, formData, {
-                headers: {
-                    ...formData.getHeaders()
-                },
-                maxContentLength: Infinity,
-                maxBodyLength: Infinity
-            });
-            res.status(201).json(response.data);
-        }
-        catch (error) {
-            console.error('RAG file upload error:', error.message);
-            const errorMessage = error.response?.data?.error || 'Failed to upload document';
-            res.status(error.response?.status || 500).json({ error: errorMessage });
-        }
-    });
-    app.get("/api/ml/models", async (req, res) => {
-        try {
-            const fs = await import('fs/promises');
-            const path = await import('path');
-            const modelsDir = process.env.ML_MODELS_DIR || '/pvc/models';
-            const metadataPath = path.join(modelsDir, 'metadata.json');
-            let metadata = null;
-            let modelFiles = [];
-            try {
-                const metadataContent = await fs.readFile(metadataPath, 'utf-8');
-                metadata = JSON.parse(metadataContent);
-                const files = await fs.readdir(modelsDir);
-                modelFiles = files.filter(f => f.endsWith('.pkl'));
-            }
-            catch (err) {
-                console.log('ML models directory not accessible:', err);
-            }
-            res.json({
-                metadata: metadata || {
-                    files_processed: 0,
-                    last_retrain: null,
-                    created_at: new Date().toISOString()
-                },
-                models: modelFiles.map(file => ({
-                    name: file.replace('.pkl', ''),
-                    file: file,
-                    type: file.includes('isolation') ? 'Isolation Forest' :
-                        file.includes('svm') ? 'One-Class SVM' :
-                            file.includes('dbscan') ? 'DBSCAN' :
-                                file.includes('scaler') ? 'Scaler' : 'Unknown'
-                })),
-                retrain_threshold: parseInt(process.env.RETRAIN_THRESHOLD || '10'),
-                status: metadata?.last_retrain ? 'trained' : 'not_trained'
-            });
-        }
-        catch (error) {
-            console.error('Error fetching ML models:', error);
-            res.status(500).json({ error: 'Failed to fetch ML models' });
-        }
-    });
-    app.get("/api/files", async (req, res) => {
-        try {
-            const fs = await import('fs/promises');
-            const path = await import('path');
-            const inputDir = process.env.INPUT_FILES_DIR || '/pvc/input_files';
-            let files = [];
-            try {
-                const fileList = await fs.readdir(inputDir);
-                for (const filename of fileList) {
-                    const filePath = path.join(inputDir, filename);
-                    const stats = await fs.stat(filePath);
-                    files.push({
-                        id: filename,
-                        name: filename,
-                        size: stats.size,
-                        uploaded_at: stats.mtime.toISOString(),
-                        type: filename.endsWith('.pcap') || filename.endsWith('.pcapng') ? 'pcap' : 'text',
-                        status: 'processed'
-                    });
-                }
-            }
-            catch (err) {
-                console.log('Input files directory not accessible:', err);
-            }
-            res.json({
-                files,
-                total: files.length,
-                storage_path: inputDir
-            });
-        }
-        catch (error) {
-            console.error('Error fetching files:', error);
-            res.status(500).json({ error: 'Failed to fetch files' });
-        }
-    });
-    app.get("/api/network-health/detailed", async (req, res) => {
-        try {
-            let anomalyData;
-            try {
-                if (clickhouse.isAvailable()) {
-                    const result = await clickhouse.getClient().query({
-                        query: `
-              SELECT 
-                type,
-                severity,
-                source,
-                timestamp,
-                confidence_score
-              FROM anomalies 
-              WHERE timestamp >= now() - INTERVAL 24 HOUR
-              ORDER BY timestamp DESC
-            `,
-                        format: 'JSONEachRow'
-                    });
-                    anomalyData = await result.json();
-                }
-                else {
-                    anomalyData = await storage.getAnomalies();
-                }
-            }
-            catch (err) {
-                console.log('Using in-memory storage for network health');
-                anomalyData = await storage.getAnomalies();
-            }
-            const last24h = anomalyData.filter((a) => {
-                const timestamp = new Date(a.timestamp);
-                const hoursSince = (Date.now() - timestamp.getTime()) / (1000 * 60 * 60);
-                return hoursSince <= 24;
-            });
-            const criticalCount = last24h.filter((a) => a.severity === 'critical').length;
-            const totalCount = last24h.length;
-            const anomalyRate = totalCount > 0 ? (criticalCount / totalCount) * 100 : 0;
-            const healthScore = Math.max(0, 100 - (anomalyRate * 2) - (criticalCount * 5));
-            const typeBreakdown = last24h.reduce((acc, a) => {
-                acc[a.type] = (acc[a.type] || 0) + 1;
-                return acc;
-            }, {});
-            const sourceBreakdown = last24h.reduce((acc, a) => {
-                acc[a.source || 'unknown'] = (acc[a.source || 'unknown'] || 0) + 1;
-                return acc;
-            }, {});
-            const hourlyTrend = [];
-            for (let i = 23; i >= 0; i--) {
-                const hourStart = new Date(Date.now() - i * 60 * 60 * 1000);
-                const hourEnd = new Date(Date.now() - (i - 1) * 60 * 60 * 1000);
-                const count = last24h.filter((a) => {
-                    const t = new Date(a.timestamp);
-                    return t >= hourStart && t < hourEnd;
-                }).length;
-                hourlyTrend.push({
-                    hour: hourStart.getHours(),
-                    count
-                });
-            }
-            res.json({
-                health_score: Math.round(healthScore),
-                anomaly_rate: Math.round(anomalyRate),
-                critical_count: criticalCount,
-                total_anomalies_24h: totalCount,
-                type_breakdown: Object.entries(typeBreakdown).map(([type, count]) => ({ type, count: count })),
-                source_breakdown: Object.entries(sourceBreakdown).map(([source, count]) => ({ source, count: count })),
-                hourly_trend: hourlyTrend,
-                status: healthScore > 70 ? 'healthy' : healthScore > 40 ? 'warning' : 'critical'
-            });
-        }
-        catch (error) {
-            console.error('Error fetching network health details:', error);
-            res.status(500).json({ error: 'Failed to fetch network health details' });
-        }
-    });
     return httpServer;
 }
 //# sourceMappingURL=routes.js.map

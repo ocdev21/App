@@ -15,6 +15,7 @@ export const anomalies = pgTable("anomalies", {
     status: text("status").notNull().default('open'),
     recommendation: text("recommendation"),
     error_log: text("error_log"),
+    packet_context: text("packet_context"),
 });
 export const sessions = pgTable("sessions", {
     id: varchar("id").primaryKey().default(sql `gen_random_uuid()`),

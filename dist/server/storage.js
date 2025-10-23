@@ -41,109 +41,7 @@ export class MemStorage {
                 confidence_score: 0.88,
                 detection_algorithm: 'dbscan',
                 context_data: '{"cell_id": "Cell-23", "sector_id": 1, "frequency_band": "1800MHz", "technology": "5G-NR", "affected_users": 1}',
-                hoursAgo: 23
-            },
-            {
-                type: 'fronthaul',
-                severity: 'medium',
-                description: 'Packet loss detected: 5% on DU-RU link',
-                source_file: 'log_20250812_110000.txt',
-                packet_number: 2100,
-                status: 'open',
-                anomaly_type: 'packet_loss',
-                confidence_score: 0.76,
-                detection_algorithm: 'isolation_forest',
-                context_data: '{"cell_id": "Cell-12", "sector_id": 1, "frequency_band": "2600MHz", "technology": "5G-NR", "affected_users": 50}',
-                hoursAgo: 20
-            },
-            {
-                type: 'ue_event',
-                severity: 'high',
-                description: 'UE handover failure detected',
-                source_file: 'log_20250812_095000.txt',
-                ue_id: 'UE-789012',
-                status: 'open',
-                anomaly_type: 'handover_failure',
-                confidence_score: 0.85,
-                detection_algorithm: 'dbscan',
-                context_data: '{"cell_id": "Cell-56", "sector_id": 2, "frequency_band": "1800MHz", "technology": "5G-NR", "affected_users": 3}',
-                hoursAgo: 18
-            },
-            {
-                type: 'protocol',
-                severity: 'medium',
-                description: 'PDCCH decoding errors increasing',
-                source_file: 'log_20250812_083000.txt',
-                status: 'open',
-                anomaly_type: 'channel_decoding_error',
-                confidence_score: 0.81,
-                detection_algorithm: 'one_class_svm',
-                context_data: '{"cell_id": "Cell-34", "sector_id": 1, "frequency_band": "2100MHz", "technology": "5G-NR", "affected_users": 60}',
-                hoursAgo: 15
-            },
-            {
-                type: 'fronthaul',
-                severity: 'critical',
-                description: 'Timing synchronization lost on Cell-78',
-                source_file: 'log_20250812_073000.txt',
-                packet_number: 4521,
-                status: 'open',
-                anomaly_type: 'timing_sync_loss',
-                confidence_score: 0.92,
-                detection_algorithm: 'isolation_forest',
-                context_data: '{"cell_id": "Cell-78", "sector_id": 3, "frequency_band": "2600MHz", "technology": "5G-NR", "affected_users": 200}',
-                hoursAgo: 10
-            },
-            {
-                type: 'ue_event',
-                severity: 'high',
-                description: 'Multiple RACH failures from UE-901234',
-                source_file: 'log_20250812_053000.txt',
-                ue_id: 'UE-901234',
-                status: 'open',
-                anomaly_type: 'rach_failure',
-                confidence_score: 0.89,
-                detection_algorithm: 'dbscan',
-                context_data: '{"cell_id": "Cell-90", "sector_id": 2, "frequency_band": "1800MHz", "technology": "5G-NR", "affected_users": 2}',
-                hoursAgo: 8
-            },
-            {
-                type: 'protocol',
-                severity: 'medium',
-                description: 'SRS power anomaly detected',
-                source_file: 'log_20250812_033000.txt',
-                status: 'open',
-                anomaly_type: 'srs_power_anomaly',
-                confidence_score: 0.78,
-                detection_algorithm: 'one_class_svm',
-                context_data: '{"cell_id": "Cell-45", "sector_id": 1, "frequency_band": "2600MHz", "technology": "5G-NR", "affected_users": 35}',
-                hoursAgo: 5
-            },
-            {
-                type: 'fronthaul',
-                severity: 'high',
-                description: 'Jitter exceeded threshold on DU link',
-                source_file: 'log_20250812_023000.txt',
-                packet_number: 6789,
-                status: 'open',
-                anomaly_type: 'jitter_anomaly',
-                confidence_score: 0.86,
-                detection_algorithm: 'isolation_forest',
-                context_data: '{"cell_id": "Cell-23", "sector_id": 2, "frequency_band": "1800MHz", "technology": "5G-NR", "affected_users": 90}',
-                hoursAgo: 3
-            },
-            {
-                type: 'ue_event',
-                severity: 'critical',
-                description: 'Mass UE detach event in Cell-12',
-                source_file: 'log_20250812_013000.txt',
-                ue_id: 'UE-Multiple',
-                status: 'open',
-                anomaly_type: 'mass_detach',
-                confidence_score: 0.96,
-                detection_algorithm: 'hybrid_ensemble',
-                context_data: '{"cell_id": "Cell-12", "sector_id": 1, "frequency_band": "2100MHz", "technology": "5G-NR", "affected_users": 450}',
-                hoursAgo: 1
+                hoursAgo: 24
             },
             {
                 type: 'mac_address',
@@ -235,6 +133,7 @@ export class MemStorage {
                 packet_number: anomalyData.packet_number ?? null,
                 recommendation: null,
                 error_log: null,
+                packet_context: null,
             };
             this.anomalies.set(id, { ...anomaly, recommendation: null });
         });
@@ -268,8 +167,9 @@ export class MemStorage {
             mac_address: insertAnomaly.mac_address || null,
             ue_id: insertAnomaly.ue_id || null,
             packet_number: insertAnomaly.packet_number ?? null,
-            recommendation: null,
-            error_log: null,
+            recommendation: insertAnomaly.recommendation || null,
+            error_log: insertAnomaly.error_log || null,
+            packet_context: insertAnomaly.packet_context || null,
         };
         this.anomalies.set(id, anomaly);
         return anomaly;
@@ -615,7 +515,8 @@ export class ClickHouseStorage {
                 details: { missing_responses: 5, communication_ratio: 0.65, latency_violations: 3 },
                 status: 'active',
                 recommendation: null,
-                error_log: null
+                error_log: null,
+                packet_context: null
             },
             {
                 id: '1002',
@@ -630,7 +531,8 @@ export class ClickHouseStorage {
                 details: { latency_measured: 150, threshold: 100, jitter: 25, packet_loss: 0.5 },
                 status: 'active',
                 recommendation: null,
-                error_log: null
+                error_log: null,
+                packet_context: null
             },
             {
                 id: '2001',
@@ -645,7 +547,8 @@ export class ClickHouseStorage {
                 details: { failed_attaches: 8, success_rate: 0.12, context_failures: 5, timeout_events: 3 },
                 status: 'active',
                 recommendation: null,
-                error_log: null
+                error_log: null,
+                packet_context: null
             },
             {
                 id: '2002',
@@ -660,7 +563,8 @@ export class ClickHouseStorage {
                 details: { handover_attempts: 4, successful_handovers: 1, signal_drops: 3 },
                 status: 'active',
                 recommendation: null,
-                error_log: null
+                error_log: null,
+                packet_context: null
             },
             {
                 id: '3001',
@@ -675,13 +579,14 @@ export class ClickHouseStorage {
                 details: { malformed_frames: 7, crc_errors: 2, sequence_violations: 5 },
                 status: 'active',
                 recommendation: null,
-                error_log: null
+                error_log: null,
+                packet_context: null
             }
         ];
     }
     async getAnomalies(limit = 50, offset = 0, type, severity) {
         try {
-            let query = "SELECT id, timestamp, anomaly_type, description, severity, file_path, file_type, packet_number, du_mac, ru_mac, ue_id, details, status FROM l1_anomaly_detection.anomalies WHERE 1=1";
+            let query = "SELECT id, timestamp, anomaly_type, description, severity, file_path, file_type, packet_number, du_mac, ru_mac, ue_id, details, status, error_log, packet_context FROM l1_anomaly_detection.anomalies WHERE 1=1";
             const params = [];
             if (type) {
                 query += " AND anomaly_type = ?";
@@ -709,6 +614,7 @@ export class ClickHouseStorage {
                     status: row.status || 'open',
                     recommendation: null,
                     error_log: row.error_log || null,
+                    packet_context: row.packet_context || null,
                     anomaly_type: row.anomaly_type || null,
                     confidence_score: row.confidence_score || null,
                     detection_algorithm: 'ml_ensemble',
@@ -732,7 +638,7 @@ export class ClickHouseStorage {
     async getAnomaly(id) {
         try {
             console.log('Looking up anomaly in ClickHouse:', id);
-            const result = await this.execClickHouseQuery("SELECT id, timestamp, anomaly_type, description, severity, file_path, file_type, packet_number, du_mac, ru_mac, ue_id, details, status FROM l1_anomaly_detection.anomalies WHERE id = ? LIMIT 1", [id]);
+            const result = await this.execClickHouseQuery("SELECT id, timestamp, anomaly_type, description, severity, file_path, file_type, packet_number, du_mac, ru_mac, ue_id, details, status, error_log, packet_context FROM l1_anomaly_detection.anomalies WHERE id = ? LIMIT 1", [id]);
             if (result && result.length > 0) {
                 const row = result[0];
                 const anomaly = {
@@ -749,6 +655,7 @@ export class ClickHouseStorage {
                     status: row.status || 'open',
                     recommendation: null,
                     error_log: row.error_log || null,
+                    packet_context: row.packet_context || null,
                     anomaly_type: row.anomaly_type || 'unknown',
                     confidence_score: 0.9,
                     detection_algorithm: 'ml_ensemble',
@@ -771,6 +678,7 @@ export class ClickHouseStorage {
                 return {
                     ...foundAnomaly,
                     recommendation: foundAnomaly.recommendation || null,
+                    packet_context: foundAnomaly.packet_context || null,
                     anomaly_type: foundAnomaly.type,
                     confidence_score: 0.9,
                     detection_algorithm: 'sample_data',
@@ -794,6 +702,7 @@ export class ClickHouseStorage {
                 return {
                     ...foundAnomaly,
                     recommendation: foundAnomaly.recommendation || null,
+                    packet_context: foundAnomaly.packet_context || null,
                     anomaly_type: foundAnomaly.type,
                     confidence_score: 0.9,
                     detection_algorithm: 'sample_data_fallback',
@@ -820,8 +729,9 @@ export class ClickHouseStorage {
             mac_address: insertAnomaly.mac_address || null,
             ue_id: insertAnomaly.ue_id || null,
             packet_number: insertAnomaly.packet_number ?? null,
-            recommendation: null,
-            error_log: null,
+            recommendation: insertAnomaly.recommendation || null,
+            error_log: insertAnomaly.error_log || null,
+            packet_context: insertAnomaly.packet_context || null,
         };
         const query = `
       INSERT INTO anomalies (id, timestamp, type, description, severity, source_file, mac_address, ue_id, details, status)

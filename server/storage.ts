@@ -182,6 +182,7 @@ export class MemStorage implements IStorage {
         packet_number: anomalyData.packet_number ?? null,
         recommendation: null,
         error_log: null,
+        packet_context: null,
       };
       this.anomalies.set(id, { ...anomaly, recommendation: null });
     });
@@ -222,8 +223,9 @@ export class MemStorage implements IStorage {
       mac_address: insertAnomaly.mac_address || null,
       ue_id: insertAnomaly.ue_id || null,
       packet_number: insertAnomaly.packet_number ?? null,
-      recommendation: null,
-      error_log: null,
+      recommendation: insertAnomaly.recommendation || null,
+      error_log: insertAnomaly.error_log || null,
+      packet_context: insertAnomaly.packet_context || null,
     };
     this.anomalies.set(id, anomaly);
     return anomaly;
@@ -637,7 +639,8 @@ export class ClickHouseStorage implements IStorage {
         details: { missing_responses: 5, communication_ratio: 0.65, latency_violations: 3 },
         status: 'active',
         recommendation: null,
-        error_log: null
+        error_log: null,
+        packet_context: null
       },
       {
         id: '1002',
@@ -652,7 +655,8 @@ export class ClickHouseStorage implements IStorage {
         details: { latency_measured: 150, threshold: 100, jitter: 25, packet_loss: 0.5 },
         status: 'active',
         recommendation: null,
-        error_log: null
+        error_log: null,
+        packet_context: null
       },
       {
         id: '2001',
@@ -667,7 +671,8 @@ export class ClickHouseStorage implements IStorage {
         details: { failed_attaches: 8, success_rate: 0.12, context_failures: 5, timeout_events: 3 },
         status: 'active',
         recommendation: null,
-        error_log: null
+        error_log: null,
+        packet_context: null
       },
       {
         id: '2002',
@@ -682,7 +687,8 @@ export class ClickHouseStorage implements IStorage {
         details: { handover_attempts: 4, successful_handovers: 1, signal_drops: 3 },
         status: 'active',
         recommendation: null,
-        error_log: null
+        error_log: null,
+        packet_context: null
       },
       {
         id: '3001',
@@ -697,7 +703,8 @@ export class ClickHouseStorage implements IStorage {
         details: { malformed_frames: 7, crc_errors: 2, sequence_violations: 5 },
         status: 'active',
         recommendation: null,
-        error_log: null
+        error_log: null,
+        packet_context: null
       }
     ];
   }
@@ -814,6 +821,7 @@ export class ClickHouseStorage implements IStorage {
         return {
           ...foundAnomaly,
           recommendation: foundAnomaly.recommendation || null,
+          packet_context: foundAnomaly.packet_context || null,
           anomaly_type: foundAnomaly.type,
           confidence_score: 0.9,
           detection_algorithm: 'sample_data',
@@ -841,6 +849,7 @@ export class ClickHouseStorage implements IStorage {
         return {
           ...foundAnomaly,
           recommendation: foundAnomaly.recommendation || null,
+          packet_context: foundAnomaly.packet_context || null,
           anomaly_type: foundAnomaly.type,
           confidence_score: 0.9,
           detection_algorithm: 'sample_data_fallback',
@@ -869,8 +878,9 @@ export class ClickHouseStorage implements IStorage {
       mac_address: insertAnomaly.mac_address || null,
       ue_id: insertAnomaly.ue_id || null,
       packet_number: insertAnomaly.packet_number ?? null,
-      recommendation: null,
-      error_log: null,
+      recommendation: insertAnomaly.recommendation || null,
+      error_log: insertAnomaly.error_log || null,
+      packet_context: insertAnomaly.packet_context || null,
     };
 
     const query = `

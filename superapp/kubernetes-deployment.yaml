@@ -67,6 +67,26 @@ spec:
               fieldPath: metadata.name
         - name: OLLAMA_HOST
           value: "http://ollama-service:11434"
+        - name: BASE_IP
+          value: "192.162.122.31"
+        - name: INFLUXDB_TOKEN
+          value: "VIAVI"
+        - name: INFLUXDB_ORG
+          value: "Viavi"
+        - name: INFLUXDB_TIMEOUT
+          value: "60000000"
+        - name: NETCONF_PORT
+          value: "830"
+        - name: NETCONF_USERNAME
+          value: "root"
+        - name: NETCONF_PASSWORD
+          value: "viavi"
+        - name: NETCONF_TIMEOUT
+          value: "100"
+        - name: EXPECTED_NUM_CELLS
+          value: "45"
+        - name: EXPECTED_NUM_UES
+          value: "250"
         resources:
           requests:
             memory: "256Mi"

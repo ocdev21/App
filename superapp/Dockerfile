@@ -8,14 +8,11 @@ FROM registry.access.redhat.com/ubi9/python-311:latest
 
 WORKDIR /app
 
-# Install kubectl using Red Hat/CentOS package manager (microdnf for UBI9)
-RUN microdnf install -y \
-    curl \
-    tar \
-    && curl -LO https://dl.k8s.io/release/v1.28.0/bin/linux/amd64/kubectl \
+# Install kubectl as standalone binary (works with any base image)
+RUN curl -LO https://dl.k8s.io/release/v1.28.0/bin/linux/amd64/kubectl \
     && chmod +x kubectl \
-    && mv kubectl /usr/local/bin/ \
-    && microdnf clean all
+    && mv kubectl /usr/local/bin/kubectl \
+    && kubectl version --client
 
 COPY requirements.txt .
 

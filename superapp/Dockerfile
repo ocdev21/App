@@ -1,19 +1,21 @@
-FROM python:3.11-slim
+# Using Red Hat UBI (Universal Base Image) - Best for OpenShift
+# This image is from Red Hat's registry and works well in enterprise environments
+FROM registry.access.redhat.com/ubi9/python-311:latest
+
+# Alternative registries if needed:
+# FROM quay.io/centos/python-311-centos9:latest
+# FROM mcr.microsoft.com/devcontainers/python:3.11
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y \
+# Install kubectl using Red Hat/CentOS package manager (microdnf for UBI9)
+RUN microdnf install -y \
     curl \
-    apt-transport-https \
-    ca-certificates \
-    gnupg \
-    && mkdir -p /etc/apt/keyrings \
-    && curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg \
-    && chmod 644 /etc/apt/keyrings/kubernetes-apt-keyring.gpg \
-    && echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.28/deb/ /' | tee /etc/apt/sources.list.d/kubernetes.list \
-    && apt-get update \
-    && apt-get install -y kubectl \
-    && rm -rf /var/lib/apt/lists/*
+    tar \
+    && curl -LO https://dl.k8s.io/release/v1.28.0/bin/linux/amd64/kubectl \
+    && chmod +x kubectl \
+    && mv kubectl /usr/local/bin/ \
+    && microdnf clean all
 
 COPY requirements.txt .
 

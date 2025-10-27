@@ -29,9 +29,9 @@ if [ ! -f "${GGUF_FILE}" ]; then
     # Check if source file exists
     if [ -f "${SOURCE_PATH}" ]; then
         echo "✓ Found GGUF at: ${SOURCE_PATH}"
-        echo "Creating symlink..."
-        ln -s "${SOURCE_PATH}" "${GGUF_FILE}"
-        echo "✓ Symlink created successfully"
+        echo "Copying file to build context (this may take a moment)..."
+        cp "${SOURCE_PATH}" "${GGUF_FILE}"
+        echo "✓ File copied successfully"
     else
         echo "❌ ERROR: GGUF file not found at: ${SOURCE_PATH}"
         echo ""

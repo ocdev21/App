@@ -54,7 +54,7 @@ spec:
       serviceAccountName: ricxapp-superapp-sa
       containers:
       - name: superapp
-        image: 10.0.1.224:5000/ricxapp-superapp:latest
+        image: localhost:5000/ricxapp-superapp:latest
         imagePullPolicy: Always
         env:
         - name: NAMESPACE

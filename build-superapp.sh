@@ -4,7 +4,7 @@ set -e
 
 IMAGE_NAME="ricxapp-superapp"
 IMAGE_TAG="latest"
-REGISTRY="10.0.1.224:5000"
+REGISTRY="localhost:5000"
 FULL_IMAGE="${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
 
 echo "========================================"

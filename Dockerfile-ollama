@@ -1,0 +1,27 @@
+# Ollama with local Mistral GGUF model
+FROM ollama/ollama:latest
+
+# Set environment variables
+ENV OLLAMA_HOST=0.0.0.0:11434
+
+# Create directory for models
+RUN mkdir -p /root/.ollama/models
+
+# Copy the local GGUF file (must be in build context)
+COPY mistral-7b-instruct-v0.2.Q4_K_M.gguf /root/.ollama/models/
+
+# Create a Modelfile for the GGUF
+RUN echo 'FROM /root/.ollama/models/mistral-7b-instruct-v0.2.Q4_K_M.gguf' > /tmp/Modelfile
+
+# Start Ollama, create the model, then stop
+RUN /bin/ollama serve & \
+    sleep 5 && \
+    ollama create mistral -f /tmp/Modelfile && \
+    pkill ollama && \
+    sleep 2
+
+# Expose Ollama port
+EXPOSE 11434
+
+# Start Ollama service when container runs
+CMD ["/bin/ollama", "serve"]

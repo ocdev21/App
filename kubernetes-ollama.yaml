@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ollama-service
+  namespace: ricxapp
+  labels:
+    app: ollama-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ollama-service
+  template:
+    metadata:
+      labels:
+        app: ollama-service
+    spec:
+      containers:
+      - name: ollama
+        image: localhost:5000/ollama-mistral:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 11434
+          name: http
+        env:
+        - name: OLLAMA_HOST
+          value: "0.0.0.0:11434"
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        readinessProbe:
+          httpGet:
+            path: /api/tags
+            port: 11434
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /api/tags
+            port: 11434
+          initialDelaySeconds: 30
+          periodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ollama-service
+  namespace: ricxapp
+spec:
+  selector:
+    app: ollama-service
+  ports:
+  - protocol: TCP
+    port: 11434
+    targetPort: 11434
+  type: ClusterIP

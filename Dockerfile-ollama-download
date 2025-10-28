@@ -1,0 +1,18 @@
+# Ollama with downloaded Mistral model (fallback if GGUF not available)
+FROM ollama/ollama:latest
+
+# Set environment variables
+ENV OLLAMA_HOST=0.0.0.0:11434
+
+# Start Ollama, download Mistral model, then stop
+RUN ollama serve & \
+    sleep 5 && \
+    ollama pull mistral && \
+    pkill ollama && \
+    sleep 2
+
+# Expose Ollama port
+EXPOSE 11434
+
+# Start Ollama service when container runs
+CMD ["ollama", "serve"]

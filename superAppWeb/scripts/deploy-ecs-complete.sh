@@ -24,9 +24,9 @@ echo "VPC: ${VPC_ID}"
 echo "Subnets: ${SUBNET_1}, ${SUBNET_2}"
 echo "=================================================="
 
-# Step 0: Create session secret if it doesn't exist
+# Step 0: Get session secret value
 echo ""
-echo "Step 0: Ensuring session secret exists..."
+echo "Step 0: Retrieving session secret..."
 SECRET_EXISTS=$(aws secretsmanager describe-secret \
     --secret-id superapp/session-secret \
     --region ${AWS_REGION} \
@@ -35,16 +35,23 @@ SECRET_EXISTS=$(aws secretsmanager describe-secret \
 
 if [ -z "${SECRET_EXISTS}" ]; then
     echo "Creating session secret..."
-    SECRET_VALUE=$(openssl rand -base64 32)
+    SESSION_SECRET_VALUE=$(openssl rand -base64 32)
     aws secretsmanager create-secret \
         --name superapp/session-secret \
         --description "Session secret for SuperApp" \
-        --secret-string "${SECRET_VALUE}" \
+        --secret-string "${SESSION_SECRET_VALUE}" \
         --region ${AWS_REGION}
     echo "✓ Session secret created"
 else
-    echo "✓ Session secret already exists"
+    echo "✓ Session secret exists, retrieving value..."
+    SESSION_SECRET_VALUE=$(aws secretsmanager get-secret-value \
+        --secret-id superapp/session-secret \
+        --region ${AWS_REGION} \
+        --query 'SecretString' \
+        --output text)
 fi
+
+echo "✓ Session secret ready"
 
 # Step 1: Create Security Group for ECS Tasks
 echo ""
@@ -142,12 +149,10 @@ cat > /tmp/superapp-task-definition.json <<EOF
         {
           "name": "TIMESTREAM_DATABASE_NAME",
           "value": "SuperAppDB"
-        }
-      ],
-      "secrets": [
+        },
         {
           "name": "SESSION_SECRET",
-          "valueFrom": "arn:aws:secretsmanager:${AWS_REGION}:${ACCOUNT_ID}:secret:superapp/session-secret"
+          "value": "${SESSION_SECRET_VALUE}"
         }
       ],
       "logConfiguration": {

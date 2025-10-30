@@ -29,7 +29,7 @@ interface AWSHealth {
 }
 
 export default function Dashboard() {
-  const [claudeResponse, setClaudeResponse] = useState("");
+  const [aiResponse, setAiResponse] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const { toast } = useToast();
 
@@ -52,10 +52,10 @@ export default function Dashboard() {
     queryKey: ['/api/timestream/query'],
   });
 
-  // Streaming Claude 3 response
+  // Streaming GPT-OSS-120B response
   const handleStreamingChat = async (promptText: string) => {
     setIsStreaming(true);
-    setClaudeResponse("");
+    setAiResponse("");
 
     try {
       const response = await fetch('/api/bedrock/chat-stream', {
@@ -97,7 +97,7 @@ export default function Dashboard() {
               const parsed = JSON.parse(data);
               if (parsed.chunk) {
                 accumulatedResponse += parsed.chunk;
-                setClaudeResponse(accumulatedResponse);
+                setAiResponse(accumulatedResponse);
               }
             } catch (e) {
               console.error('Failed to parse chunk:', e);
@@ -108,7 +108,7 @@ export default function Dashboard() {
     } catch (error) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to get response from Claude 3",
+        description: error instanceof Error ? error.message : "Failed to get response from GPT-OSS-120B",
         variant: "destructive",
       });
     } finally {
@@ -177,13 +177,13 @@ export default function Dashboard() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-6 py-8">
         <div className="space-y-8">
-          {/* Claude 3 Input Section */}
+          {/* GPT-OSS-120B Input Section */}
           <Card className="shadow-md" data-testid="card-bedrock-input">
             <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-4">
               <div className="flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-primary" data-testid="icon-bedrock-header" />
                 <div>
-                  <h2 className="text-xl font-semibold" data-testid="text-bedrock-header">Send Prompt to Claude 3</h2>
+                  <h2 className="text-xl font-semibold" data-testid="text-bedrock-header">Send Prompt to GPT-OSS-120B</h2>
                   <p className="text-sm text-muted-foreground mt-0.5" data-testid="text-bedrock-subtitle">AWS Bedrock AI Integration</p>
                 </div>
               </div>
@@ -203,7 +203,7 @@ export default function Dashboard() {
                           <Textarea
                             {...field}
                             data-testid="input-prompt"
-                            placeholder="Ask Claude 3 anything... (e.g., 'Explain quantum computing in simple terms')"
+                            placeholder="Ask GPT-OSS-120B anything... (e.g., 'Explain quantum computing in simple terms')"
                             className="min-h-32 resize-vertical font-mono text-base p-4"
                             disabled={isStreaming}
                           />
@@ -256,18 +256,18 @@ export default function Dashboard() {
 
           {/* Response Areas - Two Column Layout */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Claude 3 Response */}
+            {/* GPT-OSS-120B Response */}
             <Card className="shadow-md" data-testid="card-claude-response">
               <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-4">
                 <div>
                   <h2 className="text-xl font-semibold" data-testid="text-claude-header">AI Response</h2>
-                  {claudeResponse && !isStreaming && (
+                  {aiResponse && !isStreaming && (
                     <p className="text-xs text-muted-foreground mt-0.5" data-testid="text-claude-timestamp">
                       Last updated: {new Date().toLocaleString()}
                     </p>
                   )}
                 </div>
-                {claudeResponse && !isStreaming && (
+                {aiResponse && !isStreaming && (
                   <CheckCircle2 className="h-5 w-5 text-status-online" data-testid="icon-claude-success" />
                 )}
                 {isStreaming && (
@@ -280,14 +280,14 @@ export default function Dashboard() {
                     data-testid="textarea-claude-response"
                     readOnly
                     value={
-                      isStreaming && !claudeResponse
-                        ? "Claude is thinking..."
-                        : claudeResponse || ""
+                      isStreaming && !aiResponse
+                        ? "GPT-OSS-120B is thinking..."
+                        : aiResponse || ""
                     }
                     placeholder="Response will appear here..."
                     className="min-h-48 font-mono text-sm resize-none bg-muted/30"
                   />
-                  {isStreaming && claudeResponse && (
+                  {isStreaming && aiResponse && (
                     <div className="absolute bottom-2 right-2">
                       <div className="flex items-center gap-2 bg-primary/10 px-2 py-1 rounded text-xs text-primary">
                         <Loader2 className="h-3 w-3 animate-spin" />

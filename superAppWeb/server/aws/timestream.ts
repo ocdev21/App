@@ -23,13 +23,18 @@ const getWriteClient = () => {
     throw new Error("AWS_REGION environment variable is not set");
   }
 
-  return new TimestreamWriteClient({
-    region,
-    credentials: {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-    },
-  });
+  // On ECS, don't specify credentials - let AWS SDK use the task role automatically
+  // For local development, provide credentials via env vars
+  const config: any = { region };
+  
+  if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
+    config.credentials = {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    };
+  }
+
+  return new TimestreamWriteClient(config);
 };
 
 const getQueryClient = () => {
@@ -39,13 +44,18 @@ const getQueryClient = () => {
     throw new Error("AWS_REGION environment variable is not set");
   }
 
-  return new TimestreamQueryClient({
-    region,
-    credentials: {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-    },
-  });
+  // On ECS, don't specify credentials - let AWS SDK use the task role automatically
+  // For local development, provide credentials via env vars
+  const config: any = { region };
+  
+  if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
+    config.credentials = {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    };
+  }
+
+  return new TimestreamQueryClient(config);
 };
 
 /**
@@ -193,6 +203,7 @@ export async function queryUEReports(): Promise<QueryCommandOutput> {
         await setupTimestreamDB();
         // Return empty result structure
         return {
+          QueryId: '',
           Rows: [],
           ColumnInfo: [],
           QueryStatus: { ProgressPercentage: 100 },

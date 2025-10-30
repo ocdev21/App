@@ -136,7 +136,7 @@ cat > /tmp/superapp-task-definition.json <<EOF
       "environment": [
         {
           "name": "NODE_ENV",
-          "value": "production"
+          "value": "development"
         },
         {
           "name": "PORT",

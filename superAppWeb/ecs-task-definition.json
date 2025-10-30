@@ -1,5 +1,5 @@
 {
-  "family": "superapp-web-task",
+  "family": "superapp-task",
   "networkMode": "awsvpc",
   "requiresCompatibilities": ["FARGATE"],
   "cpu": "512",
@@ -20,7 +20,7 @@
       "environment": [
         {
           "name": "NODE_ENV",
-          "value": "production"
+          "value": "development"
         },
         {
           "name": "PORT",

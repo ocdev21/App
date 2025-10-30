@@ -12,13 +12,18 @@ const getBedrockClient = () => {
     throw new Error("AWS_REGION environment variable is not set");
   }
 
-  return new BedrockRuntimeClient({
-    region,
-    credentials: {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-    },
-  });
+  // On ECS, don't specify credentials - let AWS SDK use the task role automatically
+  // For local development, provide credentials via env vars
+  const config: any = { region };
+  
+  if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
+    config.credentials = {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    };
+  }
+
+  return new BedrockRuntimeClient(config);
 };
 
 export interface ClaudeResponse {

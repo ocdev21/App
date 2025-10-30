@@ -13,8 +13,8 @@ AWS_ACCOUNT_ID="012351853258"
 ECR_REPO_NAME="superapp"
 IMAGE_TAG="tsapp"
 
-# Navigate to tsapp directory
-cd "$(dirname "$0")/.."
+# Navigate to repository root (two levels up from scripts directory)
+cd "$(dirname "$0")/../.."
 
 echo "Step 1: Creating ECR repository (if not exists)..."
 aws ecr describe-repositories \
@@ -35,8 +35,8 @@ aws ecr get-login-password --region $AWS_REGION | \
 echo "✓ Logged into ECR"
 
 echo ""
-echo "Step 3: Building Docker image..."
-docker build -t $ECR_REPO_NAME:$IMAGE_TAG .
+echo "Step 3: Building Docker image from repository root..."
+docker build -f tsapp/Dockerfile -t $ECR_REPO_NAME:$IMAGE_TAG .
 
 echo "✓ Docker image built: $ECR_REPO_NAME:$IMAGE_TAG"
 

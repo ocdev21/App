@@ -51,17 +51,80 @@ SG_ID=$(aws ec2 create-security-group \
 echo "✓ Security group ready: $SG_ID"
 
 echo ""
-echo "Step 4: Creating ECS service..."
-aws ecs create-service \
+echo "Step 4: Checking if ECS service exists..."
+SERVICE_STATUS=$(aws ecs describe-services \
   --cluster $CLUSTER_NAME \
-  --service-name $SERVICE_NAME \
-  --task-definition $TASK_DEFINITION \
-  --desired-count 1 \
-  --launch-type FARGATE \
-  --network-configuration "awsvpcConfiguration={subnets=[$SUBNET_1,$SUBNET_2],securityGroups=[$SG_ID],assignPublicIp=ENABLED}" \
-  --region $AWS_REGION
+  --services $SERVICE_NAME \
+  --region $AWS_REGION \
+  --query 'services[0].status' \
+  --output text 2>/dev/null)
 
-echo "✓ ECS service created"
+if [ "$SERVICE_STATUS" == "ACTIVE" ]; then
+  echo "Service is ACTIVE, updating with new task definition..."
+  aws ecs update-service \
+    --cluster $CLUSTER_NAME \
+    --service $SERVICE_NAME \
+    --task-definition $TASK_DEFINITION \
+    --force-new-deployment \
+    --region $AWS_REGION > /dev/null
+  echo "✓ ECS service updated"
+elif [ "$SERVICE_STATUS" == "DRAINING" ] || [ "$SERVICE_STATUS" == "INACTIVE" ]; then
+  echo "Service exists but is $SERVICE_STATUS. Deleting and recreating..."
+  aws ecs delete-service \
+    --cluster $CLUSTER_NAME \
+    --service $SERVICE_NAME \
+    --force \
+    --region $AWS_REGION > /dev/null
+  echo "Waiting for service deletion..."
+  sleep 10
+  echo "Creating new ECS service..."
+  aws ecs create-service \
+    --cluster $CLUSTER_NAME \
+    --service-name $SERVICE_NAME \
+    --task-definition $TASK_DEFINITION \
+    --desired-count 1 \
+    --launch-type FARGATE \
+    --network-configuration "awsvpcConfiguration={subnets=[$SUBNET_1,$SUBNET_2],securityGroups=[$SG_ID],assignPublicIp=ENABLED}" \
+    --region $AWS_REGION > /dev/null
+  echo "✓ ECS service created"
+elif [ "$SERVICE_STATUS" == "None" ] || [ -z "$SERVICE_STATUS" ]; then
+  echo "Creating new ECS service..."
+  aws ecs create-service \
+    --cluster $CLUSTER_NAME \
+    --service-name $SERVICE_NAME \
+    --task-definition $TASK_DEFINITION \
+    --desired-count 1 \
+    --launch-type FARGATE \
+    --network-configuration "awsvpcConfiguration={subnets=[$SUBNET_1,$SUBNET_2],securityGroups=[$SG_ID],assignPublicIp=ENABLED}" \
+    --region $AWS_REGION > /dev/null
+  echo "✓ ECS service created"
+else
+  echo "⚠️  Service in unexpected state: $SERVICE_STATUS"
+  echo "Attempting to update..."
+  aws ecs update-service \
+    --cluster $CLUSTER_NAME \
+    --service $SERVICE_NAME \
+    --task-definition $TASK_DEFINITION \
+    --force-new-deployment \
+    --region $AWS_REGION > /dev/null || {
+      echo "Update failed. Trying to delete and recreate..."
+      aws ecs delete-service \
+        --cluster $CLUSTER_NAME \
+        --service $SERVICE_NAME \
+        --force \
+        --region $AWS_REGION > /dev/null
+      sleep 10
+      aws ecs create-service \
+        --cluster $CLUSTER_NAME \
+        --service-name $SERVICE_NAME \
+        --task-definition $TASK_DEFINITION \
+        --desired-count 1 \
+        --launch-type FARGATE \
+        --network-configuration "awsvpcConfiguration={subnets=[$SUBNET_1,$SUBNET_2],securityGroups=[$SG_ID],assignPublicIp=ENABLED}" \
+        --region $AWS_REGION > /dev/null
+    }
+  echo "✓ ECS service ready"
+fi
 
 echo ""
 echo "=================================================="

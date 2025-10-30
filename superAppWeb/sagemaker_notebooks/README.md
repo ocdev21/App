@@ -27,25 +27,32 @@ pip install -r requirements.txt
 
 ### 3. Run the Notebooks
 
-Open notebooks in this order:
+#### For Quick InfluxDB Testing (Recommended Start):
+- **`influxdb_simple_test.ipynb`** - Simple InfluxDB testing (no AWS dependencies!)
 
+#### Full Suite:
 1. **`00_setup.ipynb`** - Validates environment and creates Timestream database
 2. **`01_claude_chat.ipynb`** - Interactive Claude 3 AI chat
 3. **`02_timestream_dashboard.ipynb`** - Timestream data visualization
+4. **`03_influxdb_testing.ipynb`** - InfluxDB integration with AI analysis
+5. **`influxdb_simple_test.ipynb`** - Standalone InfluxDB testing
 
 ## File Structure
 
 ```
 sagemaker_notebooks/
 ├── README.md                        # This file
+├── GET_INFLUXDB_TOKEN.md           # Guide to retrieve InfluxDB token
 ├── requirements.txt                 # Python dependencies
 ├── modules/
 │   ├── bedrock_streaming.py        # Claude 3 integration module
 │   └── timestream_client.py        # Timestream database module
 └── notebooks/
+    ├── influxdb_simple_test.ipynb  # ⭐ SIMPLE InfluxDB testing (START HERE!)
     ├── 00_setup.ipynb              # Environment validation
     ├── 01_claude_chat.ipynb        # Claude 3 chat interface
-    └── 02_timestream_dashboard.ipynb # Timestream dashboard
+    ├── 02_timestream_dashboard.ipynb # Timestream dashboard
+    └── 03_influxdb_testing.ipynb   # InfluxDB testing with AI analysis
 ```
 
 ## Features
@@ -62,6 +69,22 @@ sagemaker_notebooks/
 - Automatic visualizations with Plotly
 - Add sample data for testing
 - Export to CSV
+
+### InfluxDB Simple Testing (⭐ START HERE!)
+- **Easiest way to test InfluxDB** - just paste your token and run!
+- No AWS Bedrock or other dependencies
+- Connect to AWS Timestream for InfluxDB (superAppDB)
+- Write energy metrics and sensor data
+- Query time-series data with Flux
+- Plotly visualizations
+- Perfect for quick connection testing
+
+### InfluxDB Advanced Testing
+- All simple testing features PLUS:
+- AI-powered data analysis with Claude 3
+- Interactive testing widgets with ipywidgets
+- Performance benchmarking
+- Automated insights and recommendations
 
 ## IAM Permissions Required
 
@@ -136,10 +159,18 @@ Or modify directly in the notebooks.
 
 ## Next Steps
 
+### Quick Start (InfluxDB Only):
+1. ✅ Get your InfluxDB token (see `GET_INFLUXDB_TOKEN.md`)
+2. ✅ Open `influxdb_simple_test.ipynb`
+3. ✅ Paste your token and run all cells
+4. ✅ View your data visualizations!
+
+### Full AWS Integration:
 1. ✅ Run `00_setup.ipynb` to validate environment
 2. ✅ Try Claude 3 chat in `01_claude_chat.ipynb`
 3. ✅ Explore Timestream data in `02_timestream_dashboard.ipynb`
-4. (Optional) Deploy as Voila dashboard for team access
+4. ✅ Advanced InfluxDB testing in `03_influxdb_testing.ipynb`
+5. (Optional) Deploy as Voila dashboard for team access
 
 ## Support
 

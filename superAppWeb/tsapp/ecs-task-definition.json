@@ -1,0 +1,24 @@
+{
+  "family": "tsapp-task",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::012351853258:role/superapp-ecs-execution",
+  "taskRoleArn": "arn:aws:iam::012351853258:role/superapp-sagemaker-execution",
+  "containerDefinitions": [
+    {
+      "name": "tsapp-container",
+      "image": "012351853258.dkr.ecr.us-east-1.amazonaws.com/tsapp:latest",
+      "essential": true,
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/aws/ecs/tsapp",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "tsapp"
+        }
+      }
+    }
+  ]
+}

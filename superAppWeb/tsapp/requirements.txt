@@ -1,0 +1,2 @@
+# TSApp Python Dependencies
+# No external dependencies required for basic version

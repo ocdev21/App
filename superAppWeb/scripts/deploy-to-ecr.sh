@@ -45,10 +45,10 @@ aws ecr get-login-password --region ${AWS_REGION} | \
 
 echo "✓ Logged in to ECR"
 
-# Step 3: Build Docker image
+# Step 3: Build Docker image (using Dockerfile.dev for development environment)
 echo ""
-echo "Step 3: Building Docker image..."
-docker build -t ${ECR_REPOSITORY}:${IMAGE_TAG} .
+echo "Step 3: Building Docker image (development)..."
+docker build -f Dockerfile.dev -t ${ECR_REPOSITORY}:${IMAGE_TAG} .
 
 echo "✓ Image built successfully"
 

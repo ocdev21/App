@@ -36,7 +36,25 @@ echo "✓ Logged into ECR"
 
 echo ""
 echo "Step 3: Building Docker image from repository root..."
-docker build -f esapp/Dockerfile -t $ECR_REPO_NAME:$IMAGE_TAG .
+echo "Current directory: $(pwd)"
+echo ""
+echo "Verifying build context files..."
+echo "  - esapp/requirements.txt: $([ -f esapp/requirements.txt ] && echo '✓ exists' || echo '✗ missing')"
+echo "  - esapp/energy_19.py: $([ -f esapp/energy_19.py ] && echo '✓ exists' || echo '✗ missing')"
+echo "  - esapp/influxdb_example.py: $([ -f esapp/influxdb_example.py ] && echo '✓ exists' || echo '✗ missing')"
+echo "  - shared/influxdb_client.py: $([ -f shared/influxdb_client.py ] && echo '✓ exists' || echo '✗ missing')"
+echo ""
+
+# Disable BuildKit to avoid cache key errors
+export DOCKER_BUILDKIT=0
+
+# Clear any cached layers for this build
+echo "Cleaning Docker build cache..."
+docker builder prune -f --filter "label=stage=esapp" 2>/dev/null || true
+
+# Build with no cache to avoid stale layer issues
+echo "Building Docker image (no cache)..."
+docker build --no-cache --progress=plain -f esapp/Dockerfile -t $ECR_REPO_NAME:$IMAGE_TAG .
 
 echo "✓ Docker image built: $ECR_REPO_NAME:$IMAGE_TAG"
 

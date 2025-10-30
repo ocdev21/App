@@ -9,7 +9,7 @@
   "containerDefinitions": [
     {
       "name": "esapp-container",
-      "image": "012351853258.dkr.ecr.us-east-1.amazonaws.com/esapp:latest",
+      "image": "012351853258.dkr.ecr.us-east-1.amazonaws.com/superapp:esapp",
       "essential": true,
       "logConfiguration": {
         "logDriver": "awslogs",

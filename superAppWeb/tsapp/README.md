@@ -13,7 +13,7 @@ Python-based continuous background task running on AWS ECS Fargate.
 - **Runtime:** Python 3.11
 - **Execution Role:** `superapp-ecs-execution` (shared)
 - **Task Role:** `superapp-sagemaker-execution` (shared with Bedrock/Timestream access)
-- **ECR Repository:** `tsapp` (separate from superapp)
+- **ECR Repository:** `superapp` (shared, tag: `tsapp`)
 - **ECS Cluster:** `superapp-cluster` (shared)
 - **Resources:** 256 CPU, 512 MB memory
 

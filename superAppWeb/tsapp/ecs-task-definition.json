@@ -9,7 +9,7 @@
   "containerDefinitions": [
     {
       "name": "tsapp-container",
-      "image": "012351853258.dkr.ecr.us-east-1.amazonaws.com/tsapp:latest",
+      "image": "012351853258.dkr.ecr.us-east-1.amazonaws.com/superapp:tsapp",
       "essential": true,
       "logConfiguration": {
         "logDriver": "awslogs",

@@ -10,8 +10,8 @@ echo ""
 # Configuration
 AWS_REGION="us-east-1"
 AWS_ACCOUNT_ID="012351853258"
-ECR_REPO_NAME="tsapp"
-IMAGE_TAG="${1:-latest}"
+ECR_REPO_NAME="superapp"
+IMAGE_TAG="tsapp"
 
 # Navigate to tsapp directory
 cd "$(dirname "$0")/.."

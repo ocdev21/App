@@ -10,8 +10,8 @@ echo ""
 # Configuration
 AWS_REGION="us-east-1"
 AWS_ACCOUNT_ID="012351853258"
-ECR_REPO_NAME="esapp"
-IMAGE_TAG="${1:-latest}"
+ECR_REPO_NAME="superapp"
+IMAGE_TAG="esapp"
 
 # Navigate to esapp directory
 cd "$(dirname "$0")/.."

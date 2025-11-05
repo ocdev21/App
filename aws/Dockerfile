@@ -56,8 +56,8 @@ COPY . .
 # Fix vite config for Docker environment
 RUN sed -i 's/allowedHosts: "all"/allowedHosts: true/g' vite.config.ts || true
 
-# Build the application (frontend + backend)
-RUN npm run build
+# Build only the frontend (backend will run via tsx)
+RUN vite build
 
 # Copy Bedrock inference server (build context is project root)
 COPY aws/bedrock-inference-server.py /app/bedrock-server.py

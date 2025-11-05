@@ -52,7 +52,7 @@ docker push $ECR_REPO_URI:latest
 # Step 6: Create IAM Policy for Bedrock
 echo ""
 echo "Step 6: Creating IAM policy for AWS Bedrock access..."
-cat > /tmp/bedrock-policy.json <<EOF
+POLICY_DOC=$(cat <<EOF
 {
   "Version": "2012-10-17",
   "Statement": [
@@ -67,10 +67,11 @@ cat > /tmp/bedrock-policy.json <<EOF
   ]
 }
 EOF
+)
 
 aws iam create-policy \
   --policy-name L1BedrockAccessPolicy \
-  --policy-document file:///tmp/bedrock-policy.json \
+  --policy-document "$POLICY_DOC" \
   --region $REGION 2>/dev/null || echo "Policy already exists"
 
 # Step 7: Create IAM Role for Service Account (IRSA)
@@ -85,24 +86,19 @@ eksctl create iamserviceaccount \
   --approve \
   --override-existing-serviceaccounts 2>/dev/null || echo "Service account already exists"
 
-# Step 8: Update Kubernetes manifest with Account ID
+# Step 8: Update Kubernetes manifest with Account ID and deploy
 echo ""
-echo "Step 8: Preparing Kubernetes manifest..."
-sed "s/ACCOUNT_ID/${ACCOUNT_ID}/g" aws/kubernetes/l1-app-deployment.yaml > /tmp/l1-app-deployment.yaml
+echo "Step 8: Deploying application to EKS..."
+sed "s/ACCOUNT_ID/${ACCOUNT_ID}/g" aws/kubernetes/l1-app-deployment.yaml | kubectl apply -f -
 
-# Step 9: Deploy to EKS
+# Step 9: Wait for deployment
 echo ""
-echo "Step 9: Deploying application to EKS..."
-kubectl apply -f /tmp/l1-app-deployment.yaml
-
-# Step 10: Wait for deployment
-echo ""
-echo "Step 10: Waiting for deployment to be ready..."
+echo "Step 9: Waiting for deployment to be ready..."
 kubectl rollout status deployment/l1-app -n $NAMESPACE --timeout=5m
 
-# Step 11: Get LoadBalancer URL
+# Step 10: Get LoadBalancer URL
 echo ""
-echo "Step 11: Getting application URL..."
+echo "Step 10: Getting application URL..."
 echo "Waiting for LoadBalancer to provision (this may take 2-3 minutes)..."
 sleep 30
 

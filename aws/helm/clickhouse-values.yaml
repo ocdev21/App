@@ -1,0 +1,75 @@
+# Bitnami ClickHouse Helm Chart Values
+# For L1 Troubleshooting System on AWS EKS
+
+# Authentication (using Kubernetes secret for security)
+# Secret created by install-clickhouse-helm.sh script
+# Password is randomly generated and stored in clickhouse-credentials secret
+auth:
+  username: default
+  existingSecret: clickhouse-credentials
+
+# Disable sharding and replication for single-node deployment
+shards: 1
+replicaCount: 1
+
+# Disable ZooKeeper, use ClickHouse Keeper instead
+zookeeper:
+  enabled: false
+
+keeper:
+  enabled: true
+
+# Persistent Storage using EBS gp3
+persistence:
+  enabled: true
+  storageClass: ebs-gp3
+  size: 50Gi
+
+# Logs persistence
+logsPersistence:
+  enabled: true
+  storageClass: ebs-gp3
+  size: 10Gi
+
+# Resource limits matching current deployment
+resources:
+  requests:
+    memory: 2Gi
+    cpu: 1000m
+  limits:
+    memory: 4Gi
+    cpu: 2000m
+
+# Health checks
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 10
+  periodSeconds: 5
+
+# Service configuration
+service:
+  type: ClusterIP
+  ports:
+    http: 8123
+    tcp: 9000
+
+# Default database
+defaultConfigurationOverrides: |
+  <clickhouse>
+    <logger>
+      <level>information</level>
+      <console>1</console>
+    </logger>
+    <http_port>8123</http_port>
+    <tcp_port>9000</tcp_port>
+    <listen_host>::</listen_host>
+  </clickhouse>
+
+# Security: NetworkPolicy will be created separately to match existing security model
+networkPolicy:
+  enabled: false

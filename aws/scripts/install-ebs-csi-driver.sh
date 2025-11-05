@@ -5,10 +5,10 @@
 
 set -e
 
-echo "Installing EBS CSI Driver on awshack cluster..."
+echo "Installing EBS CSI Driver on aws-hack cluster..."
 
 # Get cluster name and region
-CLUSTER_NAME="awshack"
+CLUSTER_NAME="aws-hack"
 AWS_REGION="us-east-1"
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 

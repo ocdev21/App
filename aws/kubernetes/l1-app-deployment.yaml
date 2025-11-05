@@ -40,7 +40,7 @@ spec:
         - name: CLICKHOUSE_HOST
           value: "clickhouse.l1-troubleshooting.svc.cluster.local"
         - name: CLICKHOUSE_PORT
-          value: "9000"
+          value: "8123"
         - name: CLICKHOUSE_USER
           value: "default"
         - name: CLICKHOUSE_PASSWORD

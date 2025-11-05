@@ -77,13 +77,15 @@ aws iam create-policy \
 **Step 6c: Create Service Account with IAM Role (IRSA)**
 ```bash
 # IMPORTANT: Run this BEFORE deploy.sh
-# Account ID: 012351853258
+# Get your account ID dynamically
+AWS_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+
 eksctl create iamserviceaccount \
   --name l1-bedrock-sa \
   --namespace l1-troubleshooting \
   --cluster l1-cluster \
   --region us-east-1 \
-  --attach-policy-arn arn:aws:iam::012351853258:policy/L1BedrockAccessPolicy \
+  --attach-policy-arn arn:aws:iam::${AWS_ACCOUNT}:policy/L1BedrockAccessPolicy \
   --approve \
   --override-existing-serviceaccounts
 ```

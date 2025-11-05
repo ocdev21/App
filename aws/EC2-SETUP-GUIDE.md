@@ -1,8 +1,12 @@
 # Quick Setup Guide for EC2 Console
 
-**AWS Account ID**: `012351853258`
-
 This guide assumes you're running commands from an EC2 instance with appropriate IAM permissions.
+
+**Get your AWS Account ID:**
+```bash
+AWS_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+echo "Your AWS Account ID: $AWS_ACCOUNT"
+```
 
 ## Prerequisites on EC2
 
@@ -32,21 +36,38 @@ cd /path/to/l1-troubleshooting-system
 3. Enable **"Amazon Nova Pro"** model
 4. Submit request (usually approved instantly)
 
-### 3. Create EKS Cluster (if not exists)
+### 3. Create EKS Cluster
+
+**Option A: Use automated setup script (RECOMMENDED)**
+
+```bash
+cd aws/scripts
+./setup-eks-cluster.sh l1-troubleshooting-cluster us-east-1
+```
+
+This script will:
+- Create EKS cluster with nodes
+- Install AWS Load Balancer Controller
+- Install EBS CSI driver
+- Install EFS CSI driver
+
+Takes ~20-25 minutes. **Skip to Step 6 after this completes.**
+
+**Option B: Manual creation**
 
 ```bash
 eksctl create cluster \
   --name l1-troubleshooting-cluster \
   --region us-east-1 \
   --nodegroup-name standard-workers \
-  --node-type t3.large \
+  --node-type t3.medium \
   --nodes 2 \
-  --nodes-min 2 \
-  --nodes-max 5 \
+  --nodes-min 1 \
+  --nodes-max 3 \
   --managed
 ```
 
-This will take 15-20 minutes. Wait for completion.
+This will take 15-20 minutes. Then continue with Steps 4-5.
 
 ### 4. Install Required Add-ons
 
@@ -65,7 +86,7 @@ eksctl create iamserviceaccount \
   --cluster=l1-troubleshooting-cluster \
   --namespace=kube-system \
   --name=aws-load-balancer-controller \
-  --attach-policy-arn=arn:aws:iam::012351853258:policy/AWSLoadBalancerControllerIAMPolicy \
+  --attach-policy-arn=arn:aws:iam::${AWS_ACCOUNT}:policy/AWSLoadBalancerControllerIAMPolicy \
   --override-existing-serviceaccounts \
   --approve
 
@@ -94,7 +115,7 @@ eksctl create iamserviceaccount \
     --cluster l1-troubleshooting-cluster \
     --namespace kube-system \
     --name efs-csi-controller-sa \
-    --attach-policy-arn arn:aws:iam::012351853258:policy/AmazonEKS_EFS_CSI_Driver_Policy \
+    --attach-policy-arn arn:aws:iam::${AWS_ACCOUNT}:policy/AmazonEKS_EFS_CSI_Driver_Policy \
     --approve
 
 # Install EFS CSI driver
@@ -151,7 +172,8 @@ cd aws/scripts
 chmod +x build-and-push.sh
 
 # Build and push (this will take 5-10 minutes)
-./build-and-push.sh 012351853258 us-east-1 latest
+AWS_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+./build-and-push.sh $AWS_ACCOUNT us-east-1 latest
 ```
 
 ### 7. Update Configuration Files
@@ -166,9 +188,9 @@ sed -i "s/fs-xxxxxxxxx/$EFS_ID/g" ../kubernetes/storageclass-efs.yaml
 
 **Update `deployment.yaml`:**
 ```bash
-# Replace ECR image placeholder (already has correct account ID)
-# Verify it shows: 012351853258.dkr.ecr.us-east-1.amazonaws.com/l1-integrated:latest
+# Verify ECR image reference uses your account ID
 cat ../kubernetes/deployment.yaml | grep "image:"
+# Should show: ${AWS_ACCOUNT}.dkr.ecr.us-east-1.amazonaws.com/l1-integrated:latest
 ```
 
 **Update `ingress.yaml`:**
@@ -201,12 +223,14 @@ aws iam create-policy \
 
 # Create IAM service account with Bedrock permissions
 # This MUST be done BEFORE running deploy.sh
+AWS_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+
 eksctl create iamserviceaccount \
   --name l1-bedrock-sa \
   --namespace l1-troubleshooting \
   --cluster l1-troubleshooting-cluster \
   --region us-east-1 \
-  --attach-policy-arn arn:aws:iam::012351853258:policy/L1BedrockAccessPolicy \
+  --attach-policy-arn arn:aws:iam::${AWS_ACCOUNT}:policy/L1BedrockAccessPolicy \
   --approve \
   --override-existing-serviceaccounts
 
@@ -214,7 +238,7 @@ eksctl create iamserviceaccount \
 kubectl get sa l1-bedrock-sa -n l1-troubleshooting -o yaml | grep eks.amazonaws.com/role-arn
 ```
 
-You should see: `eks.amazonaws.com/role-arn: arn:aws:iam::012351853258:role/...`
+You should see: `eks.amazonaws.com/role-arn: arn:aws:iam::<YOUR_ACCOUNT_ID>:role/...`
 
 ### 9. Deploy Application
 
@@ -439,6 +463,6 @@ kubectl exec -it deployment/l1-integrated-app -n l1-troubleshooting -- /bin/bash
 
 ---
 
-**Account ID**: 012351853258  
+**Account ID**: Get via `aws sts get-caller-identity --query Account --output text`  
 **Region**: us-east-1  
 **Cluster**: l1-troubleshooting-cluster

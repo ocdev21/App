@@ -1,6 +1,6 @@
 # Cost Control Guide - 4-Hour Session Usage
 
-**Your AWS Account**: 012351853258  
+**Your AWS Account**: Get it via `aws sts get-caller-identity --query Account --output text`  
 **Target Usage**: Maximum 4 hours per session  
 **Goal**: Minimize AWS costs by stopping everything after each session
 

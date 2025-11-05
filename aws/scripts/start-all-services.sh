@@ -10,7 +10,7 @@ set -e
 MODE=${1:-quick}
 CLUSTER_NAME="l1-troubleshooting-cluster"
 REGION="us-east-1"
-ACCOUNT_ID="012351853258"
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 
 echo "=========================================="
 echo "L1 Services Startup Script"

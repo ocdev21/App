@@ -69,11 +69,13 @@ aws iam create-policy \
     --policy-document file://iam_policy.json
 
 # Create IAM service account
+AWS_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+
 eksctl create iamserviceaccount \
   --cluster=l1-troubleshooting-cluster \
   --namespace=kube-system \
   --name=aws-load-balancer-controller \
-  --attach-policy-arn=arn:aws:iam::012351853258:policy/AWSLoadBalancerControllerIAMPolicy \
+  --attach-policy-arn=arn:aws:iam::${AWS_ACCOUNT}:policy/AWSLoadBalancerControllerIAMPolicy \
   --override-existing-serviceaccounts \
   --approve
 
@@ -99,11 +101,13 @@ aws iam create-policy \
     --policy-document file://efs-iam-policy.json
 
 # Create service account
+AWS_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+
 eksctl create iamserviceaccount \
     --cluster l1-troubleshooting-cluster \
     --namespace kube-system \
     --name efs-csi-controller-sa \
-    --attach-policy-arn arn:aws:iam::012351853258:policy/AmazonEKS_EFS_CSI_Driver_Policy \
+    --attach-policy-arn arn:aws:iam::${AWS_ACCOUNT}:policy/AmazonEKS_EFS_CSI_Driver_Policy \
     --approve
 
 # Install EFS CSI driver
@@ -216,18 +220,20 @@ aws iam create-policy \
 
 # Create IAM service account with Bedrock permissions
 # This command creates the ServiceAccount AND binds it to the IAM role
+AWS_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+
 eksctl create iamserviceaccount \
   --name l1-bedrock-sa \
   --namespace l1-troubleshooting \
   --cluster l1-troubleshooting-cluster \
   --region us-east-1 \
-  --attach-policy-arn arn:aws:iam::012351853258:policy/L1BedrockAccessPolicy \
+  --attach-policy-arn arn:aws:iam::${AWS_ACCOUNT}:policy/L1BedrockAccessPolicy \
   --approve \
   --override-existing-serviceaccounts
 ```
 
 **Important Notes:**
-- Account ID configured: `012351853258`
+- Account ID: Get dynamically via `aws sts get-caller-identity --query Account --output text`
 - The `bedrock-iam-role.yaml` file is provided for reference only
 - Do NOT manually apply `bedrock-iam-role.yaml` as it contains placeholder values
 - Always use eksctl to create/update the service account to ensure proper IRSA configuration

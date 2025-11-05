@@ -1,0 +1,94 @@
+# AWS EKS Optimized Dockerfile - L1 Frontend/Backend + Amazon Bedrock AI Inference
+# Runs both services in a single container:
+# - Port 5000: L1 Web Application (React frontend + Express backend)
+# - Amazon Bedrock Nova Pro: AI Inference Server (via boto3)
+
+FROM node:20-bullseye
+
+WORKDIR /app
+
+# Install system dependencies including Python for AI inference
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-dev \
+    python3-pip \
+    python3-venv \
+    build-essential \
+    gcc \
+    g++ \
+    libpcap-dev \
+    libopenblas-dev \
+    liblapack-dev \
+    libatlas-base-dev \
+    libhdf5-dev \
+    curl \
+    wget \
+    supervisor \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create python symlink and upgrade pip
+RUN ln -sf /usr/bin/python3 /usr/bin/python \
+    && python -m pip install --upgrade pip setuptools wheel
+
+# Install Python AI dependencies for Bedrock inference server + ML analysis
+RUN pip install --no-cache-dir \
+    boto3 \
+    botocore \
+    flask \
+    requests \
+    psutil \
+    clickhouse-connect \
+    scapy \
+    scikit-learn \
+    pandas \
+    numpy \
+    joblib
+
+# Copy package files for dependency installation
+COPY package*.json ./
+
+# Install ALL Node.js dependencies (dev and prod)
+RUN npm install
+
+# Copy all application code
+COPY . .
+
+# Fix vite config for Docker environment
+RUN sed -i 's/allowedHosts: "all"/allowedHosts: true/g' vite.config.ts || true
+
+# Build the application (frontend + backend)
+RUN npm run build
+
+# Copy Bedrock inference server (build context is project root)
+COPY aws/bedrock-inference-server.py /app/bedrock-server.py
+RUN chmod +x /app/bedrock-server.py
+
+# Copy startup script (build context is project root)
+COPY aws/start-services.sh /app/start-services.sh
+RUN chmod +x /app/start-services.sh
+
+# Set environment variables
+ENV NODE_ENV=production
+ENV PORT=5000
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# Create cache and input directories
+RUN mkdir -p /app/.cache /app/input_files
+
+# Create non-root user for AWS EKS security best practices
+RUN useradd -m -u 1001 -s /bin/bash appuser \
+    && chown -R appuser:appuser /app
+
+USER appuser
+
+# Expose both ports
+EXPOSE 5000 8000
+
+# Health check on main app
+HEALTHCHECK --interval=30s --timeout=30s --start-period=120s --retries=3 \
+    CMD curl -f http://localhost:5000/ || exit 1
+
+# Start both services
+CMD ["/app/start-services.sh"]

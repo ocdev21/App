@@ -1,0 +1,92 @@
+# IAM Role for Service Account (IRSA) - Amazon Bedrock Access
+# This configuration enables the L1 Troubleshooting pods to access Amazon Bedrock API
+# without storing AWS credentials in the container
+#
+# Prerequisites:
+# 1. EKS cluster with OIDC provider enabled
+# 2. IAM role created with Bedrock permissions
+# 3. Trust relationship configured for the service account
+#
+# Setup Instructions:
+# 1. Create OIDC provider for your EKS cluster (if not exists):
+#    eksctl utils associate-iam-oidc-provider --cluster=<CLUSTER_NAME> --approve
+#
+# 2. Create IAM policy for Bedrock access:
+#    aws iam create-policy \
+#      --policy-name L1BedrockAccessPolicy \
+#      --policy-document file://bedrock-policy.json
+#
+# 3. Create IAM role and attach to service account:
+#    eksctl create iamserviceaccount \
+#      --name l1-bedrock-sa \
+#      --namespace l1-troubleshooting \
+#      --cluster <CLUSTER_NAME> \
+#      --attach-policy-arn arn:aws:iam::<ACCOUNT_ID>:policy/L1BedrockAccessPolicy \
+#      --approve
+#
+# Or use the Terraform configuration in aws/infrastructure/terraform-example.tf
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: l1-bedrock-sa
+  namespace: l1-troubleshooting
+  annotations:
+    # IAM role ARN for Bedrock access (created via eksctl)
+    # Format: arn:aws:iam::<AWS_ACCOUNT_ID>:role/<ROLE_NAME>
+    eks.amazonaws.com/role-arn: arn:aws:iam::012351853258:role/L1BedrockAccessRole
+  labels:
+    app: l1-integrated
+    component: bedrock-access
+
+---
+# IAM Policy Document (Reference - create this policy in AWS IAM)
+# Save this as bedrock-policy.json and use it when creating the IAM policy
+#
+# {
+#   "Version": "2012-10-17",
+#   "Statement": [
+#     {
+#       "Effect": "Allow",
+#       "Action": [
+#         "bedrock:InvokeModel",
+#         "bedrock:InvokeModelWithResponseStream"
+#       ],
+#       "Resource": [
+#         "arn:aws:bedrock:*::foundation-model/amazon.nova-pro-v1:0",
+#         "arn:aws:bedrock:*::foundation-model/amazon.nova-lite-v1:0"
+#       ]
+#     },
+#     {
+#       "Effect": "Allow",
+#       "Action": [
+#         "bedrock:ListFoundationModels"
+#       ],
+#       "Resource": "*"
+#     }
+#   ]
+# }
+
+---
+# Trust Relationship for IAM Role (Reference)
+# This is configured automatically by eksctl or add to your IAM role manually
+#
+# {
+#   "Version": "2012-10-17",
+#   "Statement": [
+#     {
+#       "Effect": "Allow",
+#       "Principal": {
+#         "Federated": "arn:aws:iam::<AWS_ACCOUNT_ID>:oidc-provider/oidc.eks.<REGION>.amazonaws.com/id/<OIDC_ID>"
+#       },
+#       "Action": "sts:AssumeRoleWithWebIdentity",
+#       "Condition": {
+#         "StringEquals": {
+#           "oidc.eks.<REGION>.amazonaws.com/id/<OIDC_ID>:sub": "system:serviceaccount:l1-troubleshooting:l1-bedrock-sa",
+#           "oidc.eks.<REGION>.amazonaws.com/id/<OIDC_ID>:aud": "sts.amazonaws.com"
+#         }
+#       }
+#     }
+#   ]
+# }

@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: l1-integrated-service
+  namespace: l1-troubleshooting
+  labels:
+    app: l1-integrated
+spec:
+  type: ClusterIP  # Use ClusterIP for ALB Ingress
+  selector:
+    app: l1-integrated
+  ports:
+    - name: webapp
+      port: 5000
+      targetPort: 5000
+      protocol: TCP
+    - name: ai-inference
+      port: 8000
+      targetPort: 8000
+      protocol: TCP
+  sessionAffinity: ClientIP  # Maintain session for WebSocket connections

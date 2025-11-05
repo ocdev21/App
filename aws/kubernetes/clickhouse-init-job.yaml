@@ -1,0 +1,83 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: clickhouse-init
+  namespace: l1-troubleshooting
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    metadata:
+      labels:
+        app: clickhouse-init
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: clickhouse-client
+        image: clickhouse/clickhouse-client:23.11-alpine
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Waiting for ClickHouse to be ready..."
+          until clickhouse-client --host clickhouse-0.clickhouse.l1-troubleshooting.svc.cluster.local --query "SELECT 1"; do
+            echo "Waiting for ClickHouse..."
+            sleep 5
+          done
+          
+          echo "Creating database..."
+          clickhouse-client --host clickhouse-0.clickhouse.l1-troubleshooting.svc.cluster.local --query "CREATE DATABASE IF NOT EXISTS l1_troubleshooting"
+          
+          echo "Creating anomalies table..."
+          clickhouse-client --host clickhouse-0.clickhouse.l1-troubleshooting.svc.cluster.local --database l1_troubleshooting --query "
+          CREATE TABLE IF NOT EXISTS anomalies (
+            id String,
+            timestamp DateTime,
+            type String,
+            severity String,
+            description String,
+            source_file String,
+            detection_method String,
+            confidence_score Float32,
+            mac_address String,
+            ue_id String,
+            error_log String,
+            packet_context String,
+            created_at DateTime DEFAULT now()
+          ) ENGINE = MergeTree()
+          ORDER BY (timestamp, type, severity)
+          PARTITION BY toYYYYMM(timestamp)
+          SETTINGS index_granularity = 8192
+          "
+          
+          echo "Creating metrics table..."
+          clickhouse-client --host clickhouse-0.clickhouse.l1-troubleshooting.svc.cluster.local --database l1_troubleshooting --query "
+          CREATE TABLE IF NOT EXISTS metrics (
+            id String,
+            timestamp DateTime,
+            metric_name String,
+            metric_value Float64,
+            tags String,
+            created_at DateTime DEFAULT now()
+          ) ENGINE = MergeTree()
+          ORDER BY (timestamp, metric_name)
+          PARTITION BY toYYYYMM(timestamp)
+          SETTINGS index_granularity = 8192
+          "
+          
+          echo "Creating sessions table..."
+          clickhouse-client --host clickhouse-0.clickhouse.l1-troubleshooting.svc.cluster.local --database l1_troubleshooting --query "
+          CREATE TABLE IF NOT EXISTS sessions (
+            id String,
+            start_time DateTime,
+            end_time DateTime,
+            files_processed Int32,
+            anomalies_detected Int32,
+            status String,
+            created_at DateTime DEFAULT now()
+          ) ENGINE = MergeTree()
+          ORDER BY (start_time, id)
+          PARTITION BY toYYYYMM(start_time)
+          SETTINGS index_granularity = 8192
+          "
+          
+          echo "ClickHouse initialization complete!"

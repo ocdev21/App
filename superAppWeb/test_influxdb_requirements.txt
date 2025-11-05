@@ -1,2 +1,0 @@
-# InfluxDB Testing Script Requirements
-influxdb-client==1.49.0

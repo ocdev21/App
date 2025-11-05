@@ -1,0 +1,17 @@
+# EFS StorageClass for shared file access
+# Requires: AWS EFS CSI Driver installed in EKS cluster
+# https://docs.aws.amazon.com/eks/latest/userguide/efs-csi.html
+
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: efs-sc
+provisioner: efs.csi.aws.com
+parameters:
+  provisioningMode: efs-ap
+  fileSystemId: fs-xxxxxxxxx  # Update with your EFS file system ID
+  directoryPerms: "700"
+  gidRangeStart: "1000"
+  gidRangeEnd: "2000"
+  basePath: "/l1-troubleshooting"
+volumeBindingMode: Immediate

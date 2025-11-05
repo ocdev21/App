@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: clickhouse-config
+  namespace: l1-troubleshooting
+data:
+  config.xml: |
+    <?xml version="1.0"?>
+    <clickhouse>
+        <logger>
+            <level>information</level>
+            <log>/var/log/clickhouse-server/clickhouse-server.log</log>
+            <errorlog>/var/log/clickhouse-server/clickhouse-server.err.log</errorlog>
+            <size>1000M</size>
+            <count>3</count>
+        </logger>
+        
+        <listen_host>::</listen_host>
+        <http_port>8123</http_port>
+        <tcp_port>9000</tcp_port>
+        
+        <max_connections>1024</max_connections>
+        <keep_alive_timeout>3</keep_alive_timeout>
+        <max_concurrent_queries>50</max_concurrent_queries>
+        <uncompressed_cache_size>1073741824</uncompressed_cache_size>
+        <mark_cache_size>536870912</mark_cache_size>
+        
+        <path>/var/lib/clickhouse/</path>
+        <tmp_path>/var/lib/clickhouse/tmp/</tmp_path>
+        <user_files_path>/var/lib/clickhouse/user_files/</user_files_path>
+        
+        <users_config>users.xml</users_config>
+        
+        <default_profile>default</default_profile>
+        <default_database>default</default_database>
+        
+        <timezone>UTC</timezone>
+        <mlock_executable>false</mlock_executable>
+    </clickhouse>
+  
+  users.xml: |
+    <?xml version="1.0"?>
+    <clickhouse>
+        <profiles>
+            <default>
+                <max_memory_usage>2000000000</max_memory_usage>
+                <use_uncompressed_cache>1</use_uncompressed_cache>
+                <load_balancing>random</load_balancing>
+            </default>
+        </profiles>
+        
+        <users>
+            <default>
+                <password_sha256_hex>2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae</password_sha256_hex>
+                <networks>
+                    <ip>10.0.0.0/8</ip>
+                </networks>
+                <profile>default</profile>
+                <quota>default</quota>
+                <access_management>1</access_management>
+            </default>
+        </users>
+        
+        <quotas>
+            <default>
+                <interval>
+                    <duration>3600</duration>
+                    <queries>0</queries>
+                    <errors>0</errors>
+                    <result_rows>0</result_rows>
+                    <read_rows>0</read_rows>
+                    <execution_time>0</execution_time>
+                </interval>
+            </default>
+        </quotas>
+    </clickhouse>

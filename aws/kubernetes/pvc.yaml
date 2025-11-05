@@ -1,0 +1,32 @@
+# PersistentVolumeClaims for L1 Application
+# Uses EFS for shared ReadWriteMany access across pods
+# NOTE: AI model storage (l1-models-pvc) removed - using Amazon Bedrock API instead
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: l1-input-files-pvc
+  namespace: l1-troubleshooting
+spec:
+  accessModes:
+    - ReadWriteMany  # Multiple analyzer pods can process files
+  storageClassName: efs-sc
+  resources:
+    requests:
+      storage: 50Gi  # Network capture files storage
+
+---
+# Optional: EBS-backed PVC for database (if running ClickHouse in EKS)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: clickhouse-data-pvc
+  namespace: l1-troubleshooting
+spec:
+  accessModes:
+    - ReadWriteOnce  # EBS for single pod
+  storageClassName: gp3  # GP3 SSD for better performance
+  resources:
+    requests:
+      storage: 100Gi  # ClickHouse database storage

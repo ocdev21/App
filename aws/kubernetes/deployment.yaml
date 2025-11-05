@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: l1-integrated-app
+  namespace: l1-troubleshooting
+  labels:
+    app: l1-integrated
+    version: v1
+spec:
+  replicas: 2  # Start with 2 replicas for high availability
+  selector:
+    matchLabels:
+      app: l1-integrated
+  template:
+    metadata:
+      labels:
+        app: l1-integrated
+        version: v1
+    spec:
+      # Use service account with IAM role for Bedrock access (IRSA)
+      serviceAccountName: l1-bedrock-sa
+      
+      containers:
+        - name: l1-integrated
+          # Replace with your ECR repository URL
+          image: <AWS_ACCOUNT_ID>.dkr.ecr.<AWS_REGION>.amazonaws.com/l1-integrated:latest
+          imagePullPolicy: Always
+          
+          ports:
+            - name: webapp
+              containerPort: 5000
+              protocol: TCP
+            - name: ai-inference
+              containerPort: 8000
+              protocol: TCP
+          
+          # Environment variables from ConfigMap
+          envFrom:
+            - configMapRef:
+                name: l1-app-config
+            - secretRef:
+                name: l1-app-secrets
+          
+          # Resource limits (reduced - no local model loading needed)
+          resources:
+            requests:
+              memory: "2Gi"
+              cpu: "1000m"
+            limits:
+              memory: "2Gi"
+              cpu: "2000m"
+          
+          # Volume mounts (model storage removed - using Bedrock API)
+          volumeMounts:
+            - name: input-files
+              mountPath: /app/input_files
+          
+          # Liveness probe
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 5000
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          
+          # Readiness probe
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 5000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+      
+      # Volumes (models volume removed - using Bedrock API)
+      volumes:
+        - name: input-files
+          persistentVolumeClaim:
+            claimName: l1-input-files-pvc
+      
+      # Security context
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001

@@ -57,7 +57,7 @@ COPY . .
 RUN sed -i 's/allowedHosts: "all"/allowedHosts: true/g' vite.config.ts || true
 
 # Build only the frontend (backend will run via tsx)
-RUN vite build
+RUN npx vite build
 
 # Copy Bedrock inference server (build context is project root)
 COPY aws/bedrock-inference-server.py /app/bedrock-server.py

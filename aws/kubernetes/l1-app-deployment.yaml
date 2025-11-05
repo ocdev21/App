@@ -4,7 +4,7 @@ metadata:
   name: l1-app-sa
   namespace: l1-troubleshooting
   annotations:
-    eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/L1BedrockRole
+    eks.amazonaws.com/role-arn: arn:aws:iam::012351853258:role/L1BedrockRole
 
 ---
 apiVersion: apps/v1
@@ -27,7 +27,7 @@ spec:
       serviceAccountName: l1-app-sa
       containers:
       - name: l1-app
-        image: ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/l1-troubleshooting:latest
+        image: 012351853258.dkr.ecr.us-east-1.amazonaws.com/l1-troubleshooting:latest
         ports:
         - containerPort: 5000
           name: http

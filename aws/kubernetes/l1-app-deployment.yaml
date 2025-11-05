@@ -88,6 +88,8 @@ metadata:
   namespace: l1-troubleshooting
   labels:
     app: l1-troubleshooting
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
 spec:
   type: LoadBalancer
   ports:

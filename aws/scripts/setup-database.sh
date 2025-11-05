@@ -37,9 +37,9 @@ echo "✓ Using pod: $CLICKHOUSE_POD"
 
 # Step 3: Create database
 echo ""
-echo "Step 3: Creating l1_troubleshooting database..."
+echo "Step 3: Creating l1_anomaly_detection database..."
 kubectl exec -n $NAMESPACE $CLICKHOUSE_POD -- clickhouse-client -u default --password "$CLICKHOUSE_PASSWORD" --query "
-CREATE DATABASE IF NOT EXISTS l1_troubleshooting
+CREATE DATABASE IF NOT EXISTS l1_anomaly_detection
 "
 echo "✓ Database created"
 
@@ -47,7 +47,7 @@ echo "✓ Database created"
 echo ""
 echo "Step 4: Creating anomalies table..."
 kubectl exec -n $NAMESPACE $CLICKHOUSE_POD -- clickhouse-client -u default --password "$CLICKHOUSE_PASSWORD" --query "
-CREATE TABLE IF NOT EXISTS l1_troubleshooting.anomalies (
+CREATE TABLE IF NOT EXISTS l1_anomaly_detection.anomalies (
     id String,
     timestamp DateTime,
     anomaly_type String,
@@ -69,7 +69,7 @@ echo "✓ Anomalies table created"
 echo ""
 echo "Step 5: Creating sessions table..."
 kubectl exec -n $NAMESPACE $CLICKHOUSE_POD -- clickhouse-client -u default --password "$CLICKHOUSE_PASSWORD" --query "
-CREATE TABLE IF NOT EXISTS l1_troubleshooting.sessions (
+CREATE TABLE IF NOT EXISTS l1_anomaly_detection.sessions (
     session_id String,
     file_name String,
     file_type String,
@@ -88,7 +88,7 @@ echo "✓ Sessions table created"
 echo ""
 echo "Step 6: Creating metrics table..."
 kubectl exec -n $NAMESPACE $CLICKHOUSE_POD -- clickhouse-client -u default --password "$CLICKHOUSE_PASSWORD" --query "
-CREATE TABLE IF NOT EXISTS l1_troubleshooting.metrics (
+CREATE TABLE IF NOT EXISTS l1_anomaly_detection.metrics (
     metric_name String,
     metric_value Float32,
     timestamp DateTime,

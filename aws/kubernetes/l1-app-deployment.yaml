@@ -49,7 +49,7 @@ spec:
               name: clickhouse-credentials
               key: password
         - name: CLICKHOUSE_DATABASE
-          value: "l1_troubleshooting"
+          value: "l1_anomaly_detection"
         - name: TSLAM_REMOTE_HOST
           value: "localhost"
         - name: TSLAM_REMOTE_PORT

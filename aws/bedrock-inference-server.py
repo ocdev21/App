@@ -59,17 +59,19 @@ def initialize_bedrock_client():
             config=config
         )
         
-        # Test connection by listing available models
+        # Test connection by listing available models (optional verification)
         logger.info("Step 4: Verifying Bedrock access...")
         try:
             # Simple test to verify credentials and permissions
+            # Note: This requires bedrock:ListFoundationModels permission (optional)
             bedrock_client = boto3.client('bedrock', config=config)
             response = bedrock_client.list_foundation_models(
                 byProvider='Amazon'
             )
             logger.info(f"Step 5: Successfully connected to Bedrock. Found {len(response.get('modelSummaries', []))} Amazon models")
         except Exception as e:
-            logger.warning(f"Could not list models (non-fatal): {e}")
+            logger.info(f"Step 5: Skipping model list verification: {str(e)[:100]}")
+            logger.info("  This is normal - bedrock:InvokeModel permission is sufficient")
         
         model_ready = True
         logger.info("Step 6: Bedrock client initialized successfully!")

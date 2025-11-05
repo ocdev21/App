@@ -49,9 +49,17 @@ echo ""
 echo "Step 5: Pushing image to ECR..."
 docker push $ECR_REPO_URI:latest
 
-# Step 6: Create IAM Policy for Bedrock
+# Step 6: Associate IAM OIDC provider (required for IRSA)
 echo ""
-echo "Step 6: Creating IAM policy for AWS Bedrock access..."
+echo "Step 6: Associating IAM OIDC provider with EKS cluster..."
+eksctl utils associate-iam-oidc-provider \
+  --cluster $CLUSTER_NAME \
+  --region $REGION \
+  --approve 2>/dev/null || echo "OIDC provider already associated"
+
+# Step 7: Create IAM Policy for Bedrock
+echo ""
+echo "Step 7: Creating IAM policy for AWS Bedrock access..."
 POLICY_DOC=$(cat <<EOF
 {
   "Version": "2012-10-17",
@@ -60,9 +68,10 @@ POLICY_DOC=$(cat <<EOF
       "Effect": "Allow",
       "Action": [
         "bedrock:InvokeModel",
-        "bedrock:InvokeModelWithResponseStream"
+        "bedrock:InvokeModelWithResponseStream",
+        "bedrock:ListFoundationModels"
       ],
-      "Resource": "arn:aws:bedrock:${REGION}::foundation-model/amazon.nova-pro-v1:0"
+      "Resource": "*"
     }
   ]
 }
@@ -74,31 +83,43 @@ aws iam create-policy \
   --policy-document "$POLICY_DOC" \
   --region $REGION 2>/dev/null || echo "Policy already exists"
 
-# Step 7: Create IAM Role for Service Account (IRSA)
+# Step 8: Delete existing service account if it exists (to recreate with correct role)
 echo ""
-echo "Step 7: Creating IAM role for EKS service account..."
+echo "Step 8: Cleaning up existing service account..."
+eksctl delete iamserviceaccount \
+  --name l1-app-sa \
+  --namespace $NAMESPACE \
+  --cluster $CLUSTER_NAME \
+  --region $REGION 2>/dev/null || echo "No existing service account to delete"
+
+# Step 9: Create IAM Role for Service Account (IRSA) with explicit role name
+echo ""
+echo "Step 9: Creating IAM role for EKS service account..."
 eksctl create iamserviceaccount \
   --name l1-app-sa \
   --namespace $NAMESPACE \
   --cluster $CLUSTER_NAME \
   --region $REGION \
+  --role-name L1BedrockRole \
   --attach-policy-arn arn:aws:iam::${ACCOUNT_ID}:policy/L1BedrockAccessPolicy \
   --approve \
-  --override-existing-serviceaccounts 2>/dev/null || echo "Service account already exists"
+  --override-existing-serviceaccounts
 
-# Step 8: Update Kubernetes manifest with Account ID and deploy
+echo "IAM Role ARN: arn:aws:iam::${ACCOUNT_ID}:role/L1BedrockRole"
+
+# Step 10: Update Kubernetes manifest with Account ID and deploy
 echo ""
-echo "Step 8: Deploying application to EKS..."
+echo "Step 10: Deploying application to EKS..."
 sed "s/ACCOUNT_ID/${ACCOUNT_ID}/g" aws/kubernetes/l1-app-deployment.yaml | kubectl apply -f -
 
-# Step 9: Wait for deployment
+# Step 11: Wait for deployment
 echo ""
-echo "Step 9: Waiting for deployment to be ready..."
+echo "Step 11: Waiting for deployment to be ready..."
 kubectl rollout status deployment/l1-app -n $NAMESPACE --timeout=5m
 
-# Step 10: Get LoadBalancer URL
+# Step 12: Get LoadBalancer URL
 echo ""
-echo "Step 10: Getting application URL..."
+echo "Step 12: Getting application URL..."
 echo "Waiting for LoadBalancer to provision (this may take 2-3 minutes)..."
 sleep 30
 
